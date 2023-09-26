@@ -1,6 +1,6 @@
-# Human-wildlife interactions in California's protected areas
-### scripts and file structure for projects
-modified based on the breezy philosophy: github.com/benscarlson/breezy
+# Human + wildlife use of California's protected areas
+
+scripts and file structure modified based on the breezy philosophy: github.com/benscarlson/breezy
 
 ## file structure
 **project** folder: 
