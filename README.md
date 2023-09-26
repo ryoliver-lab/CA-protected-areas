@@ -1,4 +1,4 @@
-# Human + wildlife use of California's protected areas
+# human + wildlife use of California's protected areas
 
 scripts and file structure modified based on the breezy philosophy: github.com/benscarlson/breezy
 
