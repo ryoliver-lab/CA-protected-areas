@@ -1,4 +1,4 @@
-# easy breezy workflow
+# Human-wildlife interactions in California's protected areas
 ### scripts and file structure for projects
 modified based on the breezy philosophy: github.com/benscarlson/breezy
 
@@ -22,21 +22,3 @@ modified based on the breezy philosophy: github.com/benscarlson/breezy
 * All scripts are called from workflow.sh
 * Analysis outputs are stored in the analysis folder.
 * Any associated documents (drafts, notes) are stored in the docs folder
-
-
-# README TEMPLATE
-## goals:
-description...
-* goal 1
-
-## to do:
-* task 1
-
-## activity log:
-
-|date|activity|
-|:-|:------------|
-|2021-01-01|progress update|
-
-## notes
-* note 1
