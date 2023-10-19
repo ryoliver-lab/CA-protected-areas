@@ -8,7 +8,7 @@ cpad_super <- st_read(here::here("data", "raw_data", "CPAD_2023a_SuperUnits.shp"
   janitor::clean_names() %>%
   mutate(ID = row_number())
 
-cpad_ghm <- st_read(here::here("data", "processed_data", "cpad_join2.shp")) %>%
+cpad_ghm <- st_read(here::here("data", "processed_data", "cpad_join3.shp")) %>%
   sf::st_transform("EPSG:4326")
 
 # ggplot(data = cpad_super) +
@@ -358,7 +358,7 @@ ggsave(plot2, file = paste0("plot2.3.pdf"), path = here::here("analysis"), heigh
 cpad_values3 <- cpad_ghm_values3 %>%
   drop_na()
 
-cpad_values3 <- full_join(cpad_values3, cpad_join2) %>%
+cpad_values3 <- full_join(cpad_values3, cpad_ghm) %>%
   select(-ID) %>%
   st_drop_geometry()
 
