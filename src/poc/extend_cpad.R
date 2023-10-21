@@ -8,7 +8,7 @@ cpad_super <- st_read(here::here("data", "raw_data", "CPAD_2023a_SuperUnits.shp"
   janitor::clean_names() %>%
   mutate(ID = row_number())
 
-cpad_ghm <- st_read(here::here("data", "processed_data", "cpad_join3.shp")) %>%
+cpad_ghm <- st_read(here::here("data", "processed_data", "cpad_join4.shp")) %>%
   sf::st_transform("EPSG:4326")
 
 # ggplot(data = cpad_super) +
@@ -159,8 +159,8 @@ ggsave(plot3, file = paste0("plot3.pdf"), path = here::here("analysis"), height 
 
 # GHM Layer 2 -------------------------------------------------------------
 
-ghm2 <- rast(here::here("data", "raw_data", "HFP2009.tif")) %>%
-  project("EPSG:4326")
+# ghm2 <- rast(here::here("data", "raw_data", "HFP2009.tif")) %>%
+#  project("EPSG:4326")
 
 # ghm_cropped2 = crop(ghm2, cpad_super)
 #
@@ -175,39 +175,40 @@ ghm2 <- rast(here::here("data", "raw_data", "HFP2009.tif")) %>%
 ghm2 <- rast(here::here("data", "raw_data", "HFP2009_masked.tif")) %>%
   project("EPSG:4326")
 
-cpad_ghm_values2 <- terra::extract(x = ghm2, y = cpad_super)
+cpad_ghm_values2 <- terra::extract(x = ghm2, y = cpad_super) 
 
 cpad_ghm_summary2 <- cpad_ghm_values2 %>%
+  rename(HFP = HFP2009) %>% 
   group_by(ID) %>%
-  summarize(across(HFP2009, list(min = min, mean = mean, max = max, median = median, sd = sd)))
+  summarize(across(HFP, list(min = min, mean = mean, max = max, median = median, sd = sd)))
 
 cpad_ghm2 <- full_join(cpad_ghm, cpad_ghm_summary2) %>%
-  mutate(HFP2009_range = HFP2009_max - HFP2009_min)
+  mutate(HFP_range = HFP_max - HFP_min)
 
-#st_write(cpad_ghm, here::here("data", "processed_data", "cpad_join2.shp"), append = FALSE)
+#st_write(cpad_ghm2, here::here("data", "processed_data", "cpad_join2.shp"), append = FALSE)
 
 p1 <- ggplot(data = cpad_ghm2) +
-  geom_sf(aes(color = HFP2009_min, fill = HFP2009_min)) +
+  geom_sf(aes(color = HFP_min, fill = HFP_min)) +
   theme_bw()
 
 p2 <- ggplot(data = cpad_ghm2) +
-  geom_sf(aes(color = HFP2009_mean, fill = HFP2009_mean)) +
+  geom_sf(aes(color = HFP_mean, fill = HFP_mean)) +
   theme_bw()
 
 p3 <- ggplot(data = cpad_ghm2) +
-  geom_sf(aes(color = HFP2009_max, fill = HFP2009_max)) +
+  geom_sf(aes(color = HFP_max, fill = HFP_max)) +
   theme_bw()
 
 p4 <- ggplot(data = cpad_ghm2) +
-  geom_sf(aes(color = HFP2009_median, fill = HFP2009_median)) +
+  geom_sf(aes(color = HFP_median, fill = HFP_median)) +
   theme_bw()
 
 p5 <- ggplot(data = cpad_ghm2) +
-  geom_sf(aes(color = HFP2009_range, fill = HFP2009_range)) +
+  geom_sf(aes(color = HFP_range, fill = HFP_range)) +
   theme_bw()
 
 p6 <- ggplot(data = cpad_ghm2) +
-  geom_sf(aes(color = HFP2009_sd, fill = HFP2009_sd)) +
+  geom_sf(aes(color = HFP_sd, fill = HFP_sd)) +
   theme_bw()
 
 plot1 <- p2 + p6
@@ -227,10 +228,10 @@ cpad_values2 <- full_join(cpad_values2, cpad_ghm) %>%
 access_sum <- cpad_values2 %>%
   group_by(access_typ) %>%
   summarize(
-    mean_HFP2009 = mean(HFP2009, na.rm = TRUE),
-    min_HFP2009 = min(HFP2009, na.rm = TRUE),
-    max_HFP2009 = max(HFP2009, na.rm = TRUE),
-    median_HFP2009 = median(HFP2009, na.rm = TRUE)
+    mean_HFP = mean(HFP, na.rm = TRUE),
+    min_HFP = min(HFP, na.rm = TRUE),
+    max_HFP = max(HFP, na.rm = TRUE),
+    median_HFP = median(HFP, na.rm = TRUE)
   )
 
 write_csv(access_sum, here::here("analysis", "HFP_access_summary.csv"))
@@ -238,10 +239,10 @@ write_csv(access_sum, here::here("analysis", "HFP_access_summary.csv"))
 layer_sum <- cpad_values2 %>%
   group_by(layer) %>%
   summarize(
-    mean_HFP2009 = mean(HFP2009, na.rm = TRUE),
-    min_HFP2009 = min(HFP2009, na.rm = TRUE),
-    max_HFP2009 = max(HFP2009, na.rm = TRUE),
-    median_HFP2009 = median(HFP2009, na.rm = TRUE)
+    mean_HFP = mean(HFP, na.rm = TRUE),
+    min_HFP = min(HFP, na.rm = TRUE),
+    max_HFP = max(HFP, na.rm = TRUE),
+    median_HFP = median(HFP, na.rm = TRUE)
   )
 
 write_csv(layer_sum, here::here("analysis", "HFP_mgn_type_summary.csv"))
@@ -249,10 +250,10 @@ write_csv(layer_sum, here::here("analysis", "HFP_mgn_type_summary.csv"))
 mng_sum <- cpad_values2 %>%
   group_by(mng_agncy) %>%
   summarize(
-    mean_HFP2009 = mean(HFP2009, na.rm = TRUE),
-    min_HFP2009 = min(HFP2009, na.rm = TRUE),
-    max_HFP2009 = max(HFP2009, na.rm = TRUE),
-    median_HFP2009 = median(HFP2009, na.rm = TRUE)
+    mean_HFP = mean(HFP, na.rm = TRUE),
+    min_HFP = min(HFP, na.rm = TRUE),
+    max_HFP = max(HFP, na.rm = TRUE),
+    median_HFP = median(HFP, na.rm = TRUE)
   )
 
 write_csv(mng_sum, here::here("analysis", "HFP_mng_agency_summary.csv"))
@@ -260,20 +261,20 @@ write_csv(mng_sum, here::here("analysis", "HFP_mng_agency_summary.csv"))
 park_sum <- cpad_values2 %>%
   group_by(park_name) %>%
   summarize(
-    mean_HFP2009 = mean(HFP2009, na.rm = TRUE),
-    min_HFP2009 = min(HFP2009, na.rm = TRUE),
-    max_HFP2009 = max(HFP2009, na.rm = TRUE),
-    median_HFP2009 = median(HFP2009, na.rm = TRUE)
+    mean_HFP = mean(HFP, na.rm = TRUE),
+    min_HFP = min(HFP, na.rm = TRUE),
+    max_HFP = max(HFP, na.rm = TRUE),
+    median_HFP = median(HFP, na.rm = TRUE)
   )
 
 write_csv(park_sum, here::here("analysis", "HFP_park_summary.csv"))
 
 ggplot(data = cpad_values2) +
-  geom_histogram(aes(x = HFP2009)) +
+  geom_histogram(aes(x = HFP)) +
   theme_bw()
 
 p7 <- ggplot(data = cpad_values2) +
-  geom_boxplot(aes(x = access_typ, y = HFP2009)) +
+  geom_boxplot(aes(x = access_typ, y = HFP)) +
   theme_bw() +
   coord_flip() +
   labs(
@@ -282,7 +283,7 @@ p7 <- ggplot(data = cpad_values2) +
   )
 
 p8 <- ggplot(data = cpad_values2) +
-  geom_boxplot(aes(x = layer, y = HFP2009), outlier.shape = NA) +
+  geom_boxplot(aes(x = layer, y = HFP), outlier.shape = NA) +
   theme_bw() +
   coord_flip() +
   labs(
@@ -297,8 +298,8 @@ ggsave(plot3, file = paste0("plot3.2.pdf"), path = here::here("analysis"), heigh
 
 # GHM Layer 3 -------------------------------------------------------------
 
-ghm3 <- rast(here::here("data", "raw_data", "gHM_landLakeReservoirOcean300m-0000000000-0000000000.tif")) %>%
-  project("EPSG:4326")
+# ghm3 <- rast(here::here("data", "raw_data", "gHM_landLakeReservoirOcean300m-0000000000-0000000000.tif")) %>%
+#  project("EPSG:4326")
 
 # ghm_cropped3 = crop(ghm3, cpad_super)
 # 
@@ -313,39 +314,40 @@ ghm3 <- rast(here::here("data", "raw_data", "gHM_landLakeReservoirOcean300m-0000
 ghm3 <- rast(here::here("data", "raw_data", "gHM_land_masked.tif")) %>%
   project("EPSG:4326")
 
-cpad_ghm_values3 <- terra::extract(x = ghm3, y = cpad_super)
+cpad_ghm_values3 <- terra::extract(x = ghm3, y = cpad_super) %>% 
+  rename(LRO = LandLakeReservoirOcean)
 
 cpad_ghm_summary3 <- cpad_ghm_values3 %>%
   group_by(ID) %>%
-  summarize(across(LandLakeReservoirOcean, list(min = min, mean = mean, max = max, median = median, sd = sd)))
+  summarize(across(LRO, list(min = min, mean = mean, max = max, median = median, sd = sd)))
 
 cpad_ghm3 <- full_join(cpad_ghm, cpad_ghm_summary3) %>%
-  mutate(LandLakeReservoirOcean_range = LandLakeReservoirOcean_max - LandLakeReservoirOcean_min)
+  mutate(LRO_range = LRO_max - LRO_min)
 
-#st_write(cpad_ghm, here::here("data", "processed_data", "cpad_join3.shp"), append = FALSE)
+# st_write(cpad_ghm3, here::here("data", "processed_data", "cpad_join4.shp"), append = FALSE)
 
 p1 <- ggplot(data = cpad_ghm3) +
-  geom_sf(aes(color = LandLakeReservoirOcean_min, fill = LandLakeReservoirOcean_min)) +
+  geom_sf(aes(color = LRO_min, fill = LRO_min)) +
   theme_bw()
 
 p2 <- ggplot(data = cpad_ghm3) +
-  geom_sf(aes(color = LandLakeReservoirOcean_mean, fill = LandLakeReservoirOcean_mean)) +
+  geom_sf(aes(color = LRO_mean, fill = LRO_mean)) +
   theme_bw()
 
 p3 <- ggplot(data = cpad_ghm3) +
-  geom_sf(aes(color = LandLakeReservoirOcean_max, fill = LandLakeReservoirOcean_max)) +
+  geom_sf(aes(color = LRO_max, fill = LRO_max)) +
   theme_bw()
 
 p4 <- ggplot(data = cpad_ghm3) +
-  geom_sf(aes(color = LandLakeReservoirOcean_median, fill = LandLakeReservoirOcean_median)) +
+  geom_sf(aes(color = LRO_median, fill = LRO_median)) +
   theme_bw()
 
 p5 <- ggplot(data = cpad_ghm3) +
-  geom_sf(aes(color = LandLakeReservoirOcean_range, fill = LandLakeReservoirOcean_range)) +
+  geom_sf(aes(color = LRO_range, fill = LRO_range)) +
   theme_bw()
 
 p6 <- ggplot(data = cpad_ghm3) +
-  geom_sf(aes(color = LandLakeReservoirOcean_sd, fill = LandLakeReservoirOcean_sd)) +
+  geom_sf(aes(color = LRO_sd, fill = LRO_sd)) +
   theme_bw()
 
 plot1 <- p2 + p6
@@ -365,53 +367,53 @@ cpad_values3 <- full_join(cpad_values3, cpad_ghm) %>%
 access_sum <- cpad_values3 %>%
   group_by(access_typ) %>%
   summarize(
-    mean_LandLakeReservoirOcean = mean(LandLakeReservoirOcean, na.rm = TRUE),
-    min_LandLakeReservoirOcean = min(LandLakeReservoirOcean, na.rm = TRUE),
-    max_LandLakeReservoirOcean = max(LandLakeReservoirOcean, na.rm = TRUE),
-    median_LandLakeReservoirOcean = median(LandLakeReservoirOcean, na.rm = TRUE)
+    mean_LRO = mean(LRO, na.rm = TRUE),
+    min_LRO = min(LRO, na.rm = TRUE),
+    max_LRO = max(LRO, na.rm = TRUE),
+    median_LRO = median(LRO, na.rm = TRUE)
   )
 
-write_csv(access_sum, here::here("analysis", "LLRO_access_summary.csv"))
+write_csv(access_sum, here::here("analysis", "LRO_access_summary.csv"))
 
 layer_sum <- cpad_values3 %>%
   group_by(layer) %>%
   summarize(
-    mean_LandLakeReservoirOcean = mean(LandLakeReservoirOcean, na.rm = TRUE),
-    min_LandLakeReservoirOcean = min(LandLakeReservoirOcean, na.rm = TRUE),
-    max_LandLakeReservoirOcean = max(LandLakeReservoirOcean, na.rm = TRUE),
-    median_LandLakeReservoirOcean = median(LandLakeReservoirOcean, na.rm = TRUE)
+    mean_LRO = mean(LRO, na.rm = TRUE),
+    min_LRO = min(LRO, na.rm = TRUE),
+    max_LRO = max(LRO, na.rm = TRUE),
+    median_LRO = median(LRO, na.rm = TRUE)
   )
 
-write_csv(layer_sum, here::here("analysis", "LLRO_mgn_type_summary.csv"))
+write_csv(layer_sum, here::here("analysis", "LRO_mgn_type_summary.csv"))
 
 mng_sum <- cpad_values3 %>%
   group_by(mng_agncy) %>%
   summarize(
-    mean_LandLakeReservoirOcean = mean(LandLakeReservoirOcean, na.rm = TRUE),
-    min_LandLakeReservoirOcean = min(LandLakeReservoirOcean, na.rm = TRUE),
-    max_LandLakeReservoirOcean = max(LandLakeReservoirOcean, na.rm = TRUE),
-    median_LandLakeReservoirOcean = median(LandLakeReservoirOcean, na.rm = TRUE)
+    mean_LRO = mean(LRO, na.rm = TRUE),
+    min_LRO = min(LRO, na.rm = TRUE),
+    max_LRO = max(LRO, na.rm = TRUE),
+    median_LRO = median(LRO, na.rm = TRUE)
   )
 
-write_csv(mng_sum, here::here("analysis", "LLRO_mng_agency_summary.csv"))
+write_csv(mng_sum, here::here("analysis", "LRO_mng_agency_summary.csv"))
 
 park_sum <- cpad_values3 %>%
   group_by(park_name) %>%
   summarize(
-    mean_LandLakeReservoirOcean = mean(LandLakeReservoirOcean, na.rm = TRUE),
-    min_LandLakeReservoirOcean = min(LandLakeReservoirOcean, na.rm = TRUE),
-    max_LandLakeReservoirOcean = max(LandLakeReservoirOcean, na.rm = TRUE),
-    median_LandLakeReservoirOcean = median(LandLakeReservoirOcean, na.rm = TRUE)
+    mean_LRO = mean(LRO, na.rm = TRUE),
+    min_LRO = min(LRO, na.rm = TRUE),
+    max_LRO = max(LRO, na.rm = TRUE),
+    median_LRO = median(LRO, na.rm = TRUE)
   )
 
-write_csv(park_sum, here::here("analysis", "LLRO_park_summary.csv"))
+write_csv(park_sum, here::here("analysis", "LRO_park_summary.csv"))
 
 ggplot(data = cpad_values3) +
-  geom_histogram(aes(x = LandLakeReservoirOcean)) +
+  geom_histogram(aes(x = LRO)) +
   theme_bw()
 
 p7 <- ggplot(data = cpad_values3) +
-  geom_boxplot(aes(x = access_typ, y = LandLakeReservoirOcean)) +
+  geom_boxplot(aes(x = access_typ, y = LRO)) +
   theme_bw() +
   coord_flip() +
   labs(
@@ -420,7 +422,7 @@ p7 <- ggplot(data = cpad_values3) +
   )
 
 p8 <- ggplot(data = cpad_values3) +
-  geom_boxplot(aes(x = layer, y = LandLakeReservoirOcean), outlier.shape = NA) +
+  geom_boxplot(aes(x = layer, y = LRO), outlier.shape = NA) +
   theme_bw() +
   coord_flip() +
   labs(
@@ -434,6 +436,108 @@ ggsave(plot3, file = paste0("plot3.3.pdf"), path = here::here("analysis"), heigh
 
 # Land Cover --------------------------------------------------------------
 
+# lc <- rast(here::here("data", "raw_data", "C3S-LC-L4-LCCS-Map-300m-P1Y-2020-v2.1.1.nc"))
+# 
+# lc_cropped = crop(lc, cpad_super)
+# 
+# plot(lc_cropped)
+# 
+# lc_masked = mask(lc_cropped, cpad_super)
+# 
+# plot(lc_masked)
+# 
+# writeRaster(lc_masked, here::here("data", "raw_data", "LC_masked.tif"))
+
+lc <- rast(here::here("data", "raw_data", "LC_masked.tif")) %>%
+  project("EPSG:4326")
+
+cpad_lc_values <- terra::extract(x = lc, y = cpad_super) 
+
+cpad_lc_summary <- cpad_lc_values %>%
+  select(ID, lccs_class) %>% 
+  rename(LC = lccs_class) %>% 
+  group_by(ID) %>%
+  summarize(across(LC, list(min = min, mean = mean, max = max, median = median, sd = sd)))
+
+cpad_lc <- full_join(cpad_ghm, cpad_lc_summary) %>%
+  mutate(LC_range = LC_max - LC_min)
+
+# st_write(cpad_lc, here::here("data", "processed_data", "cpad_join3.shp"), append = FALSE)
+
+cpad_values4 <- cpad_lc_values %>%
+  drop_na()
+
+cpad_values4 <- full_join(cpad_values4, cpad_ghm) %>%
+  select(-ID) %>%
+  st_drop_geometry() %>% 
+  rename(LC = lccs_class)
+
+access_sum <- cpad_values4 %>%
+  group_by(access_typ) %>%
+  summarize(
+    mean_LC = mean(LC, na.rm = TRUE),
+    min_LC = min(LC, na.rm = TRUE),
+    max_LC = max(LC, na.rm = TRUE),
+    median_LC = median(LC, na.rm = TRUE)
+  )
+
+write_csv(access_sum, here::here("analysis", "LC_access_summary.csv"))
+
+layer_sum <- cpad_values4 %>%
+  group_by(layer) %>%
+  summarize(
+    mean_LC = mean(LC, na.rm = TRUE),
+    min_LC = min(LC, na.rm = TRUE),
+    max_LC = max(LC, na.rm = TRUE),
+    median_LC = median(LC, na.rm = TRUE)
+  )
+
+write_csv(layer_sum, here::here("analysis", "LC_mgn_type_summary.csv"))
+
+mng_sum <- cpad_values4 %>%
+  group_by(mng_agncy) %>%
+  summarize(
+    mean_LC = mean(LC, na.rm = TRUE),
+    min_LC = min(LC, na.rm = TRUE),
+    max_LC = max(LC, na.rm = TRUE),
+    median_LC = median(LC, na.rm = TRUE)
+  )
+
+write_csv(mng_sum, here::here("analysis", "LC_mng_agency_summary.csv"))
+
+park_sum <- cpad_values4 %>%
+  group_by(park_name) %>%
+  summarize(
+    mean_LC = mean(LC, na.rm = TRUE),
+    min_LC = min(LC, na.rm = TRUE),
+    max_LC = max(LC, na.rm = TRUE),
+    median_LC = median(LC, na.rm = TRUE)
+  )
+
+write_csv(park_sum, here::here("analysis", "LC_park_summary.csv"))
+
+
+p7 <- ggplot(data = cpad_values4) +
+  geom_boxplot(aes(x = access_typ, y = LC)) +
+  theme_bw() +
+  coord_flip() +
+  labs(
+    y = "Human Modification Index",
+    x = "Access Level"
+  )
+
+p8 <- ggplot(data = cpad_values4) +
+  geom_boxplot(aes(x = layer, y = LC), outlier.shape = NA) +
+  theme_bw() +
+  coord_flip() +
+  labs(
+    y = "Human Modification Index",
+    x = "Agency Type"
+  )
+
+plot3 <- p7 + p8
+
+ggsave(plot3, file = paste0("plot3.4.pdf"), path = here::here("analysis"), height = 10, width = 12)
 
 
 # Night Lights ------------------------------------------------------------
