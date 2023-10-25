@@ -8,7 +8,7 @@ cpad_super <- st_read(here::here("data", "raw_data", "CPAD_2023a_SuperUnits.shp"
   janitor::clean_names() %>%
   mutate(ID = row_number())
 
-strava = read_csv(here::here("data", "processed_data", "strava.csv")) %>%
+strava_csv = read_csv(here::here("data", "processed_data", "strava.csv")) %>%
   drop_na()
 
 cpad_strava = cpad_super %>% 
