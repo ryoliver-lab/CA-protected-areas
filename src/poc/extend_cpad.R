@@ -383,7 +383,9 @@ park_sum = list(park_sum1, park_sum2, park_sum3, park_sum4) %>%
 write_csv(park_sum, here::here("analysis", "park_summary.csv"))
 
 
-p7 <- ggplot(data = cpad_values) +
+# Summary Plots -----------------------------------------------------------
+
+p7 <- ggplot(data = cpad_values1) +
   geom_boxplot(aes(x = access_typ, y = gHM)) +
   theme_bw() +
   coord_flip() +
@@ -392,7 +394,7 @@ p7 <- ggplot(data = cpad_values) +
     x = "Access Level"
   )
 
-p8 <- ggplot(data = cpad_values) +
+p8 <- ggplot(data = cpad_values1) +
   geom_boxplot(aes(x = layer, y = gHM), outlier.shape = NA) +
   theme_bw() +
   coord_flip() +
@@ -405,8 +407,8 @@ plot3 <- p7 + p8
 
 ggsave(plot3, file = paste0("plot4.1.pdf"), path = here::here("analysis", "figs"), height = 10, width = 12)
 
-p7 <- ggplot(data = cpad_values) +
-  geom_boxplot(aes(x = access_typ, y = HFP)) +
+p7 <- ggplot(data = cpad_values2) +
+  geom_boxplot(aes(x = access_typ, y = HFP2009)) +
   theme_bw() +
   coord_flip() +
   labs(
@@ -414,8 +416,8 @@ p7 <- ggplot(data = cpad_values) +
     x = "Access Level"
   )
 
-p8 <- ggplot(data = cpad_values) +
-  geom_boxplot(aes(x = layer, y = HFP), outlier.shape = NA) +
+p8 <- ggplot(data = cpad_values2) +
+  geom_boxplot(aes(x = layer, y = HFP2009), outlier.shape = NA) +
   theme_bw() +
   coord_flip() +
   labs(
@@ -425,6 +427,36 @@ p8 <- ggplot(data = cpad_values) +
 
 plot3 <- p7 + p8
 
-ggsave(plot3, file = paste0("plot2.1.pdf"), path = here::here("analysis", "figs"), height = 10, width = 12)
+ggsave(plot3, file = paste0("plot4.2.pdf"), path = here::here("analysis", "figs"), height = 10, width = 12)
+
+p7 = ggplot(data = access_sum3) +
+  geom_col(aes(x = access_typ, y = freq_LRO, fill = as.factor(LRO))) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+p8 = ggplot(data = layer_sum3) +
+  geom_col(aes(x = layer, y = freq_LRO, fill = as.factor(LRO))) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+plot3 <- p7 + p8
+
+
+ggsave(plot3, file = paste0("plot4.3.pdf"), path = here::here("analysis", "figs"), height = 10, width = 12)
+
+p7 = ggplot(data = access_sum4) +
+  geom_col(aes(x = access_typ, y = freq_LC, fill = as.factor(LC))) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+p8 = ggplot(data = layer_sum4) +
+  geom_col(aes(x = layer, y = freq_LC, fill = as.factor(LC))) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+plot3 <- p7 + p8
+
+
+ggsave(plot3, file = paste0("plot4.4.pdf"), path = here::here("analysis", "figs"), height = 10, width = 12)
 
 # Night Lights ------------------------------------------------------------
