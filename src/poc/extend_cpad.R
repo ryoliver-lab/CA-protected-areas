@@ -8,7 +8,7 @@ cpad_super <- st_read(here::here("data", "raw_data", "CPAD_2023a_SuperUnits.shp"
   janitor::clean_names() %>%
   mutate(ID = row_number())
 
-cpad_extended <- st_read(here::here("data", "processed_data", "cpad_extended.shp")) %>%
+cpad_extend <- st_read(here::here("data", "processed_data", "cpad_extended.shp")) %>%
   sf::st_transform("EPSG:4326") %>%
   janitor::clean_names()
 
@@ -190,7 +190,7 @@ ggsave(p1, file = paste0("plot3.1.pdf"), path = here::here("analysis", "figs"), 
 
 p1 <- ggplot(data = cpad_extend) +
   geom_sf(aes(color = freq_lc)) +
-  facet_wrap(~ lc)
+  facet_wrap(~ lc) +
   theme_bw()
 
 ggsave(p1, file = paste0("plot3.2.pdf"), path = here::here("analysis", "figs"), height = 10, width = 12)

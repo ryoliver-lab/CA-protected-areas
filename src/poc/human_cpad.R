@@ -8,6 +8,9 @@ cpad_super <- st_read(here::here("data", "raw_data", "CPAD_2023a_SuperUnits.shp"
   janitor::clean_names() %>%
   mutate(ID = row_number())
 
+strava <- rast(here::here("data", "raw_data", "strava_masked.tif")) %>%
+  project("EPSG:4326")
+
 strava_csv = read_csv(here::here("data", "processed_data", "strava.csv")) %>%
   drop_na()
 
@@ -123,8 +126,7 @@ ggplot(park_sum) +
 # 
 # writeRaster(strava_masked, here::here("data", "raw_data", "strava_masked.tif"))
 
-# strava <- rast(here::here("data", "raw_data", "strava_masked.tif")) %>%
-#   project("EPSG:4326")
+
 # 
 # cpad_strava_values <- terra::extract(x = strava, y = cpad_super)
 
