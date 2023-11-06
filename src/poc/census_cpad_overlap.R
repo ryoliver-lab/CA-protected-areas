@@ -72,6 +72,15 @@ average_in_park = cpad_census %>%
 
 write_csv(average_in_park, here::here("analysis", "average_census_percent_in_park.csv"))
 
+p2 = ggplot(average_in_park) +
+  geom_boxplot(aes(as.factor(size_bin), mean_in_park)) +
+  theme_bw() +
+  labs(x = "PA Size Class", 
+       y = "Average Percent Census Block in Park") +
+  scale_x_discrete(breaks = c("1", "2", "3"), labels = c("0 to 22,026 m^2", "22,026 to 3,269,017 m^2", "3,269,017 to 57,468,293,487 m^2"))
+
+ggsave(p2, file = paste0("average_percent_census_block_in_park.pdf"), path = here::here("analysis", "figs"), height = 10, width = 10)
+
 # overlap plots -----------------------------------------------------------
 
 small_pa = cpad_census %>% 
