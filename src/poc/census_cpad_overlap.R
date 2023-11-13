@@ -24,7 +24,7 @@ ca_census = ca_census %>%
 cpad_census = st_intersection(ca_census, cpad_super)
 
 ggplot(cpad_super) +
-  geom_histogram(aes(log(shape_area)), bins = 7) +
+  geom_histogram(aes(log10(shape_area)), bins = 7) +
   theme_bw()
 
 # bin 1: 0 to log(10)
