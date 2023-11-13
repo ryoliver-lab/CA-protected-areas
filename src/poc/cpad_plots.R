@@ -4,6 +4,9 @@ library(patchwork)
 
 cpad_extent = st_read(here::here("data", "processed_data", "cpad_extended.shp"))
 
+access_sum = read_csv(here::here("analysis", "access_summary.csv"))
+layer_sum = read_csv(here::here("analysis", "mgn_type_summary.csv"))
+
 # Plots ------------------------------------------------------
 
 p1 <- ggplot(data = cpad_extend) +
@@ -81,3 +84,79 @@ p1 <- ggplot(data = cpad_extend) +
   theme_bw()
 
 ggsave(p1, file = paste0("plot3.2.pdf"), path = here::here("analysis", "figs"), height = 10, width = 12)
+
+# Summary Plots -----------------------------------------------------------
+
+p7 <- ggplot(data = cpad_values1) +
+  geom_boxplot(aes(x = access_typ, y = gHM)) +
+  theme_bw() +
+  coord_flip() +
+  labs(
+    y = "Human Modification Index",
+    x = "Access Level"
+  )
+
+p8 <- ggplot(data = cpad_values1) +
+  geom_boxplot(aes(x = layer, y = gHM), outlier.shape = NA) +
+  theme_bw() +
+  coord_flip() +
+  labs(
+    y = "Human Modification Index",
+    x = "Agency Type"
+  )
+
+plot3 <- p7 + p8
+
+ggsave(plot3, file = paste0("plot4.1.pdf"), path = here::here("analysis", "figs"), height = 10, width = 12)
+
+p7 <- ggplot(data = cpad_values2) +
+  geom_boxplot(aes(x = access_typ, y = HFP2009)) +
+  theme_bw() +
+  coord_flip() +
+  labs(
+    y = "Human Modification Index",
+    x = "Access Level"
+  )
+
+p8 <- ggplot(data = cpad_values2) +
+  geom_boxplot(aes(x = layer, y = HFP2009), outlier.shape = NA) +
+  theme_bw() +
+  coord_flip() +
+  labs(
+    y = "Human Modification Index",
+    x = "Agency Type"
+  )
+
+plot3 <- p7 + p8
+
+ggsave(plot3, file = paste0("plot4.2.pdf"), path = here::here("analysis", "figs"), height = 10, width = 12)
+
+p7 = ggplot(data = access_sum3) +
+  geom_col(aes(x = access_typ, y = freq_LRO, fill = as.factor(LRO))) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+p8 = ggplot(data = layer_sum3) +
+  geom_col(aes(x = layer, y = freq_LRO, fill = as.factor(LRO))) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+plot3 <- p7 + p8
+
+
+ggsave(plot3, file = paste0("plot4.3.pdf"), path = here::here("analysis", "figs"), height = 10, width = 12)
+
+p7 = ggplot(data = access_sum4) +
+  geom_col(aes(x = access_typ, y = freq_LC, fill = as.factor(LC))) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+p8 = ggplot(data = layer_sum4) +
+  geom_col(aes(x = layer, y = freq_LC, fill = as.factor(LC))) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+plot3 <- p7 + p8
+
+
+ggsave(plot3, file = paste0("plot4.4.pdf"), path = here::here("analysis", "figs"), height = 10, width = 12)
