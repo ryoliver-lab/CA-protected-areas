@@ -2,10 +2,33 @@ library(tidyverse)
 library(sf)
 library(patchwork)
 
+cpad_super <- st_read(here::here("data", "raw_data", "CPAD_2023a_SuperUnits.shp")) %>%
+  sf::st_transform("EPSG:4326") %>%
+  janitor::clean_names() %>%
+  mutate(ID = row_number())
 cpad_extent = st_read(here::here("data", "processed_data", "cpad_extended.shp"))
+ghm_masked = read_csv(here::here("data", "processed_data", "gHM_masked.tif")) 
+ghm_masked2 = read_csv(here::here("data", "processed_data", "HFP2009_masked.tif"))
 
 access_sum = read_csv(here::here("analysis", "access_summary.csv"))
 layer_sum = read_csv(here::here("analysis", "mgn_type_summary.csv"))
+
+cpad_ghm_values <- terra::extract(x = ghm_masked, y = cpad_super)
+cpad_ghm_values2 <- terra::extract(x = ghm_masked2, y = cpad_super)
+
+cpad_values1 <- cpad_ghm_values %>%
+  drop_na()
+
+cpad_values1 <- full_join(cpad_values1, cpad_super) %>%
+  select(-ID) %>%
+  st_drop_geometry()
+
+cpad_values2 <- cpad_ghm_values2 %>%
+  drop_na()
+
+cpad_values2 <- full_join(cpad_values2, cpad_super) %>%
+  select(-ID) %>%
+  st_drop_geometry()
 
 # Plots ------------------------------------------------------
 
