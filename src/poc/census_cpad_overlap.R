@@ -3,6 +3,7 @@ library(tidyverse)
 library(sf)
 library(units)
 library(patchwork)
+library(EnvStats)
 
 sf_use_s2(FALSE)
 
@@ -23,34 +24,38 @@ ca_census = ca_census %>%
 
 cpad_census = st_intersection(ca_census, cpad_super)
 
-ggplot(cpad_super) +
-  geom_histogram(aes(log10(shape_area)), bins = 7) +
+p = ggplot(cpad_super) +
+  geom_histogram(aes(log10(shape_area)), bins = 10) +
   theme_bw()
+p
 
-# bin 1: 0 to log(10)
-# bin 2: log(10) to log(15)
-# bin 3: log(15) to max
+hist_dat = ggplot_build(p)$data[[1]]
+
+# bin 1: 0 to log(3.5)
+# bin 2: log(3.5) to log(4)
+# bin 3: log(4) to max
 
 cpad_census = cpad_census %>% 
-  mutate(log_size = log(shape_area)) %>% 
+  mutate(log_size = log10(shape_area)) %>% 
   mutate(size_bin = case_when(
-    log_size < 10 ~ 1,
-    log_size >= 10 & log_size < 15 ~ 2,
-    log_size >= 15 ~ 3
+    log_size <= 4 ~ 1,
+    log_size > 4 & log_size < 5 ~ 2,
+    log_size >= 5 ~ 3
   ))
 
 size_summary = cpad_census %>% 
   st_drop_geometry() %>% 
   group_by(suid_nma, size_bin, access_typ) %>% 
-  summarize(count = n())
+  summarize(count = n()) 
 
 p1 = ggplot(size_summary) +
   geom_boxplot(aes(as.factor(size_bin), log(count), fill = access_typ)) +
   theme_bw() +
   labs(x = "PA Size Class", 
-       y = "ln of Count",
+       y = "Log10 of Count",
        fill = "Access Type") +
-  scale_x_discrete(breaks = c("1", "2", "3"), labels = c("0 to 22,026 m^2", "22,026 to 3,269,017 m^2", "3,269,017 to 57,468,293,487 m^2"))
+  stat_n_text(aes(as.factor(size_bin), log(count))) +
+  scale_x_discrete(breaks = c("1", "2", "3"), labels = c("0 to 10 km^2", "10 to 100 km^2", "100 to 57,468,293 km^2"))
 p1
 
 ggsave(p1, file = paste0("census_count_per_size.pdf"), path = here::here("analysis", "figs"), height = 10, width = 10)
@@ -77,7 +82,9 @@ p2 = ggplot(average_in_park) +
   theme_bw() +
   labs(x = "PA Size Class", 
        y = "Average Percent Census Block in Park") +
-  scale_x_discrete(breaks = c("1", "2", "3"), labels = c("0 to 22,026 m^2", "22,026 to 3,269,017 m^2", "3,269,017 to 57,468,293,487 m^2"))
+  stat_n_text(aes(as.factor(size_bin), mean_in_park)) + 
+  scale_x_discrete(breaks = c("1", "2", "3"), labels = c("0 to 10 km^2", "10 to 100 km^2", "100 to 57,468,293 km^2"))
+p2
 
 ggsave(p2, file = paste0("average_percent_census_block_in_park.pdf"), path = here::here("analysis", "figs"), height = 10, width = 10)
 
