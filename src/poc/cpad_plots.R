@@ -19,6 +19,8 @@ cpad_sub <- cpad_extend %>%
     log_size >= 5 ~ 3
   ))
 
+access_freq = 
+
 # Plots ------------------------------------------------------
 
 p1 <- ggplot(data = cpad_extend) +
@@ -148,17 +150,17 @@ plot3 <- p7 + p8
 ggsave(plot3, file = paste0("hfp_summary.pdf"), path = here::here("analysis", "figs"), height = 10, width = 20)
 
 p7 <- ggplot(data = access_sum) +
-  geom_col(aes(x = access_typ, y = freq_LRO, fill = as.factor(LRO))) +
+  geom_col(aes(x = access_typ, y = freq_LRO, fill = as.factor(LRO)), position = "fill") +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
   labs(
     x = "Access Type",
     y = "Summed Frequency",
     fill = "Category"
-  )
+  ) 
 
 p8 <- ggplot(data = layer_sum) +
-  geom_col(aes(x = layer, y = freq_LRO, fill = as.factor(LRO))) +
+  geom_col(aes(x = layer, y = freq_LRO, fill = as.factor(LRO)), position = "fill") +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
   labs(
@@ -172,17 +174,17 @@ plot3 <- p7 + p8
 ggsave(plot3, file = paste0("landuse_summary.pdf"), path = here::here("analysis", "figs"), height = 10, width = 12)
 
 p7 <- ggplot(data = access_sum) +
-  geom_col(aes(x = access_typ, y = freq_LC, fill = as.factor(LC))) +
+  geom_col(aes(x = access_typ, y = freq_LC, fill = as.factor(LC)), position = "fill") +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
   labs(
     x = "Access Type",
     y = "Summed Frequency",
     fill = "Category"
-  )
+  ) 
 
 p8 <- ggplot(data = layer_sum) +
-  geom_col(aes(x = layer, y = freq_LC, fill = as.factor(LC))) +
+  geom_col(aes(x = layer, y = freq_LC, fill = as.factor(LC)), position = "fill") +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
   labs(
