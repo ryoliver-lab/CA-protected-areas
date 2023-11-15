@@ -31,10 +31,6 @@ p
 
 hist_dat = ggplot_build(p)$data[[1]]
 
-# bin 1: 0 to log(3.5)
-# bin 2: log(3.5) to log(4)
-# bin 3: log(4) to max
-
 cpad_census = cpad_census %>% 
   mutate(log_size = log10(shape_area)) %>% 
   mutate(size_bin = case_when(
@@ -49,12 +45,13 @@ size_summary = cpad_census %>%
   summarize(count = n()) 
 
 p1 = ggplot(size_summary) +
-  geom_boxplot(aes(as.factor(size_bin), log(count), fill = access_typ)) +
+  geom_boxplot(aes(as.factor(size_bin), count, fill = access_typ)) +
   theme_bw() +
-  labs(x = "PA Size Class", 
-       y = "Log10 of Count",
+  labs(x = "Protected Area Size Class", 
+       y = "Count",
        fill = "Access Type") +
-  stat_n_text(aes(as.factor(size_bin), log(count))) +
+  stat_n_text(aes(as.factor(size_bin), count)) +
+  scale_y_log10() +
   scale_x_discrete(breaks = c("1", "2", "3"), labels = c("0 to 10 km^2", "10 to 100 km^2", "100 to 57,468,293 km^2"))
 p1
 
@@ -72,18 +69,18 @@ average_in_park = cpad_census %>%
   st_drop_geometry() %>% 
   group_by(park_name, suid_nma) %>% 
   summarize(mean_in_park = mean(percent_in_park),
-            size_bin = size_bin) %>% 
+            size_bin = size_bin,
+            shape_area = shape_area) %>% 
   distinct()
 
 write_csv(average_in_park, here::here("analysis", "average_census_percent_in_park.csv"))
 
 p2 = ggplot(average_in_park) +
-  geom_boxplot(aes(as.factor(size_bin), mean_in_park)) +
+  geom_point(aes(shape_area/1000, mean_in_park)) +
   theme_bw() +
-  labs(x = "PA Size Class", 
-       y = "Average Percent Census Block in Park") +
-  stat_n_text(aes(as.factor(size_bin), mean_in_park)) + 
-  scale_x_discrete(breaks = c("1", "2", "3"), labels = c("0 to 10 km^2", "10 to 100 km^2", "100 to 57,468,293 km^2"))
+  labs(x = "Protected Area Size km^2", 
+       y = "Average Percent Census Block in Park") + 
+  scale_x_log10()
 p2
 
 ggsave(p2, file = paste0("average_percent_census_block_in_park.pdf"), path = here::here("analysis", "figs"), height = 10, width = 10)

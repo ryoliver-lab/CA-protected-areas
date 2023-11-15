@@ -200,38 +200,35 @@ ggsave(plot3, file = paste0("landcover_summary.pdf"), path = here::here("analysi
 # by size plots -----------------------------------------------------------
 
 p7 <- ggplot(data = cpad_sub) +
-  geom_boxplot(aes(x = access_typ, y = log_size)) +
+  geom_boxplot(aes(x = access_typ, y = shape_area/1000)) +
   theme_bw() +
   coord_flip() +
   labs(
-    y = "Log base 10 of PA Area",
+    y = "Protected Area Size km^2",
     x = "Access Level"
   ) +
-  stat_n_text(aes(x = access_typ, y = log_size))
+  stat_n_text(aes(x = access_typ, y = shape_area/1000)) +
+  scale_y_log10()
 
 ggsave(p7, file = paste0("access_size_summary.pdf"), path = here::here("analysis", "figs"), height = 10, width = 12)
 
 p7 <- ggplot(data = cpad_sub) +
-  geom_boxplot(aes(x = as.factor(size_bin), y = gHM_mean)) +
+  geom_point(aes(x = shape_area/1000, y = scale(gHM_mean))) +
   theme_bw() +
-  coord_flip() +
   labs(
-    y = "Global Human Modification",
-    x = "Size Bin"
+    y = "Normalized Global Human Modification",
+    x = "Protected Area Size km^2"
   ) +
-  stat_n_text(aes(x = size_bin, y = gHM_mean)) +
-  scale_x_discrete(breaks = c("1", "2", "3"), labels = c("0 to 10 km^2", "10 to 100 km^2", "100 to 57,468,293 km^2"))
+  scale_x_log10()
 
 p8 <- ggplot(data = cpad_sub) +
-  geom_boxplot(aes(x = as.factor(size_bin), y = HFP_mean)) +
+  geom_point(aes(x = shape_area/1000, y = scale(HFP_mean))) +
   theme_bw() +
-  coord_flip() +
   labs(
-    y = "Human Footprint Index",
-    x = "Size Bin"
+    y = "Noramlized Human Footprint Index",
+    x = "Protected Area Size km^2"
   ) +
-  stat_n_text(aes(x = size_bin, y = HFP_mean)) +
-  scale_x_discrete(breaks = c("1", "2", "3"), labels = c("0 to 10 km^2", "10 to 100 km^2", "100 to 57,468,293 km^2"))
+  scale_x_log10()
 
 plot3 <- p7 + p8
 
