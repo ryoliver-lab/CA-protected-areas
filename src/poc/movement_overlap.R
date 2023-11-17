@@ -104,7 +104,8 @@ ind_size_sum = d_cpad %>%
   st_drop_geometry() %>% 
   group_by(suid_nma) %>% 
   summarize(species_count = n(),
-            shape_area = shape_area)
+            shape_area = shape_area) %>% 
+  distinct()
 
 p1 = ggplot(species_size_sum) +
   geom_point(aes(species_count, shape_area)) +
