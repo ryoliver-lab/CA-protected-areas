@@ -8,131 +8,90 @@ cpad_super <- st_read(here::here("data", "raw_data", "CPAD_2023a_SuperUnits.shp"
   janitor::clean_names() %>%
   mutate(ID = row_number())
 
-strava <- rast(here::here("data", "raw_data", "strava_masked.tif")) %>%
-  project("EPSG:4326")
+cpad_strava_coarse <- st_read(here::here("data", "processed_data", "cpad_strava_coarse.shp")) %>%
+  sf::st_transform("EPSG:4326")
 
-strava_csv = read_csv(here::here("data", "processed_data", "strava.csv")) %>%
-  drop_na()
+cpad_strava_fine <- st_read(here::here("data", "processed_data", "cpad_strava_fine.shp")) %>%
+  sf::st_transform("EPSG:4326")
 
-cpad_strava = cpad_super %>% 
-  st_drop_geometry() %>% 
-  select(access_typ, layer, mng_agncy, park_name, ID) %>% 
-  full_join(strava)
-  
-access_sum <- cpad_strava %>%
-  group_by(access_typ) %>%
-  summarize(
-    mean_strava1 = mean(strava_heatmap_1, na.rm = TRUE),
-    min_strava1 = min(strava_heatmap_1, na.rm = TRUE),
-    max_strava1 = max(strava_heatmap_1, na.rm = TRUE),
-    mean_strava2 = mean(strava_heatmap_2, na.rm = TRUE),
-    min_strava2 = min(strava_heatmap_2, na.rm = TRUE),
-    max_strava2 = max(strava_heatmap_2, na.rm = TRUE),
-    mean_strava3 = mean(strava_heatmap_3, na.rm = TRUE),
-    min_strava3 = min(strava_heatmap_3, na.rm = TRUE),
-    max_strava3 = max(strava_heatmap_3, na.rm = TRUE)
-  ) %>% 
-  mutate(mean_hex_col = rgb(mean_strava1, mean_strava2, mean_strava3, maxColorValue = 255),
-         min_hex_col = rgb(min_strava1, min_strava2, min_strava3, maxColorValue = 255),
-         max_hex_col = rgb(max_strava1, max_strava2, max_strava3, maxColorValue = 255))
-
-write_csv(access_sum, here::here("analysis", "strava_access_summary.csv"))
-
-layer_sum <- cpad_strava %>%
-  group_by(layer) %>%
-  summarize(
-    mean_strava1 = mean(strava_heatmap_1, na.rm = TRUE),
-    min_strava1 = min(strava_heatmap_1, na.rm = TRUE),
-    max_strava1 = max(strava_heatmap_1, na.rm = TRUE),
-    mean_strava2 = mean(strava_heatmap_2, na.rm = TRUE),
-    min_strava2 = min(strava_heatmap_2, na.rm = TRUE),
-    max_strava2 = max(strava_heatmap_2, na.rm = TRUE),
-    mean_strava3 = mean(strava_heatmap_3, na.rm = TRUE),
-    min_strava3 = min(strava_heatmap_3, na.rm = TRUE),
-    max_strava3 = max(strava_heatmap_3, na.rm = TRUE)
-  ) %>% 
-  mutate(mean_hex_col = rgb(mean_strava1, mean_strava2, mean_strava3, maxColorValue = 255),
-         min_hex_col = rgb(min_strava1, min_strava2, min_strava3, maxColorValue = 255),
-         max_hex_col = rgb(max_strava1, max_strava2, max_strava3, maxColorValue = 255))
-
-write_csv(layer_sum, here::here("analysis", "strava_mgn_type_summary.csv"))
-
-mng_sum <- cpad_strava %>%
-  group_by(mng_agncy) %>%
-  summarize(
-    mean_strava1 = mean(strava_heatmap_1, na.rm = TRUE),
-    min_strava1 = min(strava_heatmap_1, na.rm = TRUE),
-    max_strava1 = max(strava_heatmap_1, na.rm = TRUE),
-    mean_strava2 = mean(strava_heatmap_2, na.rm = TRUE),
-    min_strava2 = min(strava_heatmap_2, na.rm = TRUE),
-    max_strava2 = max(strava_heatmap_2, na.rm = TRUE),
-    mean_strava3 = mean(strava_heatmap_3, na.rm = TRUE),
-    min_strava3 = min(strava_heatmap_3, na.rm = TRUE),
-    max_strava3 = max(strava_heatmap_3, na.rm = TRUE)
-  ) %>% 
-  mutate(mean_hex_col = rgb(mean_strava1, mean_strava2, mean_strava3, maxColorValue = 255),
-         min_hex_col = rgb(min_strava1, min_strava2, min_strava3, maxColorValue = 255),
-         max_hex_col = rgb(max_strava1, max_strava2, max_strava3, maxColorValue = 255))
-
-write_csv(mng_sum, here::here("analysis", "strava_mng_agency_summary.csv"))
-
-park_sum <- cpad_strava %>%
-  group_by(park_name) %>%
-  summarize(
-    mean_strava1 = mean(strava_heatmap_1, na.rm = TRUE),
-    min_strava1 = min(strava_heatmap_1, na.rm = TRUE),
-    max_strava1 = max(strava_heatmap_1, na.rm = TRUE),
-    mean_strava2 = mean(strava_heatmap_2, na.rm = TRUE),
-    min_strava2 = min(strava_heatmap_2, na.rm = TRUE),
-    max_strava2 = max(strava_heatmap_2, na.rm = TRUE),
-    mean_strava3 = mean(strava_heatmap_3, na.rm = TRUE),
-    min_strava3 = min(strava_heatmap_3, na.rm = TRUE),
-    max_strava3 = max(strava_heatmap_3, na.rm = TRUE)
-  ) %>% 
-  mutate(mean_hex_col = rgb(mean_strava1, mean_strava2, mean_strava3, maxColorValue = 255),
-         min_hex_col = rgb(min_strava1, min_strava2, min_strava3, maxColorValue = 255),
-         max_hex_col = rgb(max_strava1, max_strava2, max_strava3, maxColorValue = 255))
-
-write_csv(park_sum, here::here("analysis", "strava_park_summary.csv"))
-
-ggplot(access_sum) +
-  geom_point(aes(access_typ, mean_strava1, color = mean_hex_col)) +
-  theme_bw() +
-  scale_color_manual(values = c(access_sum$mean_hex_col))
-
-ggplot(layer_sum) +
-  geom_point(aes(layer, mean_strava1, color = mean_hex_col)) +
-  theme_bw() +
-  scale_color_manual(values = c(layer_sum$mean_hex_col))
-
-ggplot(mng_sum) +
-  geom_point(aes(mng_agncy, mean_strava1, color = mean_hex_col))+
+p1 = ggplot(cpad_strava_coarse) +
+  geom_sf(aes(fill = hex_mean, color = hex_mean)) +
   theme_bw() +
   theme(legend.position = "none") +
-  scale_color_manual(values = c(mng_sum$mean_hex_col))
+  scale_color_manual(values = as.character(cpad_strava_coarse$hex_mean)) +
+  scale_fill_manual(values = as.character(cpad_strava_coarse$hex_mean))
 
-ggplot(park_sum) +
-  geom_point(aes(park_name, mean_strava1, color = mean_hex_col)) +
-  theme_bw() +
-  scale_color_manual(values = c(park_sum$mean_hex_col)) +
-  theme(legend.position = "none")
+ggsave(p1, file = paste0("strava_coarse.pdf"), path = here::here("analysis", "figs"), height = 10, width = 12)
 
-# strava <- rast(here::here("data", "raw_data", "strava_heatmap.tif")) %>%
+# strava_fine = rast(here::here("data", "raw_data", "strava_fine_masked.tif"))
+
+# plotRGB(strava_fine)
+
+cpad_strava_fine_values <- terra::extract(x = strava_fine, y = cpad_super)
+
+write_csv(cpad_strava_fine_values, here::here("data", "processed_data", "strava_fine_cpad.csv"))
+
+cpad_strava_fine = cpad_strava_fine_values %>%
+  filter(!is.na(strava_fine_1)) %>%
+  group_by(ID) %>%
+  summarize(mean_1 = mean(strava_fine_1),
+         mean_2 = mean(strava_fine_2),
+         mean_3 = mean(strava_fine_3),
+         max_1 = max(strava_fine_1),
+         max_2 = max(strava_fine_2),
+         max_3 = max(strava_fine_3),
+         min_1 = min(strava_fine_1),
+         min_2 = min(strava_fine_2),
+         min_3 = min(strava_fine_3)) %>%
+  mutate(hex_mean = rgb(mean_1, mean_2, mean_3, maxColorValue = 255),
+         hex_max = rgb(max_1, max_2, max_3, maxColorValue = 255),
+         hex_min = rgb(min_1, min_2, min_3, maxColorValue = 255)) %>%
+  select(ID, hex_mean, hex_min, hex_max)
+
+cpad_strava_fine = full_join(cpad_super, cpad_strava_fine)
+
+st_write(cpad_strava_fine, here::here("data", "processed_data", "cpad_strava_fine.shp"))
+
+# strava_fine <- rast(here::here("data", "raw_data", "strava_fine.tif")) %>%
 #   project("EPSG:4326")
 # 
-# strava_masked = mask(strava, cpad_super)
+# strava_fine_masked = mask(strava_fine, cpad_super)
 # 
-# plot(strava_masked)
+# writeRaster(strava_fine_masked, here::here("data", "raw_data", "strava_fine_masked.tif"))
+
+# strava_coarse <- rast(here::here("data", "raw_data", "strava_coarse_masked.tif")) %>%
+#   project("EPSG:4326")
 # 
-# writeRaster(strava_masked, here::here("data", "raw_data", "strava_masked.tif"))
-
-
+# plotRGB(strava_coarse)
 # 
-# cpad_strava_values <- terra::extract(x = strava, y = cpad_super)
+# cpad_strava_coarse_values <- terra::extract(x = strava_coarse, y = cpad_super)
 
-#write_csv(cpad_strava_values, here::here("data", "processed_data", "strava_cpad.csv"))
+# write_csv(cpad_strava_coarse_values, here::here("data", "processed_data", "strava_coarse_cpad.csv"))
 
-# strava = strava %>% 
-#   mutate(hex_col = rgb(strava_heatmap_1, strava_heatmap_2, strava_heatmap_3, maxColorValue = 255))
+# cpad_strava_coarse = cpad_strava_coarse_values %>%
+#   filter(!is.na(strava_coarse_1)) %>% 
+#   group_by(ID) %>% 
+#   summarize(mean_1 = mean(strava_coarse_1),
+#          mean_2 = mean(strava_coarse_2),
+#          mean_3 = mean(strava_coarse_3),
+#          max_1 = max(strava_coarse_1),
+#          max_2 = max(strava_coarse_2),
+#          max_3 = max(strava_coarse_3),
+#          min_1 = min(strava_coarse_1),
+#          min_2 = min(strava_coarse_2),
+#          min_3 = min(strava_coarse_3)) %>% 
+#   mutate(hex_mean = rgb(mean_1, mean_2, mean_3, maxColorValue = 255),
+#          hex_max = rgb(max_1, max_2, max_3, maxColorValue = 255),
+#          hex_min = rgb(min_1, min_2, min_3, maxColorValue = 255)) %>% 
+#   select(ID, hex_mean, hex_min, hex_max) 
+
+# cpad_strava_coarse = full_join(cpad_super, cpad_strava_coarse)
+
+# st_write(cpad_strava_coarse, here::here("data", "processed_data", "cpad_strava_coarse.shp"))
+
+# strava_coarse <- rast(here::here("data", "raw_data", "strava_coarse.tif")) %>%
+#   project("EPSG:4326")
 # 
-# write_csv(strava, here::here("data", "processed_data", "strava_cpad.csv"))
+# strava_coarse_masked = mask(strava_coarse, cpad_super)
+# 
+# writeRaster(strava_coarse_masked, here::here("data", "raw_data", "strava_coarse_masked.tif"))
