@@ -44,6 +44,10 @@ cpad_buffer <- st_read(here::here("data", "raw_data", "CPAD_2023a_SuperUnits.shp
     log_size >= 5 ~ 3
   ))
 
+cpad_super <- st_read(here::here("data", "raw_data", "CPAD_2023a_SuperUnits.shp")) %>%
+  janitor::clean_names() %>%
+  mutate(ID = row_number())
+
 # goal: determine which studies we should prioritize contacting
 # to do so...
 # 1. find the locations that are in or around protected areas (5 km buffer?)
@@ -58,11 +62,55 @@ rm(d_intersect)
 
 # 2. map the number of species, individuals, locations in each PA
 
-species_cpad = d_cpad %>% 
-  group_by(suid_nma, taxon_canonical_name, common_name, access_typ, shape_area, size_bin) %>% 
-  summarize(geometry = st_combine(geometry))
+ind_sum = d_cpad %>% 
+  st_drop_geometry() %>% 
+  group_by(suid_nma) %>% 
+  summarize(ind_count = n())
+
+species_sum = d_cpad %>% 
+  st_drop_geometry() %>% 
+  group_by(suid_nma, taxon_canonical_name) %>% 
+  summarize(count = n()) %>% 
+  group_by(suid_nma) %>% 
+  summarize(species_count = n())
+
+cpad_counts = list(ind_sum,
+                   species_sum,
+                   cpad_super) %>% 
+  reduce(full_join) %>% 
+  st_as_sf() %>% 
+  filter(!is.na(species_count))
+
+rm(cpad_super)
+
+# p1 = ggplot() +
+#   geom_sf(data = cpad_counts, aes(fill = location_count)) +
+#   theme_bw() +
+#   scale_fill_viridis_c(trans = scales::log_trans()) +
+#   labs(fill = "Number of Locations in Park")
+
+p2 = ggplot() +
+  geom_sf(data = cpad_counts, aes(fill = ind_count)) +
+  theme_bw() +
+  scale_fill_viridis_c(trans = scales::log_trans())+
+  labs(fill = "Number of Individuals in Park")
+
+p3 = ggplot() +
+  geom_sf(data = cpad_counts, aes(fill = species_count)) +
+  theme_bw() +
+  scale_fill_viridis_c()+
+  labs(fill = "Number of Species in Park")
+
+plot = p2 / p3
+
+ggsave(plot, file = paste0("movement_maps.pdf"), path = here::here("analysis", "figs"), height = 15, width = 12)
 
 # 3. summarize the number of species, individuals, locations by access type and PA size
+
+species_cpad = d_cpad %>% 
+  group_by(suid_nma, taxon_canonical_name, common_name, access_typ, shape_area, size_bin) %>% 
+  summarize(count = n(),
+            geometry = st_combine(geometry))
 
 species_access_sum = species_cpad %>% 
   st_drop_geometry() %>% 
