@@ -3,10 +3,15 @@ library(sf)
 library(EnvStats)
 library(patchwork)
 
+sf_use_s2(FALSE)
+
 cpad_extend <- st_read(here::here("data", "processed_data", "cpad_extended.shp"))
 
 access_sum <- read_csv(here::here("analysis", "access_summary.csv"))
 layer_sum <- read_csv(here::here("analysis", "mgn_type_summary.csv"))
+
+cpad_strava_coarse <- st_read(here::here("data", "processed_data", "cpad_strava_coarse.shp")) %>%
+  sf::st_transform("EPSG:4326")
 
 cpad_sub <- cpad_extend %>%
   st_drop_geometry() %>%
@@ -19,7 +24,16 @@ cpad_sub <- cpad_extend %>%
     log_size >= 5 ~ 3
   ))
 
-access_freq = 
+cpad_strava <- cpad_strava_coarse %>%
+  st_drop_geometry() %>%
+  distinct() %>%
+  mutate(log_size = log10(shape_area)) %>%
+  mutate(size_bin = case_when(
+    log_size <= 4 ~ 1,
+    log_size > 4 & log_size < 5 ~ 2,
+    log_size >= 5 ~ 3
+  )) %>% 
+  mutate(hex_mean_int = strtoi(str_remove(hex_mean, "#"), 16L))
 
 # Plots ------------------------------------------------------
 
@@ -198,6 +212,29 @@ plot3 <- p7 + p8
 
 ggsave(plot3, file = paste0("landcover_summary.pdf"), path = here::here("analysis", "figs"), height = 10, width = 12)
 
+p7 <- ggplot(data = cpad_strava) +
+  geom_boxplot(aes(x = access_typ, y = hex_mean_int)) +
+  theme_bw() +
+  coord_flip() +
+  labs(
+    y = "Strava Heat Value",
+    x = "Access Level"
+  ) +
+  stat_n_text(aes(x = access_typ, y = hex_mean_int))
+
+p8 <- ggplot(data = cpad_strava) +
+  geom_boxplot(aes(x = layer, y = hex_mean_int), outlier.shape = NA) +
+  theme_bw() +
+  coord_flip() +
+  labs(
+    y = "Strava Heat Value",
+    x = "Agency Type"
+  ) +
+  stat_n_text(aes(x = layer, y = hex_mean_int))
+
+plot3 <- p7 + p8
+
+ggsave(plot3, file = paste0("stava_summary.pdf"), path = here::here("analysis", "figs"), height = 10, width = 20)
 
 # by size plots -----------------------------------------------------------
 
@@ -232,6 +269,15 @@ p8 <- ggplot(data = cpad_sub) +
   ) +
   scale_x_log10()
 
-plot3 <- p7 + p8
+p9 <- ggplot(data = cpad_strava) +
+  geom_point(aes(x = shape_area/1000, y = scale(hex_mean_int))) +
+  theme_bw() +
+  labs(
+    y = "Strava Heat Value",
+    x = "Protected Area Size km^2"
+  ) +
+  scale_x_log10()
+
+plot3 <- p7 + p8 + p9
 
 ggsave(plot3, file = paste0("mod_size_summary.pdf"), path = here::here("analysis", "figs"), height = 10, width = 20)
