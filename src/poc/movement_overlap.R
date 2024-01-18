@@ -2,6 +2,7 @@ library(tidyverse)
 library(sf)
 library(data.table)
 library(EnvStats)
+library(mapview)
 library(patchwork)
 rm(list = ls())
 
@@ -60,18 +61,40 @@ rm(cpad_buffer)
 rm(d_sf)
 rm(d_intersect)
 
+p1 = ggplot() +
+  geom_sf(data = cpad_super, fill = "transparent", color = "lightgrey", linewidth = 0.25) +
+  geom_sf(data = d_cpad %>% filter(taxa == "mammals"), fill = "transparent", aes(color = park_name), alpha = 0.5) +
+  theme_bw() +
+  theme(legend.position = "none") + 
+  scale_color_viridis_d() +
+  labs(title = "Mammals")
+
+p2 = ggplot() +
+  geom_sf(data = cpad_super, fill = "transparent", color = "lightgrey", linewidth = 0.25) +
+  geom_sf(data = d_cpad %>% filter(taxa == "birds"), fill = "transparent", aes(color = park_name), alpha = 0.5) +
+  theme_bw() +
+  theme(legend.position = "none") + 
+  scale_color_viridis_d() +
+  labs(title = "Birds")
+
+plot = p1 + p2
+
+rm(p1, p2)
+
+ggsave(plot, file = paste0("movement_overlap.png"), path = here::here("analysis", "figs"), height = 15, width = 12)
+
+rm(plot)
+
 # 2. map the number of species, individuals, locations in each PA
 
 ind_sum = d_cpad %>% 
   st_drop_geometry() %>% 
-  group_by(suid_nma) %>% 
+  group_by(suid_nma, individual_id) %>% 
   summarize(ind_count = n())
 
 species_sum = d_cpad %>% 
   st_drop_geometry() %>% 
   group_by(suid_nma, taxon_canonical_name) %>% 
-  summarize(count = n()) %>% 
-  group_by(suid_nma) %>% 
   summarize(species_count = n())
 
 cpad_counts = list(ind_sum,
@@ -81,29 +104,8 @@ cpad_counts = list(ind_sum,
   st_as_sf() %>% 
   filter(!is.na(species_count))
 
-rm(cpad_super)
+rm(cpad_super, ind_sum, species_sum)
 
-# p1 = ggplot() +
-#   geom_sf(data = cpad_counts, aes(fill = location_count)) +
-#   theme_bw() +
-#   scale_fill_viridis_c(trans = scales::log_trans()) +
-#   labs(fill = "Number of Locations in Park")
-
-p2 = ggplot() +
-  geom_sf(data = cpad_counts, aes(fill = ind_count)) +
-  theme_bw() +
-  scale_fill_viridis_c(trans = scales::log_trans())+
-  labs(fill = "Number of Individuals in Park")
-
-p3 = ggplot() +
-  geom_sf(data = cpad_counts, aes(fill = species_count)) +
-  theme_bw() +
-  scale_fill_viridis_c()+
-  labs(fill = "Number of Species in Park")
-
-plot = p2 / p3
-
-ggsave(plot, file = paste0("movement_maps.pdf"), path = here::here("analysis", "figs"), height = 15, width = 12)
 
 # 3. summarize the number of species, individuals, locations by access type and PA size
 
@@ -112,12 +114,17 @@ species_cpad = d_cpad %>%
   summarize(count = n(),
             geometry = st_combine(geometry))
 
+ind_cpad = d_cpad %>% 
+  group_by(suid_nma, individual_id, common_name, access_typ, shape_area, size_bin) %>% 
+  summarize(count = n(),
+            geometry = st_combine(geometry))
+
 species_access_sum = species_cpad %>% 
   st_drop_geometry() %>% 
   group_by(access_typ, suid_nma) %>% 
   summarize(species_count = n()) 
 
-ind_access_sum = d_cpad %>% 
+ind_access_sum = ind_cpad %>% 
   st_drop_geometry() %>% 
   group_by(access_typ, suid_nma) %>% 
   summarize(species_count = n())
@@ -139,6 +146,8 @@ p2 = ggplot(ind_access_sum) +
 
 plot1 = p1 + p2
 plot1 
+
+rm(p1, p2)
 
 ggsave(plot1, file = paste0("species_access_summary.pdf"), path = here::here("analysis", "figs"), height = 10, width = 12)
 
@@ -173,26 +182,53 @@ p2 = ggplot(ind_size_sum) +
 plot1 = p1 + p2
 plot1 
 
+rm(p1, p2)
+
 ggsave(plot1, file = paste0("species_size_summary.pdf"), path = here::here("analysis", "figs"), height = 10, width = 12)
 
 # 4. output summary table of studies with data in or around PAs
 #     - include species name (scientific and common), number of individuals, and number of locations
 
-sum = d_cpad %>% 
+ind = d_cpad %>% 
   st_drop_geometry() %>% 
-  group_by(suid_nma, taxon_canonical_name, common_name) %>% 
-  summarize(ind_loc_count = n())
-
-species = sum %>% 
-  group_by(taxon_canonical_name, common_name) %>% 
-  summarize(ind_count = sum(ind_loc_count))
-
-locs = sum %>% 
+  group_by(suid_nma, individual_id, park_name) %>% 
+  summarize(ind_park_count = n(),
+            taxon_canonical_name = taxon_canonical_name,
+            common_name = common_name) %>% 
+  distinct() %>% 
+  group_by(individual_id) %>% 
+  mutate(ind_count = sum(ind_park_count)) %>% 
   group_by(suid_nma) %>% 
-  summarize(loc_count = sum(ind_loc_count))
+  mutate(park_count = sum(ind_park_count))
 
-sum_final = sum %>% 
-  full_join(species) %>% 
-  full_join(locs)
+species = d_cpad %>% 
+  st_drop_geometry() %>% 
+  group_by(park_name, suid_nma, taxon_canonical_name, common_name) %>% 
+  summarize(species_count = n()) 
+
+sum_final = ind %>% 
+  full_join(species)
+
+sum_cpad = full_join(cpad_super, sum_final)
 
 write_csv(sum_final, here::here("analysis", "movement_data_summary.csv"))
+
+p2 = ggplot() +
+  geom_sf(data = sum_cpad, aes(fill = park_count)) +
+  theme_bw() +
+  scale_fill_viridis_c(trans = scales::log_trans())+
+  labs(fill = "Number of Individuals in Park")
+
+p3 = ggplot() +
+  geom_sf(data = sum_cpad, aes(fill = species_count)) +
+  theme_bw() +
+  scale_fill_viridis_c(trans = scales::log_trans())+
+  labs(fill = "Number of Species in Park")
+
+plot = p2 / p3
+
+rm(p2, p3)
+
+ggsave(plot, file = paste0("movement_maps.png"), path = here::here("analysis", "figs"), height = 15, width = 12)
+
+rm(plot)
