@@ -78,13 +78,57 @@ hfp_ca = terra::extract(hfp_ca, ca, xy=TRUE) %>%
   st_as_sf(coords = c("x", "y")) %>% 
   mutate(loc = "All California")
 
-rm(hfp, hfp_cropped, ca)
+rm(hfp, hfp_cropped)
 
 hfp = list(hfp_ca, hfp_masked, cpad_hfp) %>% 
   reduce(rbind)%>% 
   st_set_crs("EPSG:4326")
 
 rm(hfp_ca, hfp_masked, cpad_hfp)
+
+# Strava ---------------------------------------------------------------------
+
+cpad_strava <- rast(here::here("data", "raw_data", "strava_coarse_masked.tif")) %>%
+  project("EPSG:4326")
+cpad_strava = terra::extract(cpad_strava, ca, xy=TRUE) %>% 
+  filter(!is.na(strava_coarse_1)) %>% 
+  mutate(hex_mean = rgb(255 - strava_coarse_1, 255 - strava_coarse_2, 255 - strava_coarse_3, maxColorValue = 255)) %>% 
+  mutate(hex_mean_int = strtoi(str_remove(hex_mean, "#"), 16L)) %>% 
+  select(hex_mean, hex_mean_int, x, y, ID) %>%
+  st_as_sf(coords = c("x", "y")) %>% 
+  mutate(loc = "Inside Protected Areas")
+
+strava <- rast(here::here("data", "raw_data", "strava_coarse.tif")) %>%
+  project("EPSG:4326")
+
+strava_cropped = crop(strava, cpad_super)
+
+strava_masked = mask(strava_cropped, cpad_super, inverse = TRUE)
+strava_masked = mask(strava_masked, ca)
+strava_masked = terra::extract(strava_masked, ca, xy=TRUE) %>% 
+  filter(!is.na(strava_coarse_1)) %>% 
+  mutate(hex_mean = rgb(255 - strava_coarse_1, 255 - strava_coarse_2, 255 - strava_coarse_3, maxColorValue = 255)) %>% 
+  mutate(hex_mean_int = strtoi(str_remove(hex_mean, "#"), 16L)) %>% 
+  select(hex_mean, hex_mean_int, x, y, ID) %>%
+  st_as_sf(coords = c("x", "y")) %>% 
+  mutate(loc = "Inside Protected Areas")
+
+strava_ca = mask(strava_cropped, ca)
+strava_ca = terra::extract(strava_ca, ca, xy=TRUE) %>% 
+  filter(!is.na(strava_coarse_1)) %>% 
+  mutate(hex_mean = rgb(255 - strava_coarse_1, 255 - strava_coarse_2, 255 - strava_coarse_3, maxColorValue = 255)) %>% 
+  mutate(hex_mean_int = strtoi(str_remove(hex_mean, "#"), 16L)) %>% 
+  select(hex_mean, hex_mean_int, x, y, ID) %>%
+  st_as_sf(coords = c("x", "y")) %>% 
+  mutate(loc = "Inside Protected Areas")
+
+rm(strava, strava_cropped, ca)
+
+strava = list(strava_ca, strava_masked, cpad_strava) %>% 
+  reduce(rbind)%>% 
+  st_set_crs("EPSG:4326")
+
+rm(strava_ca, strava_masked, cpad_strava)
 
 # distribution maps -------------------------------------------------------
 
@@ -104,10 +148,18 @@ p2 = ggplot() +
        fill = "Location")+
   scale_fill_viridis_d() 
 
-plot = p1 / p2 + plot_layout(guides = "collect")
+# p3 = ggplot() +
+#   geom_density_ridges(data = strava, aes(x = hex_mean_int, y = loc, fill = loc), alpha = 0.5, scale = 3) +
+#   theme_bw() +
+#   labs(x = "Strava Heatmap",
+#        y = "",
+#        fill = "Location")+
+#   scale_fill_viridis_d() 
+
+plot = (p1 / p2) + plot_layout(guides = "collect")
 plot
 
-ggsave(plot, file = paste0("mod_distribution.pdf"), path = here::here("analysis", "figs"), height = 10, width = 12)
+ggsave(plot, file = paste0("mod_distribution.pdf"), path = here::here("analysis", "figs"), height = 12, width = 15)
 
 # Individual PAs ----------------------------------------------------------
 
@@ -119,6 +171,7 @@ rm(cpad_super)
 
 large_pa_ghm = ghm[large_pa, ,]
 large_pa_hfp = hfp[large_pa, ,]
+large_pa_strava = strava[large_pa, ,]
 
 p1 = ggplot() +
   geom_sf(data= large_pa_ghm, aes(fill = gHM, color = gHM), size = 0.5) +
@@ -140,7 +193,17 @@ p2 = ggplot() +
   labs(color = "Human Footprint",
        fill = "Human Footprint")
 
-plot = p1 / p2 
+p3 = ggplot() +
+  geom_sf(data= large_pa_strava, aes(fill = hex_mean_int, color = hex_mean_int), size = 0.5) +
+  # geom_sf(data = large_pa, linewidth = 0.05, fill = "transparent") +
+  theme_bw() +
+  # geom_text(data = large_pa, aes(label = park_name)) 
+  scale_color_viridis_c() +
+  scale_fill_viridis_c() +
+  labs(color = "Strava Heatmap",
+       fill = "Strava Heatmap")
+
+plot = p1 / p2
 plot
 
 ggsave(plot, file = paste0("large_pa_mod.pdf"), path = here::here("analysis", "figs"), height = 15, width = 12)

@@ -68,9 +68,9 @@ st_write(cpad_strava_fine, here::here("data", "processed_data", "cpad_strava_fin
 # plotRGB(strava_coarse)
 # 
 # cpad_strava_coarse_values <- terra::extract(x = strava_coarse, y = cpad_super)
-
+# 
 # write_csv(cpad_strava_coarse_values, here::here("data", "processed_data", "strava_coarse_cpad.csv"))
-
+# 
 # cpad_strava_coarse = cpad_strava_coarse_values %>%
 #   filter(!is.na(strava_coarse_1)) %>%
 #   group_by(ID) %>%
@@ -83,13 +83,13 @@ st_write(cpad_strava_fine, here::here("data", "processed_data", "cpad_strava_fin
 #          min_1 = min(strava_coarse_1),
 #          min_2 = min(strava_coarse_2),
 #          min_3 = min(strava_coarse_3)) %>%
-#   mutate(hex_mean = rgb(255 - mean_1, 255 - mean_2, 255 - mean_3, maxColorValue = 255),
-#          hex_max = rgb(255 - max_1, 255 - max_2,255 -  max_3, maxColorValue = 255),
-#          hex_min = rgb(255 - min_1, 255 - min_2,255 -  min_3, maxColorValue = 255)) %>%
+#   mutate(hex_mean = rgb(mean_1, mean_2, mean_3, maxColorValue = 255),
+#          hex_max = rgb(max_1, max_2, max_3, maxColorValue = 255),
+#          hex_min = rgb(min_1, min_2, min_3, maxColorValue = 255)) %>%
 #   select(ID, hex_mean, hex_min, hex_max)
-
+# 
 # cpad_strava_coarse = full_join(cpad_super, cpad_strava_coarse)
-
+# 
 # st_write(cpad_strava_coarse, here::here("data", "processed_data", "cpad_strava_coarse.shp"), append = FALSE)
 
 # strava_coarse <- rast(here::here("data", "raw_data", "strava_coarse.tif")) %>%
