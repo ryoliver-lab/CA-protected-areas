@@ -92,7 +92,7 @@ cpad_strava <- rast(here::here("data", "raw_data", "strava_coarse_masked.tif")) 
   project("EPSG:4326")
 cpad_strava = terra::extract(cpad_strava, ca, xy=TRUE) %>% 
   filter(!is.na(strava_coarse_1)) %>% 
-  mutate(hex_mean = rgb(255 - strava_coarse_1, 255 - strava_coarse_2, 255 - strava_coarse_3, maxColorValue = 255)) %>% 
+  mutate(hex_mean = rgb(strava_coarse_1, strava_coarse_2, strava_coarse_3, maxColorValue = 255)) %>% 
   mutate(hex_mean_int = strtoi(str_remove(hex_mean, "#"), 16L)) %>% 
   select(hex_mean, hex_mean_int, x, y, ID) %>%
   st_as_sf(coords = c("x", "y")) %>% 
@@ -107,7 +107,7 @@ strava_masked = mask(strava_cropped, cpad_super, inverse = TRUE)
 strava_masked = mask(strava_masked, ca)
 strava_masked = terra::extract(strava_masked, ca, xy=TRUE) %>% 
   filter(!is.na(strava_coarse_1)) %>% 
-  mutate(hex_mean = rgb(255 - strava_coarse_1, 255 - strava_coarse_2, 255 - strava_coarse_3, maxColorValue = 255)) %>% 
+  mutate(hex_mean = rgb(strava_coarse_1, strava_coarse_2, strava_coarse_3, maxColorValue = 255)) %>% 
   mutate(hex_mean_int = strtoi(str_remove(hex_mean, "#"), 16L)) %>% 
   select(hex_mean, hex_mean_int, x, y, ID) %>%
   st_as_sf(coords = c("x", "y")) %>% 
@@ -116,7 +116,7 @@ strava_masked = terra::extract(strava_masked, ca, xy=TRUE) %>%
 strava_ca = mask(strava_cropped, ca)
 strava_ca = terra::extract(strava_ca, ca, xy=TRUE) %>% 
   filter(!is.na(strava_coarse_1)) %>% 
-  mutate(hex_mean = rgb(255 - strava_coarse_1, 255 - strava_coarse_2, 255 - strava_coarse_3, maxColorValue = 255)) %>% 
+  mutate(hex_mean = rgb(strava_coarse_1, strava_coarse_2, strava_coarse_3, maxColorValue = 255)) %>% 
   mutate(hex_mean_int = strtoi(str_remove(hex_mean, "#"), 16L)) %>% 
   select(hex_mean, hex_mean_int, x, y, ID) %>%
   st_as_sf(coords = c("x", "y")) %>% 
