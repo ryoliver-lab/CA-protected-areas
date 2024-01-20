@@ -111,7 +111,7 @@ strava_masked = terra::extract(strava_masked, ca, xy=TRUE) %>%
   mutate(hex_mean_int = strtoi(str_remove(hex_mean, "#"), 16L)) %>% 
   select(hex_mean, hex_mean_int, x, y, ID) %>%
   st_as_sf(coords = c("x", "y")) %>% 
-  mutate(loc = "Inside Protected Areas")
+  mutate(loc = "Outside Protected Areas")
 
 strava_ca = mask(strava_cropped, ca)
 strava_ca = terra::extract(strava_ca, ca, xy=TRUE) %>% 
@@ -120,7 +120,7 @@ strava_ca = terra::extract(strava_ca, ca, xy=TRUE) %>%
   mutate(hex_mean_int = strtoi(str_remove(hex_mean, "#"), 16L)) %>% 
   select(hex_mean, hex_mean_int, x, y, ID) %>%
   st_as_sf(coords = c("x", "y")) %>% 
-  mutate(loc = "Inside Protected Areas")
+  mutate(loc = "All California")
 
 rm(strava, strava_cropped, ca)
 
@@ -148,18 +148,90 @@ p2 = ggplot() +
        fill = "Location")+
   scale_fill_viridis_d() 
 
-# p3 = ggplot() +
-#   geom_density_ridges(data = strava, aes(x = hex_mean_int, y = loc, fill = loc), alpha = 0.5, scale = 3) +
-#   theme_bw() +
-#   labs(x = "Strava Heatmap",
-#        y = "",
-#        fill = "Location")+
-#   scale_fill_viridis_d() 
+p3 = ggplot() +
+  geom_density_ridges(data = strava, aes(x = hex_mean_int, y = loc, fill = loc), alpha = 0.5, scale = 3) +
+  theme_bw() +
+  labs(x = "Strava Heatmap",
+       y = "",
+       fill = "Location")+
+  scale_fill_viridis_d()
 
-plot = (p1 / p2) + plot_layout(guides = "collect")
+plot = (p1 / p2 / p3) + plot_layout(guides = "collect")
 plot
 
 ggsave(plot, file = paste0("mod_distribution.pdf"), path = here::here("analysis", "figs"), height = 12, width = 15)
+
+# all PAs -----------------------------------------------------------------
+
+p1 = ggplot() +
+  geom_sf(data= ghm %>% filter(loc == "All California"), aes(fill = gHM, color = gHM), size = 0.5) +
+  # geom_sf(data = large_pa, linewidth = 0.05, fill = "transparent") +
+  theme_bw() +
+  # geom_text(data = large_pa, aes(label = park_name)) 
+  scale_color_viridis_c(breaks = c(0, 0.25, 0.5, 0.75, 1)) +
+  scale_fill_viridis_c(breaks = c(0, 0.25, 0.5, 0.75, 1)) +
+  labs(color = "Global Modification",
+       fill = "Global Modification")
+
+p2 = ggplot() +
+  geom_sf(data= hfp %>% filter(loc == "All California"), aes(fill = HFP2009, color = HFP2009), size = 0.5) +
+  # geom_sf(data = large_pa, linewidth = 0.05, fill = "transparent") +
+  theme_bw() +
+  # geom_text(data = large_pa, aes(label = park_name)) 
+  scale_color_viridis_c() +
+  scale_fill_viridis_c() +
+  labs(color = "Human Footprint",
+       fill = "Human Footprint")
+
+p3 = ggplot() +
+  geom_sf(data= strava %>% filter(loc == "All California"), aes(fill = hex_mean_int, color = hex_mean_int), size = 0.5) +
+  # geom_sf(data = large_pa, linewidth = 0.05, fill = "transparent") +
+  theme_bw() +
+  # geom_text(data = large_pa, aes(label = park_name)) 
+  scale_color_viridis_c() +
+  scale_fill_viridis_c() +
+  labs(color = "Strava Heatmap",
+       fill = "Strava Heatmap")
+
+plot = p1 / p2 / p3
+plot
+
+ggsave(plot, file = paste0("mod_all_ca.pdf"), path = here::here("analysis", "figs"), height = 15, width = 12)
+
+p1 = ggplot() +
+  geom_sf(data= ghm %>% filter(loc == "Inside Protected Areas"), aes(fill = gHM, color = gHM), size = 0.5) +
+  # geom_sf(data = large_pa, linewidth = 0.05, fill = "transparent") +
+  theme_bw() +
+  # geom_text(data = large_pa, aes(label = park_name)) 
+  scale_color_viridis_c(breaks = c(0, 0.25, 0.5, 0.75, 1)) +
+  scale_fill_viridis_c(breaks = c(0, 0.25, 0.5, 0.75, 1)) +
+  labs(color = "Global Modification",
+       fill = "Global Modification")
+
+p2 = ggplot() +
+  geom_sf(data= hfp %>% filter(loc == "Inside Protected Areas"), aes(fill = HFP2009, color = HFP2009), size = 0.5) +
+  # geom_sf(data = large_pa, linewidth = 0.05, fill = "transparent") +
+  theme_bw() +
+  # geom_text(data = large_pa, aes(label = park_name)) 
+  scale_color_viridis_c() +
+  scale_fill_viridis_c() +
+  labs(color = "Human Footprint",
+       fill = "Human Footprint")
+
+p3 = ggplot() +
+  geom_sf(data= strava %>% filter(loc == "Inside Protected Areas"), aes(fill = hex_mean_int, color = hex_mean_int), size = 0.5) +
+  # geom_sf(data = large_pa, linewidth = 0.05, fill = "transparent") +
+  theme_bw() +
+  # geom_text(data = large_pa, aes(label = park_name)) 
+  scale_color_viridis_c() +
+  scale_fill_viridis_c() +
+  labs(color = "Strava Heatmap",
+       fill = "Strava Heatmap")
+
+plot = p1 / p2 / p3
+plot
+
+ggsave(plot, file = paste0("mod_all_pa.pdf"), path = here::here("analysis", "figs"), height = 15, width = 12)
 
 # Individual PAs ----------------------------------------------------------
 
@@ -197,13 +269,13 @@ p3 = ggplot() +
   geom_sf(data= large_pa_strava, aes(fill = hex_mean_int, color = hex_mean_int), size = 0.5) +
   # geom_sf(data = large_pa, linewidth = 0.05, fill = "transparent") +
   theme_bw() +
-  # geom_text(data = large_pa, aes(label = park_name)) 
+  # geom_text(data = large_pa, aes(label = park_name))
   scale_color_viridis_c() +
   scale_fill_viridis_c() +
   labs(color = "Strava Heatmap",
        fill = "Strava Heatmap")
 
-plot = p1 / p2
+plot = p1 / p2 / p3
 plot
 
 ggsave(plot, file = paste0("large_pa_mod.pdf"), path = here::here("analysis", "figs"), height = 15, width = 12)

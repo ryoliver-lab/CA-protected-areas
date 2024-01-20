@@ -85,28 +85,6 @@ ggsave(plot, file = paste0("movement_overlap.png"), path = here::here("analysis"
 
 rm(plot)
 
-# 2. map the number of species, individuals, locations in each PA
-
-ind_sum = d_cpad %>% 
-  st_drop_geometry() %>% 
-  group_by(suid_nma, individual_id) %>% 
-  summarize(ind_count = n())
-
-species_sum = d_cpad %>% 
-  st_drop_geometry() %>% 
-  group_by(suid_nma, taxon_canonical_name) %>% 
-  summarize(species_count = n())
-
-cpad_counts = list(ind_sum,
-                   species_sum,
-                   cpad_super) %>% 
-  reduce(full_join) %>% 
-  st_as_sf() %>% 
-  filter(!is.na(species_count))
-
-rm(cpad_super, ind_sum, species_sum)
-
-
 # 3. summarize the number of species, individuals, locations by access type and PA size
 
 species_cpad = d_cpad %>% 
@@ -191,25 +169,30 @@ ggsave(plot1, file = paste0("species_size_summary.pdf"), path = here::here("anal
 
 ind = d_cpad %>% 
   st_drop_geometry() %>% 
+  select(suid_nma, individual_id, park_name, taxon_canonical_name, common_name) %>% 
+  distinct() %>% 
   group_by(suid_nma, individual_id, park_name) %>% 
   summarize(ind_park_count = n(),
             taxon_canonical_name = taxon_canonical_name,
             common_name = common_name) %>% 
   distinct() %>% 
   group_by(individual_id) %>% 
-  mutate(ind_count = sum(ind_park_count)) %>% 
+  mutate(ind_count = n()) %>% 
   group_by(suid_nma) %>% 
   mutate(park_count = sum(ind_park_count))
 
 species = d_cpad %>% 
   st_drop_geometry() %>% 
+  select(suid_nma, individual_id, park_name, taxon_canonical_name, common_name) %>% 
+  distinct() %>% 
   group_by(park_name, suid_nma, taxon_canonical_name, common_name) %>% 
   summarize(species_count = n()) 
 
 sum_final = ind %>% 
   full_join(species)
 
-sum_cpad = full_join(cpad_super, sum_final)
+sum_cpad = full_join(cpad_super, sum_final) %>% 
+  filter(!is.na(park_count))
 
 write_csv(sum_final, here::here("analysis", "movement_data_summary.csv"))
 
@@ -225,10 +208,10 @@ p3 = ggplot() +
   scale_fill_viridis_c(trans = scales::log_trans())+
   labs(fill = "Number of Species in Park")
 
-plot = p2 / p3
+plot = p2 + p3
 
 rm(p2, p3)
 
-ggsave(plot, file = paste0("movement_maps.png"), path = here::here("analysis", "figs"), height = 15, width = 12)
+ggsave(plot, file = paste0("movement_maps.png"), path = here::here("analysis", "figs"), height = 10, width = 20)
 
 rm(plot)
