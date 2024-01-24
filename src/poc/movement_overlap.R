@@ -197,13 +197,13 @@ sum_cpad = full_join(cpad_super, sum_final) %>%
 write_csv(sum_final, here::here("analysis", "movement_data_summary.csv"))
 
 p2 = ggplot() +
-  geom_sf(data = sum_cpad, aes(fill = park_count)) +
+  geom_sf(data = sum_cpad, aes(fill = park_count), linewidth = 0.2) +
   theme_bw() +
   scale_fill_viridis_c(trans = scales::log_trans())+
   labs(fill = "Number of Individuals in Park")
 
 p3 = ggplot() +
-  geom_sf(data = sum_cpad, aes(fill = species_count)) +
+  geom_sf(data = sum_cpad, aes(fill = species_count), linewidth = 0.2) +
   theme_bw() +
   scale_fill_viridis_c(trans = scales::log_trans())+
   labs(fill = "Number of Species in Park")
