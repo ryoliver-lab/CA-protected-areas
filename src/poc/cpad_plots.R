@@ -13,6 +13,8 @@ layer_sum <- read_csv(here::here("analysis", "mgn_type_summary.csv"))
 cpad_strava_coarse <- st_read(here::here("data", "processed_data", "cpad_strava_coarse.shp")) %>%
   sf::st_transform("EPSG:4326")
 
+cpad_safegraph = st_read(here::here("data", "processed_data", "safegraph.shp"))
+
 cpad_sub <- cpad_extend %>%
   st_drop_geometry() %>%
   select(-freq_LRO, -freq_LC, -LC, -LRO) %>%
@@ -35,83 +37,10 @@ cpad_strava <- cpad_strava_coarse %>%
   )) %>% 
   mutate(hex_mean_int = strtoi(str_remove(hex_mean, "#"), 16L))
 
-# Plots ------------------------------------------------------
-
-# p1 <- ggplot(data = cpad_extend) +
-#   geom_sf(aes(color = gHM_min, fill = gHM_min)) +
-#   theme_bw()
-# 
-# p2 <- ggplot(data = cpad_extend) +
-#   geom_sf(aes(color = gHM_mean, fill = gHM_mean)) +
-#   theme_bw()
-# 
-# p3 <- ggplot(data = cpad_extend) +
-#   geom_sf(aes(color = gHM_max, fill = gHM_max)) +
-#   theme_bw()
-# 
-# p4 <- ggplot(data = cpad_extend) +
-#   geom_sf(aes(color = gHM_median, fill = gHM_median)) +
-#   theme_bw()
-# 
-# p5 <- ggplot(data = cpad_extend) +
-#   geom_sf(aes(color = gHM_range, fill = gHM_range)) +
-#   theme_bw()
-# 
-# p6 <- ggplot(data = cpad_extend) +
-#   geom_sf(aes(color = gHM_sd, fill = gHM_sd)) +
-#   theme_bw()
-# 
-# plot1 <- p2 + p6
-# 
-# plot2 <- p1 + p4 + p3 + p5
-# 
-# ggsave(plot1, file = paste0("plot1.1.pdf"), path = here::here("analysis", "figs"), height = 10, width = 12)
-# ggsave(plot2, file = paste0("plot2.1.pdf"), path = here::here("analysis", "figs"), height = 10, width = 12)
-# 
-# p1 <- ggplot(data = cpad_extend) +
-#   geom_sf(aes(color = hfp_min, fill = HFP_min)) +
-#   theme_bw()
-# 
-# p2 <- ggplot(data = cpad_extend) +
-#   geom_sf(aes(color = hfp_mean, fill = HFP_mean)) +
-#   theme_bw()
-# 
-# p3 <- ggplot(data = cpad_extend) +
-#   geom_sf(aes(color = hfp_max, fill = HFP_max)) +
-#   theme_bw()
-# 
-# p4 <- ggplot(data = cpad_extend) +
-#   geom_sf(aes(color = hfp_median, fill = HFP_median)) +
-#   theme_bw()
-# 
-# p5 <- ggplot(data = cpad_extend) +
-#   geom_sf(aes(color = hfp_range, fill = HFP_range)) +
-#   theme_bw()
-# 
-# p6 <- ggplot(data = cpad_extend) +
-#   geom_sf(aes(color = hfp_sd, fill = HFP_sd)) +
-#   theme_bw()
-# 
-# plot1 <- p2 + p6
-# 
-# plot2 <- p1 + p4 + p3 + p5
-# 
-# ggsave(plot1, file = paste0("plot1.2.pdf"), path = here::here("analysis", "figs"), height = 10, width = 12)
-# ggsave(plot2, file = paste0("plot2.2.pdf"), path = here::here("analysis", "figs"), height = 10, width = 12)
-# 
-# p1 <- ggplot(data = cpad_extend) +
-#   geom_sf(aes(color = freq_lro)) +
-#   facet_wrap(~lro) +
-#   theme_bw()
-# 
-# ggsave(p1, file = paste0("plot3.1.pdf"), path = here::here("analysis", "figs"), height = 10, width = 12)
-# 
-# p1 <- ggplot(data = cpad_extend) +
-#   geom_sf(aes(color = freq_lc)) +
-#   facet_wrap(~lc) +
-#   theme_bw()
-# 
-# ggsave(p1, file = paste0("plot3.2.pdf"), path = here::here("analysis", "figs"), height = 10, width = 12)
+yearly_park_count = cpad_safegraph %>% 
+  group_by(suid_nm, year) %>% 
+  mutate(park_count = weighted.mean(mean_count, combo_r, na.rm = TRUE),
+            geometry = st_union(geometry)) #average of count weighted by combo_r
 
 # Summary Plots -----------------------------------------------------------
 
@@ -236,6 +165,34 @@ plot3 <- p7 + p8
 
 ggsave(plot3, file = paste0("stava_summary.pdf"), path = here::here("analysis", "figs"), height = 10, width = 20)
 
+p7 <- ggplot(data = yearly_park_count %>% filter(!is.na(accss_t))) +
+  geom_boxplot(aes(x = accss_t, y = park_count)) +
+  theme_bw() +
+  coord_flip() +
+  scale_y_log10() +
+  labs(
+    y = "SafeGraph Mobile Counts",
+    x = "Access Level"
+  ) +
+  stat_n_text(aes(x = accss_t, y = park_count)) +
+  facet_wrap(~year)
+
+p8 <- ggplot(data = yearly_park_count %>% filter(!is.na(layer))) +
+  geom_boxplot(aes(x = layer, y = park_count), outlier.shape = NA) +
+  theme_bw() +
+  coord_flip() +
+  scale_y_log10() +
+  labs(
+    y = "SafeGraph Mobile Counts",
+    x = "Agency Type"
+  ) +
+  stat_n_text(aes(x = layer, y = park_count))+
+  facet_wrap(~year)
+
+plot3 <- p7 / p8
+
+ggsave(plot3, file = paste0("safegraph_summary.pdf"), path = here::here("analysis", "figs"), height = 15, width = 20)
+
 # by size plots -----------------------------------------------------------
 
 p7 <- ggplot(data = cpad_sub) +
@@ -284,13 +241,30 @@ p9 <- ggplot(data = cpad_strava) +
   scale_x_log10()+
   scale_color_viridis_d()
 
-plot3 <- p7 / p8 / p9 + plot_layout(guides = "collect")
+p10 <- ggplot(data = yearly_park_count) +
+  geom_point(aes(x = shape_r/1000, y = park_count, color = accss_t)) +
+  theme_bw() +
+  labs(
+    y = "SafeGraph Mobile Counts",
+    x = "Protected Area Size km^2",
+    color = "Access"
+  ) +
+  scale_x_log10()+
+  scale_y_log10()+
+  scale_color_viridis_d()+
+  facet_wrap(~year)
 
-ggsave(plot3, file = paste0("mod_size_summary.pdf"), path = here::here("analysis", "figs"), height = 10, width = 20)
+plot3 <- p7 / p8 / p9 / p10 + plot_layout(guides = "collect")
+
+ggsave(plot3, file = paste0("mod_size_summary.pdf"), path = here::here("analysis", "figs"), height = 15, width = 20)
 
 comb_data = cpad_strava %>% 
   select(hex_mean_int, suid_nma) %>% 
   full_join(cpad_sub)
+comb_data2 = yearly_park_count %>% 
+  select(park_count, suid_nm) %>% 
+  rename(suid_nma = suid_nm) %>% 
+  full_join(comb_data)
 
 p1 = ggplot(data = comb_data) +
   geom_point(aes(gHM_mean, hex_mean_int)) +
@@ -311,6 +285,28 @@ plot3 <- p1 + p2
 ggsave(plot3, file = paste0("mod_vs_strava.pdf"), path = here::here("analysis", "figs"), height = 10, width = 20)
 
 
+p1 = ggplot(data = comb_data2) +
+  geom_point(aes(gHM_mean, park_count)) +
+  labs(
+    x = "Global Human Modification",
+    y = "SafeGraph Mobile Counts") +
+  theme_bw() +
+  scale_y_log10() +
+  facet_wrap(~year)
+
+p2 = ggplot(data = comb_data2) +
+  geom_point(aes(HFP_mean, park_count))+
+  labs(
+    x = "Human Footprint Index",
+    y = "SafeGraph Mobile Counts") +
+  theme_bw() +
+  scale_y_log10() +
+  facet_wrap(~year)
+
+plot3 <- p1 / p2
+
+ggsave(plot3, file = paste0("mod_vs_safegraph.pdf"), path = here::here("analysis", "figs"), height = 10, width = 20)
+
 # Access Individual -------------------------------------------------------
 
 p = ggplot(cpad_extend) +
@@ -329,3 +325,81 @@ access = cpad_extend %>%
   distinct()
 
 write_csv(access, here::here("analysis", "parks_by_access.csv"))
+
+# Plots ------------------------------------------------------
+
+# p1 <- ggplot(data = cpad_extend) +
+#   geom_sf(aes(color = gHM_min, fill = gHM_min)) +
+#   theme_bw()
+# 
+# p2 <- ggplot(data = cpad_extend) +
+#   geom_sf(aes(color = gHM_mean, fill = gHM_mean)) +
+#   theme_bw()
+# 
+# p3 <- ggplot(data = cpad_extend) +
+#   geom_sf(aes(color = gHM_max, fill = gHM_max)) +
+#   theme_bw()
+# 
+# p4 <- ggplot(data = cpad_extend) +
+#   geom_sf(aes(color = gHM_median, fill = gHM_median)) +
+#   theme_bw()
+# 
+# p5 <- ggplot(data = cpad_extend) +
+#   geom_sf(aes(color = gHM_range, fill = gHM_range)) +
+#   theme_bw()
+# 
+# p6 <- ggplot(data = cpad_extend) +
+#   geom_sf(aes(color = gHM_sd, fill = gHM_sd)) +
+#   theme_bw()
+# 
+# plot1 <- p2 + p6
+# 
+# plot2 <- p1 + p4 + p3 + p5
+# 
+# ggsave(plot1, file = paste0("plot1.1.pdf"), path = here::here("analysis", "figs"), height = 10, width = 12)
+# ggsave(plot2, file = paste0("plot2.1.pdf"), path = here::here("analysis", "figs"), height = 10, width = 12)
+# 
+# p1 <- ggplot(data = cpad_extend) +
+#   geom_sf(aes(color = hfp_min, fill = HFP_min)) +
+#   theme_bw()
+# 
+# p2 <- ggplot(data = cpad_extend) +
+#   geom_sf(aes(color = hfp_mean, fill = HFP_mean)) +
+#   theme_bw()
+# 
+# p3 <- ggplot(data = cpad_extend) +
+#   geom_sf(aes(color = hfp_max, fill = HFP_max)) +
+#   theme_bw()
+# 
+# p4 <- ggplot(data = cpad_extend) +
+#   geom_sf(aes(color = hfp_median, fill = HFP_median)) +
+#   theme_bw()
+# 
+# p5 <- ggplot(data = cpad_extend) +
+#   geom_sf(aes(color = hfp_range, fill = HFP_range)) +
+#   theme_bw()
+# 
+# p6 <- ggplot(data = cpad_extend) +
+#   geom_sf(aes(color = hfp_sd, fill = HFP_sd)) +
+#   theme_bw()
+# 
+# plot1 <- p2 + p6
+# 
+# plot2 <- p1 + p4 + p3 + p5
+# 
+# ggsave(plot1, file = paste0("plot1.2.pdf"), path = here::here("analysis", "figs"), height = 10, width = 12)
+# ggsave(plot2, file = paste0("plot2.2.pdf"), path = here::here("analysis", "figs"), height = 10, width = 12)
+# 
+# p1 <- ggplot(data = cpad_extend) +
+#   geom_sf(aes(color = freq_lro)) +
+#   facet_wrap(~lro) +
+#   theme_bw()
+# 
+# ggsave(p1, file = paste0("plot3.1.pdf"), path = here::here("analysis", "figs"), height = 10, width = 12)
+# 
+# p1 <- ggplot(data = cpad_extend) +
+#   geom_sf(aes(color = freq_lc)) +
+#   facet_wrap(~lc) +
+#   theme_bw()
+# 
+# ggsave(p1, file = paste0("plot3.2.pdf"), path = here::here("analysis", "figs"), height = 10, width = 12)
