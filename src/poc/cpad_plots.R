@@ -264,7 +264,8 @@ comb_data = cpad_strava %>%
 comb_data2 = yearly_park_count %>% 
   select(park_count, suid_nm, year) %>% 
   rename(suid_nma = suid_nm) %>% 
-  full_join(comb_data)
+  full_join(comb_data) %>% 
+  filter(!is.na(year))
 
 p1 = ggplot(data = comb_data) +
   geom_point(aes(gHM_mean, hex_mean_int)) +
