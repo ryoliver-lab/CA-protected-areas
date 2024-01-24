@@ -262,7 +262,7 @@ comb_data = cpad_strava %>%
   select(hex_mean_int, suid_nma) %>% 
   full_join(cpad_sub)
 comb_data2 = yearly_park_count %>% 
-  select(park_count, suid_nm) %>% 
+  select(park_count, suid_nm, year) %>% 
   rename(suid_nma = suid_nm) %>% 
   full_join(comb_data)
 
