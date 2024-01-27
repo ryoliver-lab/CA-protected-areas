@@ -11,7 +11,8 @@ sf_use_s2(FALSE)
 cpad_super <- st_read(here::here("data", "raw_data", "CPAD_2023a_SuperUnits.shp")) %>%
   sf::st_transform("EPSG:4326") %>%
   janitor::clean_names() %>%
-  mutate(ID = row_number())
+  mutate(ID = row_number()) %>% 
+  filter(park_name != "BLM")
 
 ca = st_read(here::here("data", "raw_data", "CA_State_TIGER2016.shp")) %>%
   sf::st_transform("EPSG:4326")
@@ -20,7 +21,7 @@ ca = st_read(here::here("data", "raw_data", "CA_State_TIGER2016.shp")) %>%
 
 cpad_ghm <- rast(here::here("data", "processed_data", "gHM_masked.tif"))  %>%
   project("EPSG:4326")
-cpad_ghm = terra::extract(cpad_ghm, ca, xy=TRUE) %>% 
+cpad_ghm = terra::extract(cpad_ghm, cpad_super, xy=TRUE) %>% 
   filter(!is.na(gHM)) %>%
   st_as_sf(coords = c("x", "y")) %>% 
   mutate(loc = "Inside Protected Areas")
@@ -55,7 +56,7 @@ rm(ghm_ca, ghm_masked, cpad_ghm)
 
 cpad_hfp <- rast(here::here("data", "processed_data", "HFP2009_masked.tif")) %>%
   project("EPSG:4326")
-cpad_hfp = terra::extract(cpad_hfp, ca, xy=TRUE) %>% 
+cpad_hfp = terra::extract(cpad_hfp, cpad_super, xy=TRUE) %>% 
   filter(!is.na(HFP2009)) %>%
   st_as_sf(coords = c("x", "y")) %>% 
   mutate(loc = "Inside Protected Areas")
@@ -90,7 +91,7 @@ rm(hfp_ca, hfp_masked, cpad_hfp)
 
 cpad_strava <- rast(here::here("data", "raw_data", "strava_coarse_masked.tif")) %>%
   project("EPSG:4326")
-cpad_strava = terra::extract(cpad_strava, ca, xy=TRUE) %>% 
+cpad_strava = terra::extract(cpad_strava, cpad_super, xy=TRUE) %>% 
   filter(!is.na(strava_coarse_1)) %>% 
   mutate(hex_mean = rgb(strava_coarse_1, strava_coarse_2, strava_coarse_3, maxColorValue = 255)) %>% 
   mutate(hex_mean_int = strtoi(str_remove(hex_mean, "#"), 16L)) %>% 
@@ -134,7 +135,7 @@ rm(strava_ca, strava_masked, cpad_strava)
 
 p1 = ggplot() +
   geom_density_ridges(data = ghm, aes(x = gHM, y = loc, fill = loc), alpha = 0.5, scale = 3) +
-  theme_bw() +
+  theme_bw(base_size = 2-) +
   labs(x = "Global Human Modification",
        y = "",
        fill = "Location")+

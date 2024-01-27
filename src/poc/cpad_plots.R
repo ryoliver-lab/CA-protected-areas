@@ -39,7 +39,7 @@ cpad_strava <- cpad_strava_coarse %>%
 
 yearly_park_count = cpad_safegraph %>% 
   group_by(suid_nm, year) %>% 
-  mutate(park_count = weighted.mean(mean_count, combo_r, na.rm = TRUE),
+  mutate(park_count = weighted.mean(norm_count, combo_r, na.rm = TRUE),
             geometry = st_union(geometry)) #average of count weighted by combo_r
 
 # Summary Plots -----------------------------------------------------------
@@ -197,7 +197,7 @@ ggsave(plot3, file = paste0("safegraph_summary.pdf"), path = here::here("analysi
 
 p7 <- ggplot(data = cpad_sub) +
   geom_boxplot(aes(x = access_typ, y = shape_area/1000)) +
-  theme_bw() +
+  theme_bw(base_size = 20) +
   coord_flip() +
   labs(
     y = "Protected Area Size km^2",
@@ -210,7 +210,7 @@ ggsave(p7, file = paste0("access_size_summary.pdf"), path = here::here("analysis
 
 p7 <- ggplot(data = cpad_sub) +
   geom_point(aes(x = shape_area/1000, y = gHM_mean, color = access_typ)) +
-  theme_bw() +
+  theme_bw(base_size = 20) +
   labs(
     y = "Global Human Modification",
     x = "Protected Area Size km^2",
@@ -221,7 +221,7 @@ p7 <- ggplot(data = cpad_sub) +
 
 p8 <- ggplot(data = cpad_sub) +
   geom_point(aes(x = shape_area/1000, y = HFP_mean, color = access_typ)) +
-  theme_bw() +
+  theme_bw(base_size = 20) +
   labs(
     y = "Human Footprint Index",
     x = "Protected Area Size km^2",
@@ -232,7 +232,7 @@ p8 <- ggplot(data = cpad_sub) +
 
 p9 <- ggplot(data = cpad_strava) +
   geom_point(aes(x = shape_area/1000, y = hex_mean_int, color = access_typ)) +
-  theme_bw() +
+  theme_bw(base_size = 20) +
   labs(
     y = "Strava Heatmap",
     x = "Protected Area Size km^2",
@@ -243,7 +243,7 @@ p9 <- ggplot(data = cpad_strava) +
 
 p10 <- ggplot(data = yearly_park_count) +
   geom_point(aes(x = shape_r/1000, y = park_count, color = accss_t)) +
-  theme_bw() +
+  theme_bw(base_size = 20) +
   labs(
     y = "SafeGraph Mobile Counts",
     x = "Protected Area Size km^2",
@@ -291,7 +291,7 @@ p1 = ggplot(data = comb_data2) +
   labs(
     x = "Global Human Modification",
     y = "SafeGraph Mobile Counts") +
-  theme_bw() +
+  theme_bw(base_size = 20) +
   scale_y_log10() +
   facet_wrap(~year)
 
@@ -300,7 +300,7 @@ p2 = ggplot(data = comb_data2) +
   labs(
     x = "Human Footprint Index",
     y = "SafeGraph Mobile Counts") +
-  theme_bw() +
+  theme_bw(base_size = 20) +
   scale_y_log10() +
   facet_wrap(~year)
 

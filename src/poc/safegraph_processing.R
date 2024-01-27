@@ -25,7 +25,7 @@ list_of_files <- list.files(path = here::here("data", "raw_data", "counties-date
 
 safegraph <- read_csv(list_of_files, id = "file_name") %>% 
   select(-file_name) %>% 
-  mutate(year = lubridate::year(date)) 
+  mutate(year = lubridate::year(date))
 
 safegraph_mean = safegraph  %>% 
   group_by(cbg, year) %>% 
@@ -34,10 +34,15 @@ safegraph_mean = safegraph  %>%
 # combine census and safegraph --------------------------------------------
 
 safegraph_sf = left_join(safegraph_mean, cpad_census) %>% 
-  st_as_sf()
+  st_as_sf() %>% 
+  filter(park_nm != "BLM")%>% 
+  mutate(norm_count = mean_count / censs_r) 
 
 safegraph_full_sf = left_join(safegraph, ca_census) %>% 
-  st_as_sf()
+  st_as_sf()  %>% 
+  filter(cbg %in% safegraph_sf$cbg) %>% 
+  mutate(censs_r = units::drop_units(st_area(Shape)))%>% 
+  mutate(norm_count = count / censs_r)
 
 rm(cpad_census, ca_census, list_of_files, safegraph, safegraph_mean)
 
@@ -46,17 +51,17 @@ rm(cpad_census, ca_census, list_of_files, safegraph, safegraph_mean)
 
 yearly_park_count = safegraph_sf %>% 
   group_by(suid_nm, year) %>% 
-  summarize(park_count = weighted.mean(mean_count, combo_r, na.rm = TRUE),
+  summarize(park_count = weighted.mean(norm_count, combo_r, na.rm = TRUE),
             geometry = st_union(geometry)) #average of count weighted by combo_r
 
 p1 = ggplot(yearly_park_count) +
   geom_sf(aes(fill = park_count, color = park_count)) +
-  theme_bw(base_size = 20) +
+  theme_bw() +
   labs(fill = "Mobile Device Counts",
        color = "Mobile Device Counts") +
   facet_wrap(~year) +
-  scale_fill_viridis_c(trans = scales::pseudo_log_trans(sigma = 0.001)) +
-  scale_color_viridis_c(trans = scales::pseudo_log_trans(sigma = 0.001))
+  scale_fill_viridis_c(trans = scales::pseudo_log_trans(sigma = 0.00000001)) +
+  scale_color_viridis_c(trans = scales::pseudo_log_trans(sigma = 0.00000001))
 
 ggsave(p1, file = paste0("safegraph.pdf"), path = here::here("analysis", "figs"), height = 10, width = 15)
 
@@ -82,18 +87,18 @@ ggsave(p2, file = paste0("safegraph_year.pdf"), path = here::here("analysis", "f
 state_mean = safegraph_full_sf %>% 
   st_drop_geometry() %>% 
   group_by(date,year) %>% 
-  summarise(mean_count = mean(count, na.rm = TRUE)) %>% 
+  summarise(mean_count = mean(norm_count, na.rm = TRUE)) %>% 
   mutate(loc= "All California")
 
 census_inside = st_intersection(safegraph_full_sf, cpad_super)%>% 
   st_drop_geometry() %>% 
   group_by(date,year) %>% 
-  summarise(mean_count = mean(count, na.rm = TRUE))%>% 
+  summarise(mean_count = mean(norm_count, na.rm = TRUE))%>% 
   mutate(loc = "Inside Protected Areas")
 census_outside = st_sym_difference(safegraph_full_sf, cpad_super)%>% 
   st_drop_geometry() %>% 
   group_by(date,year) %>% 
-  summarise(mean_count = mean(count, na.rm = TRUE))%>% 
+  summarise(mean_count = mean(norm_count, na.rm = TRUE))%>% 
   mutate(loc = "Outside Protected Areas")
 
 census_mean = list(state_mean, census_inside) %>% 
