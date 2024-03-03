@@ -33,6 +33,7 @@ ghm_cropped = crop(ghm, cpad_super)
 
 ghm_masked = mask(ghm_cropped, cpad_super, inverse = TRUE)
 ghm_masked = mask(ghm_masked, ca)
+
 ghm_masked = terra::extract(ghm_masked, ca, xy=TRUE) %>% 
   filter(!is.na(gHM)) %>%
   st_as_sf(coords = c("x", "y")) %>% 

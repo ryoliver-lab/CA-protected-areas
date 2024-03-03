@@ -29,14 +29,16 @@ safegraph <- read_csv(list_of_files, id = "file_name") %>%
 
 safegraph_mean = safegraph  %>% 
   group_by(cbg, year) %>% 
-  summarise(mean_count = mean(count))
+  summarise(mean_count = mean(count),
+            sd_count = sd(count),
+            max_count = max(count),
+            min_count = min(count),
+            cv_count = sd_count /mean_count)
 
 # combine census and safegraph --------------------------------------------
 
 safegraph_sf = left_join(safegraph_mean, cpad_census) %>% 
-  st_as_sf() %>% 
-  filter(park_nm != "BLM")%>% 
-  mutate(norm_count = mean_count / censs_r) 
+  st_as_sf() 
 
 safegraph_full_sf = left_join(safegraph, ca_census) %>% 
   st_as_sf()  %>% 
