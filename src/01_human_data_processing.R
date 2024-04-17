@@ -1,5 +1,4 @@
 library(tidyverse)
-library(patchwork)
 library(sf)
 library(terra)
 library(tidycensus)
@@ -14,9 +13,6 @@ cpad_super <- st_read(here::here("data", "raw_data", "CPAD_2023a_SuperUnits.shp"
   janitor::clean_names() %>%
   mutate(ID = row_number())
 
-cpad_geom <- cpad_super %>%
-  select(ID)
-
 census_block <- get_decennial(
   state = "CA",
   geography = "block",
@@ -26,8 +22,11 @@ census_block <- get_decennial(
 ) %>%
   mutate(census_block_area = units::drop_units(st_area(geometry))) %>%
   select(-variable, -NAME) %>%
-  sf::st_transform("EPSG:4326") %>% 
+  sf::st_transform("EPSG:4326") %>%
   st_buffer(dist = 0)
+
+block <- census_block %>%
+  st_drop_geometry()
 
 census_blockgroup <- get_decennial(
   state = "CA",
@@ -62,17 +61,17 @@ cpad_ghm <- full_join(cpad_super, cpad_ghm_summary) %>%
   mutate(
     gHM_range = gHM_max - gHM_min,
     gHM_cv = gHM_sd / gHM_mean
-  ) %>% 
+  ) %>%
   mutate(gHM_sd = case_when(
     !is.na(gHM_sd) ~ gHM_sd,
     is.na(gHM_sd) ~ 0
-  )) %>% 
+  )) %>%
   mutate(gHM_cv = case_when(
     !is.na(gHM_cv) ~ gHM_cv,
     is.na(gHM_cv) ~ 0
   ))
 
-st_write(cpad_ghm,here::here("data", "processed_data", "cpad_ghm.shp"))
+st_write(cpad_ghm, here::here("data", "processed_data", "cpad_ghm.shp"))
 
 rm(ghm_masked, cpad_ghm_values, cpad_ghm_summary, cpad_ghm)
 
@@ -91,7 +90,7 @@ cpad_hfp_values <- terra::extract(x = hfp_masked, y = cpad_super)
 cpad_hfp_summary <- cpad_hfp_values %>%
   rename(HFP = HFP2009) %>%
   group_by(ID) %>%
-  summarize(across(HFP, list(min = min, mean = mean, max = max, median = median, sd = sd)))%>% 
+  summarize(across(HFP, list(min = min, mean = mean, max = max, median = median, sd = sd))) %>%
   mutate(HFP_sd = case_when(
     !is.na(HFP_sd) ~ HFP_sd,
     is.na(HFP_sd) ~ 0
@@ -101,17 +100,17 @@ cpad_hfp <- full_join(cpad_super, cpad_hfp_summary) %>%
   mutate(
     HFP_range = HFP_max - HFP_min,
     HFP_cv = HFP_sd / HFP_mean
-  )%>% 
+  ) %>%
   mutate(HFP_sd = case_when(
     !is.na(HFP_sd) ~ HFP_sd,
     is.na(HFP_sd) ~ 0
-  ))%>% 
+  )) %>%
   mutate(HFP_cv = case_when(
     !is.na(HFP_cv) ~ HFP_cv,
     is.na(HFP_cv) ~ 0
   ))
 
-st_write(cpad_hfp,here::here("data", "processed_data", "cpad_hfp.shp"))
+st_write(cpad_hfp, here::here("data", "processed_data", "cpad_hfp.shp"))
 
 rm(hfp_masked, cpad_hfp_values, cpad_hfp_summary, cpad_hfp)
 
@@ -124,23 +123,46 @@ strava_coarse_masked <- mask(strava_coarse, cpad_super)
 
 # writeRaster(strava_coarse_masked, here::here("data", "raw_data", "strava_coarse_masked.tif"))
 
-cpad_census_block = st_intersection(census_block, cpad_geom)
+block_id_raster <- rasterize(census_block, strava_coarse_masked, field = "GEOID")
+block_id_masked <- mask(block_id_raster, cpad_super)
+
+rm(block_id_raster)
+
+block_size <- cellSize(block_id_masked, unit = "m")
+block_size_masked <- mask(block_size, cpad_super)
+
+rm(block_size)
 
 cpad_strava_coarse_values <- terra::extract(x = strava_coarse_masked, y = cpad_super)
 
-cpad_strava_geom <- cpad_census_block %>%
-  full_join(cpad_strava_coarse_values) %>%
-  filter(!is.na(strava_coarse_1))
+rm(strava_coarse_masked, strava_coarse)
 
-rm(strava_coarse_masked, strava_coarse, cpad_strava_coarse_values)
+block_id_cpad <- terra::extract(x = block_id_masked, y = cpad_super)
 
-st_write(cpad_strava_geom, here::here("data", "strava_census.shp"))
+rm(block_id_masked)
 
-rm(cpad_strava_geom, cpad_census_block)
+block_area_cpad <- terra::extract(x = block_size_masked, y = cpad_super)
 
-strava_census_sum = strava_census %>%
-  group_by(GEOID) %>% # NEED TRACT GROUPER HERE SOMETHING ELSE HERE BY BLOCK
-  mutate(
+rm(block_size_masked)
+
+block_cpad <- list(block_id_cpad, block, block_area_cpad) %>%
+  reduce(full_join) %>%
+  filter(!is.na(ID)) %>%
+  group_by(ID, GEOID, value) %>%
+  summarize(area = sum(area))
+
+rm(block_id_cpad, block_area_cpad)
+
+strava_block <- full_join(cpad_strava_coarse_values, block_cpad) %>%
+  distinct()
+
+rm(block_cpad, cpad_strava_coarse_values)
+
+strava_block_sum <- strava_block %>%
+  filter(!is.na(strava_coarse_1)) %>%
+  filter(value != 0) %>%
+  group_by(ID, GEOID, value, area) %>%
+  summarize(
     mean_1 = mean(strava_coarse_1),
     mean_2 = mean(strava_coarse_2),
     mean_3 = mean(strava_coarse_3),
@@ -156,97 +178,37 @@ strava_census_sum = strava_census %>%
     hex_max = rgb(max_1, max_2, max_3, maxColorValue = 255),
     hex_min = rgb(min_1, min_2, min_3, maxColorValue = 255)
   ) %>%
-  select(GEOID, ID, hex_mean, hex_min, hex_max, value) %>%
-  distinct() %>% 
+  distinct() %>%
   mutate(
     hex_mean_int = strtoi(str_remove(hex_mean, "#"), 16L),
     hex_max_int = strtoi(str_remove(hex_max, "#"), 16L),
     hex_min_int = strtoi(str_remove(hex_min, "#"), 16L)
-  )%>%
-  mutate(hex_mean_int_pop = hex_mean_int / value) %>% 
-  mutate(combine_area = units::drop_units(st_area(geometry))) %>%
-  mutate(percent_pa = combine_area / shape_area) %>%
-  mutate(hex_pop_area = weighted.mean(hex_mean_int_pop, percent_pa, na.rm = TRUE))
+  ) %>%
+  mutate(
+    hex_mean_int_pop = hex_mean_int / value,
+    hex_max_int_pop = hex_max_int / value,
+    hex_min_int_pop = hex_min_int / value
+  ) %>%
+  select(GEOID, ID, value, area, hex_mean_int_pop, hex_max_int_pop, hex_min_int_pop)
 
-### SELECT AND DISTINCT VARIABLES TIL THERES JUST ONE PER PA
+rm(strava_block)
 
-names(strava_census_sum)
+cpad_strava <- full_join(cpad_super, strava_block_sum) %>%
+  mutate(percent_pa = area / shape_area) %>%
+  group_by(ID) %>%
+  mutate(
+    hex_pop_area = weighted.mean(hex_mean_int_pop, percent_pa, na.rm = TRUE),
+    max_hex_pop_area = weighted.mean(hex_max_int_pop, percent_pa, na.rm = TRUE),
+    min_hex_pop_area = weighted.mean(hex_min_int_pop, percent_pa, na.rm = TRUE)
+  ) %>%
+  select(-GEOID, -ID, -value, -area, -hex_mean_int_pop, -hex_max_int_pop, -hex_min_int_pop, -percent_pa) %>%
+  st_drop_geometry() %>%
+  distinct() %>%
+  full_join(cpad_super)
 
-cpad_strava <- full_join(cpad_super, strava_census_sum)
+rm(strava_block_sum)
 
-st_write(cpad_strava, here::here("cpad_strava.shp"), append = FALSE)
+st_write(cpad_strava, here::here("data", "processed_data", "cpad_strava.shp"), append = FALSE)
 
 
 # Safegraph ---------------------------------------------------------------
-
-list_of_files <- list.files(
-  path = here::here("data", "raw_data", "counties-dates-2-10-22-reformatted", "cali"),
-  recursive = TRUE,
-  pattern = "\\.csv$",
-  full.names = TRUE
-)
-
-safegraph = data.frame()
-
-for(i in 1:length(list_of_files)) {
-  file = read_csv(list_of_files[i])
-  safegraph = rbind(safegraph, file)
-}
-
-safegraph = safegraph %>%
-  mutate(year = lubridate::year(date)) %>%
-  full_join(census_blockgroup) %>%
-  select(-county_id, -date) %>% 
-  st_as_sf() %>% 
-  st_cast("MULTIPOLYGON")
-
-rm(census_blockgroup, list_of_files)
-
-safegraph_block <- st_intersection(census_block, safegraph) 
-
-lapply(safegraph_block, class)
-
-# st_write(safegraph_block, here::here("safegraph_cb.shp"), append = FALSE)
-
-rm(safegraph)
-
-safegraph_block_sum = safegraph_block %>%
-  mutate(block_percent = cnss_b_ / cns_bg_) %>% 
-  mutate(count = count * block_percent) %>% 
-  group_by(GEOID, year, value) %>%
-  summarise(
-    mean_count = mean(count),
-    sd_count = sd(count),
-    max_count = max(count),
-    min_count = min(count),
-    cv_count = sd_count / mean_count
-  )%>% 
-  filter(!is.na(value)) %>% 
-  filter(!is.na(mean_count)) %>% 
-  mutate(pop_count = mean_count / value)
-
-rm(safegraph_block)
-
-lapply(safegraph_block_sum, class)
-
-# st_write(safegraph_block_sum, here::here("safegraph_cb_sum.shp"), append = FALSE)
-
-safegraph_pa <- st_intersection(cpad_geom, safegraph_block_sum) 
-
-lapply(safegraph_pa, class)
-
-# st_write(safegraph_pa, here::here("safegraph_pa.shp"), append = FALSE)
-
-safegraph_pa_sum = safegraph_pa %>%
-  mutate(combine_area = units::drop_units(st_area(geometry))) %>%
-  mutate(percent_pa = combine_area / shape_area) %>%
-  mutate(sg_pop_area = weighted.mean(pop_count, percent_pa, na.rm = TRUE))
-
-names(safegraph_pa_sum)
-
-cpad_sg <- full_join(cpad_super, safegraph_pa_sum)
-
-st_write(cpad_sg, here::here("data", "cpad_sg.shp"))
-
-
-# Final Data Processing ----------------------------------------------
