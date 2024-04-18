@@ -2,6 +2,7 @@ library(tidyverse)
 library(sf)
 library(terra)
 library(tidycensus)
+library(fuzzyjoin)
 
 # census_api_key("440a21138779ca663e2d17789486ad0389a85339")
 options(tigris_use_cache = TRUE)
@@ -38,8 +39,7 @@ census_blockgroup <- get_decennial(
   mutate(census_blockgroup_area = units::drop_units(st_area(geometry))) %>%
   select(-variable, -NAME) %>%
   sf::st_transform("EPSG:4326") %>%
-  st_buffer(dist = 0) %>%
-  rename(cbg = GEOID)
+  st_buffer(dist = 0) 
 
 # Global Human Modification ----------------------------------------------
 
@@ -123,45 +123,45 @@ strava_coarse_masked <- mask(strava_coarse, cpad_super)
 
 # writeRaster(strava_coarse_masked, here::here("data", "raw_data", "strava_coarse_masked.tif"))
 
-block_id_raster <- rasterize(census_block, strava_coarse_masked, field = "GEOID")
+block_id_raster = rasterize(census_block, strava_coarse_masked, field = "GEOID")
 block_id_masked <- mask(block_id_raster, cpad_super)
 
 rm(block_id_raster)
 
-block_size <- cellSize(block_id_masked, unit = "m")
+block_size <- cellSize(block_id_masked, unit="m")
 block_size_masked <- mask(block_size, cpad_super)
 
 rm(block_size)
 
 cpad_strava_coarse_values <- terra::extract(x = strava_coarse_masked, y = cpad_super)
 
-rm(strava_coarse_masked, strava_coarse)
+rm(strava_coarse)
 
-block_id_cpad <- terra::extract(x = block_id_masked, y = cpad_super)
+block_id_cpad = terra::extract(x = block_id_masked, y = cpad_super)
 
 rm(block_id_masked)
 
-block_area_cpad <- terra::extract(x = block_size_masked, y = cpad_super)
+block_area_cpad = terra::extract(x = block_size_masked, y = cpad_super)
 
 rm(block_size_masked)
 
-block_cpad <- list(block_id_cpad, block, block_area_cpad) %>%
-  reduce(full_join) %>%
-  filter(!is.na(ID)) %>%
-  group_by(ID, GEOID, value) %>%
+block_cpad = list(block_id_cpad, block, block_area_cpad) %>% 
+  reduce(full_join) %>% 
+  filter(!is.na(ID)) %>% 
+  group_by(ID, GEOID, value) %>% 
   summarize(area = sum(area))
 
-rm(block_id_cpad, block_area_cpad)
+rm(block, block_id_cpad, block_area_cpad)
 
-strava_block <- full_join(cpad_strava_coarse_values, block_cpad) %>%
+strava_block = full_join(cpad_strava_coarse_values, block_cpad) %>% 
   distinct()
 
 rm(block_cpad, cpad_strava_coarse_values)
 
-strava_block_sum <- strava_block %>%
-  filter(!is.na(strava_coarse_1)) %>%
-  filter(value != 0) %>%
-  group_by(ID, GEOID, value, area) %>%
+strava_block_sum = strava_block %>% 
+  filter(!is.na(strava_coarse_1)) %>% 
+  filter(value != 0) %>% 
+  group_by(ID, GEOID, value, area) %>% 
   summarize(
     mean_1 = mean(strava_coarse_1),
     mean_2 = mean(strava_coarse_2),
@@ -178,32 +178,28 @@ strava_block_sum <- strava_block %>%
     hex_max = rgb(max_1, max_2, max_3, maxColorValue = 255),
     hex_min = rgb(min_1, min_2, min_3, maxColorValue = 255)
   ) %>%
-  distinct() %>%
+  distinct() %>% 
   mutate(
     hex_mean_int = strtoi(str_remove(hex_mean, "#"), 16L),
     hex_max_int = strtoi(str_remove(hex_max, "#"), 16L),
     hex_min_int = strtoi(str_remove(hex_min, "#"), 16L)
   ) %>%
-  mutate(
-    hex_mean_int_pop = hex_mean_int / value,
-    hex_max_int_pop = hex_max_int / value,
-    hex_min_int_pop = hex_min_int / value
-  ) %>%
+  mutate(hex_mean_int_pop = hex_mean_int / value,
+         hex_max_int_pop = hex_max_int / value,
+         hex_min_int_pop = hex_min_int / value) %>% 
   select(GEOID, ID, value, area, hex_mean_int_pop, hex_max_int_pop, hex_min_int_pop)
 
 rm(strava_block)
 
-cpad_strava <- full_join(cpad_super, strava_block_sum) %>%
+cpad_strava <- full_join(cpad_super, strava_block_sum)%>%
   mutate(percent_pa = area / shape_area) %>%
-  group_by(ID) %>%
-  mutate(
-    hex_pop_area = weighted.mean(hex_mean_int_pop, percent_pa, na.rm = TRUE),
-    max_hex_pop_area = weighted.mean(hex_max_int_pop, percent_pa, na.rm = TRUE),
-    min_hex_pop_area = weighted.mean(hex_min_int_pop, percent_pa, na.rm = TRUE)
-  ) %>%
-  select(-GEOID, -ID, -value, -area, -hex_mean_int_pop, -hex_max_int_pop, -hex_min_int_pop, -percent_pa) %>%
-  st_drop_geometry() %>%
-  distinct() %>%
+  group_by(ID) %>% 
+  mutate(hex_pop_area = weighted.mean(hex_mean_int_pop, percent_pa, na.rm = TRUE),
+         max_hex_pop_area = weighted.mean(hex_max_int_pop, percent_pa, na.rm = TRUE),
+         min_hex_pop_area = weighted.mean(hex_min_int_pop, percent_pa, na.rm = TRUE)) %>% 
+  select(-GEOID, -ID, -value, -area, -hex_mean_int_pop, -hex_max_int_pop,-hex_min_int_pop,-percent_pa) %>% 
+  st_drop_geometry() %>% 
+  distinct() %>% 
   full_join(cpad_super)
 
 rm(strava_block_sum)
