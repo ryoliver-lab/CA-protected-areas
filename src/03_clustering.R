@@ -49,8 +49,10 @@ env <- list(cc, max_temp, min_temp, mean_temp, prec, ndvi) %>%
 rm(cc, max_temp, min_temp, mean_temp, prec, ndvi)
 
 full_cpad <- full_join(human, env) %>%
-  st_as_sf()
-
+  st_as_sf() %>% 
+  mutate(sg_2019_range = max_sg_2019 - min_sg_2019,
+         sg_2020_range = max_sg_2020 - min_sg_2020,
+         hex_range = mx_hx__ - mn_hx__)
 
 # PCA ---------------------------------------------------------------------
 
@@ -127,7 +129,8 @@ full_pca_data <- full_cpad %>%
     sg_2019, sg_2020, hx_pp_r,
     gHM_mean, gHM_cv,
     HFP_mean, HFP_cv, suid_nma,
-    access_typ
+    access_typ, sg_2019_range, 
+    sg_2020_range, hex_range
   ) %>%
   drop_na()
 
@@ -152,7 +155,8 @@ filled_scores5 <- filled_scores5 %>%
 
 species_scores5 <- as.data.frame(scores(nmds_h)$species)
 
-# rownames(species_scores4) <- c()
+rownames(species_scores5) <- c("Safegraph 2019", "Safegraph 2020", "Strava Value",
+                               "Global Human Modification", "GHM CV", "Human Footprint Index", "HFI CV")
 
 species_scores5 <- species_scores5 %>%
   rownames_to_column(var = "var")
@@ -174,11 +178,12 @@ nmds5 <- ggplot(filled_scores5, aes(x = NMDS1, y = NMDS2)) +
   geom_segment(data = species_scores5, aes(x = 0, xend = NMDS1, y = 0, yend = NMDS2), arrow = arrow(length = unit(0.25, "cm")), linewidth = 0.5, colour = "grey20") +
   ggrepel::geom_label_repel(data = species_scores5, aes(x = NMDS1, y = NMDS2, label = var), fill = "white", cex = 3, direction = "both", segment.size = .25, max.overlaps = 15) +
   scale_y_continuous(position = "right") +
-  theme(legend.position = "left", panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
-  annotate("text", x = 0.17, y = 0.25, label = "Stress: 0.155")
+  theme(legend.position = "left", panel.grid.major = element_blank(), panel.grid.minor = element_blank()) 
+  # annotate("text", x = 0.17, y = 0.25, label = "Stress: 0.155")
 
 nmds5
 
+ggsave(nmds5, file = paste0("human_PCA.pdf"), path = here::here("analysis", "figs"), height = 10, width = 12)
 
 # Environment PCA ---------------------------------------------------------
 
