@@ -27,7 +27,10 @@ cc <- st_read(here::here("data", "processed_data", "cpad_cc.shp")) %>%
 max_temp <- st_read(here::here("data", "processed_data", "cpad_max_temp.shp")) %>%
   st_drop_geometry()
 min_temp <- st_read(here::here("data", "processed_data", "cpad_min_temp.shp")) %>%
-  st_drop_geometry()
+  st_drop_geometry() %>% 
+  rename(min_mean_temp = mn_tp_m,
+         min_sd_temp = mn_tp_s,
+         min_cv_temp = mn_tp_c)
 mean_temp <- st_read(here::here("data", "processed_data", "cpad_mean_temp.shp")) %>%
   st_drop_geometry()
 prec <- st_read(here::here("data", "processed_data", "cpad_prec.shp")) %>%
@@ -42,7 +45,8 @@ env <- list(cc, max_temp, min_temp, mean_temp, prec, ndvi) %>%
     label_name, gap1_acres, gap2_acres, gap3_acres, gap4_acres, gap_tot_ac, shape_leng, shape_area,
     mx_tp_m, mx_tp_s, mx_tp_c, mn_tp_m, mn_tp_s, mn_tp_c, prec_min, prec_men, prec_mx,
     prc_mdn, prec_sd, prc_rng, prec_cv, NDVI_min, NDVI_men, NDVI_mx, NDVI_md, NDVI_sd,
-    NDVI_rn, NDVI_cv, cc_min, cc_mean, cc_max, cc_median, cc_sd, cc_range, cc_cv
+    NDVI_rn, NDVI_cv, cc_min, cc_mean, cc_max, cc_median, cc_sd, cc_range, cc_cv, min_mean_temp,
+    min_sd_temp, min_cv_temp
   ) %>%
   st_drop_geometry()
 
@@ -192,7 +196,8 @@ full_pca_data <- full_cpad %>%
   select(
     suid_nma,
     mx_tp_m, mx_tp_c, mn_tp_m, mn_tp_c, prec_men,
-    prec_cv, NDVI_men, NDVI_cv, cc_mean, cc_cv, access_typ
+    prec_cv, NDVI_men, NDVI_cv, cc_mean, cc_cv, access_typ, min_mean_temp,
+    min_cv_temp
   ) %>%
   drop_na()  %>% 
   mutate(mn_tp_c = case_when(
@@ -263,7 +268,8 @@ full_pca_data <- full_cpad %>%
     gHM_mean, gHM_cv,
     HFP_mean, HFP_cv, suid_nma,
     mx_tp_m, mx_tp_c, mn_tp_m, mn_tp_c, prec_men,
-    prec_cv, NDVI_men, NDVI_cv, cc_mean, cc_cv, access_typ
+    prec_cv, NDVI_men, NDVI_cv, cc_mean, cc_cv, access_typ,
+    gap1_acres, gap2_acres, gap3_acres, gap4_acres
   ) %>%
   drop_na()  %>% 
   mutate(mn_tp_c = case_when(
