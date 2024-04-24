@@ -23,7 +23,8 @@ census_block <- get_decennial(
   mutate(census_block_area = units::drop_units(st_area(geometry))) %>%
   select(-variable, -NAME) %>%
   sf::st_transform("EPSG:4326") %>%
-  st_buffer(dist = 0)
+  st_buffer(dist = 0) %>% 
+  mutate(cbg = substring(GEOID, 1, 12))
 
 block <- census_block %>%
   st_drop_geometry()
@@ -38,7 +39,8 @@ census_blockgroup <- get_decennial(
   mutate(census_blockgroup_area = units::drop_units(st_area(geometry))) %>%
   select(-variable, -NAME) %>%
   sf::st_transform("EPSG:4326") %>%
-  st_buffer(dist = 0) 
+  st_buffer(dist = 0) %>% 
+  mutate(cbg = GEOID)
 
 # Global Human Modification ----------------------------------------------
 
@@ -227,7 +229,7 @@ safegraph = safegraph %>%
   select(-county_id, -date) %>% 
   st_as_sf() %>% 
   st_drop_geometry() %>% 
-  group_by(GEOID, year, census_blockgroup_area) %>%
+  group_by(cbg, year, census_blockgroup_area) %>%
   summarise(
     mean_count = mean(count, na.rm=TRUE),
     sd_count = sd(count, na.rm=TRUE),
@@ -241,17 +243,22 @@ rm(census_blockgroup, list_of_files, file, i)
 
 safegraph_block <- safegraph %>% 
   full_join(census_block) %>% 
-  st_as_sf()
+  st_as_sf() %>% 
+  select(-cbg)
 
 rm(safegraph, census_block)
 
 safegraph_block_sum = safegraph_block %>%
-  filter(value != 0) %>% 
   mutate(block_percent = census_block_area / census_blockgroup_area) %>% 
-  mutate(mean_count = mean_count * block_percent) %>% 
-  mutate(value = value * block_percent) %>% 
+  mutate(mean_count = mean_count * block_percent,
+         value = value * block_percent) %>% 
   filter(!is.na(value)) %>% 
   filter(!is.na(mean_count)) %>% 
+  select(-census_blockgroup_area) %>% 
+  mutate(value = case_when(
+    value == 0 ~ 1,
+    TRUE ~ value,
+  )) %>% 
   mutate(pop_count = mean_count / value,
          max_pop_count = max_count / value,
          min_pop_count = min_count / value) %>% 
@@ -287,7 +294,7 @@ rm(pop_raster_2020)
 max_raster_2020 = rasterize(safegraph_2020, strava_coarse_masked, field = "max_pop_count")
 max_masked_2020  <- mask(max_raster_2020 , cpad_super)
 
-rm(max_raster_2020 )
+rm(max_raster_2020)
 
 min_raster_2020  = rasterize(safegraph_2020, strava_coarse_masked, field = "min_pop_count")
 min_masked_2020  <- mask(min_raster_2020 , cpad_super)
@@ -341,20 +348,19 @@ rm(block_size_masked2)
 
 safegraph_cpad = list(area_cpad, max_cpad_2020, min_cpad_2020 , pop_cpad_2020, max_cpad_2019, min_cpad_2019, pop_cpad_2019) %>% 
   reduce(cbind) %>% 
-  filter(!is.na(pop_2019)) %>% 
-  filter(!is.na(pop_2020)) %>% 
-  full_join(cpad_super)
+  full_join(cpad_super) %>% 
+  st_drop_geometry()
 
 rm(area_cpad, max_cpad_2020, min_cpad_2020 , pop_cpad_2020, max_cpad_2019, min_cpad_2019, pop_cpad_2019)
 
 safegraph_pa_sum = safegraph_cpad %>%
   mutate(percent_pa = area / shape_area) %>% 
-  mutate(sg_2019 = weighted.mean(pop_2019, percent_pa, na.rm = TRUE),
+  group_by(ID, suid_nma) %>% 
+  summarize(sg_2019 = weighted.mean(pop_2019, percent_pa, na.rm = TRUE),
          max_sg_2019 = weighted.mean(max_pop_2019, percent_pa, na.rm = TRUE),
          min_sg_2019 = weighted.mean(min_pop_2019, percent_pa, na.rm = TRUE),
          sg_2020 = weighted.mean(pop_2020, percent_pa, na.rm = TRUE),
          max_sg_2020 = weighted.mean(max_pop_2020, percent_pa, na.rm = TRUE),
-         min_sg_2020 = weighted.mean(min_pop_2020, percent_pa, na.rm = TRUE)) %>% 
-  select(ID, max_sg_2019, min_sg_2019, sg_2019, max_sg_2020, min_sg_2020, sg_2020)
+         min_sg_2020 = weighted.mean(min_pop_2020, percent_pa, na.rm = TRUE))
 
 write_csv(safegraph_pa_sum, here::here("data", "processed_data", "cpad_sg.csv"))

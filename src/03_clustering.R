@@ -4,8 +4,7 @@ library(vegan)
 
 # Load Data ---------------------------------------------------------------
 
-sg <- read_csv(here::here("data", "processed_data", "cpad_sg.csv")) %>%
-  distinct()
+sg <- read_csv(here::here("data", "processed_data", "cpad_sg.csv"))
 strava <- st_read(here::here("data", "processed_data", "cpad_strava.shp"))
 ghm <- st_read(here::here("data", "processed_data", "cpad_ghm.shp"))
 hfp <- st_read(here::here("data", "processed_data", "cpad_hfp.shp"))

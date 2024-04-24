@@ -245,7 +245,7 @@ rm(ndvi_masked, cpad_ndvi_values, cpad_ndvi_summary, cpad_ndvi)
 # Canopy Cover ------------------------------------------------------------
 
 cc <- rast(here::here("data", "raw_data", "science_tcc_CONUS_2021_v2021-4", "science_tcc_conus_2021_v2021-4.tif")) %>%
-  project("EPSG:4326")
+  project("EPSG:4326") 
 
 cc_cropped <- crop(cc, cpad_super)
 cc_masked <- mask(cc_cropped, cpad_super)
