@@ -60,13 +60,6 @@ full_cpad <- full_join(human, env) %>%
 
 # PCA ---------------------------------------------------------------------
 
-# Clustering --------------------------------------------------------------
-
-# clusters <- hclust(dist(iris[, 3:4]))
-# plot(clusters)
-
-# Human PCA ---------------------------------------------------------------
-
 full_pca_data <- full_cpad %>%
   st_drop_geometry() %>%
   select(
@@ -74,8 +67,7 @@ full_pca_data <- full_cpad %>%
     gHM_mean, gHM_cv,
     HFP_mean, HFP_cv, suid_nma,
     access_typ, sg_2019_range, 
-    sg_2020_range, hex_range, 
-    gap1_acres, gap2_acres, gap3_acres, gap4_acres
+    sg_2020_range, hex_range
   ) %>%
   drop_na()
 
@@ -96,13 +88,13 @@ filled_scores5$suid_nma <- full_pca_data$suid_nma
 filled_scores5$access_typ <- full_pca_data$access_typ
 
 filled_scores5 <- filled_scores5 %>%
-  mutate(id = as.factor(id), access = as.factor(access))
+  mutate(id = as.factor(suid_nma), access = as.factor(access_typ))
 
 species_scores5 <- as.data.frame(scores(nmds_h)$species)
 
 rownames(species_scores5) <- c("Safegraph 2019", "Safegraph 2020", "Strava Value",
                                "Global Human Modification", "GHM CV", "Human Footprint Index", "HFI CV",
-                               "SG 2019 Range", "SG 2020 Range", "Strava Range", "Gap1", "Gap2", "Gap3", "Gap4")
+                               "SG 2019 Range", "SG 2020 Range", "Strava Range")
 
 species_scores5 <- species_scores5 %>%
   rownames_to_column(var = "var")
