@@ -208,6 +208,7 @@ st_write(cpad_strava, here::here("data", "processed_data", "cpad_strava.shp"), a
 
 
 # Safegraph ---------------------------------------------------------------
+
 list_of_files <- list.files(
   path = here::here("data", "raw_data", "counties-dates-2-10-22-reformatted", "cali"),
   recursive = TRUE,
