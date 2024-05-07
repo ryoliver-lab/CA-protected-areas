@@ -15,9 +15,23 @@ hfp <- st_read(here::here("data", "processed_data", "cpad_hfp.shp"))
 
 human <- list(sg, strava, ghm, hfp) %>%
   reduce(full_join) %>%
-  st_as_sf() %>%
+  st_as_sf() 
+
+human = human %>%
   filter(shape_area >= 10000) %>%
-  # check to cut things like cemetaries
+  filter(!grepl("cemet", park_name, ignore.case = TRUE)) %>% 
+  filter(!grepl("sport", park_name, ignore.case = TRUE)) %>% 
+  filter(!grepl("farm", park_name, ignore.case = TRUE)) %>% 
+  filter(!grepl("playground", park_name, ignore.case = TRUE)) %>% 
+  filter(!grepl("golf", park_name, ignore.case = TRUE)) %>% 
+  filter(!grepl("dog park", park_name, ignore.case = TRUE)) %>% 
+  filter(!grepl("zoo", park_name, ignore.case = TRUE)) %>% 
+  filter(!grepl("baseball", park_name, ignore.case = TRUE)) %>%
+  filter(!grepl("soccer", park_name, ignore.case = TRUE)) %>% 
+  filter(!grepl("softball", park_name, ignore.case = TRUE)) %>% 
+  filter(!grepl("athel", park_name, ignore.case = TRUE)) %>% 
+  filter(!grepl("community center", park_name, ignore.case = TRUE)) %>% 
+  filter(!grepl("school", park_name, ignore.case = TRUE)) %>% 
   select(
     max_sg, min_sg, sg, hx_pp_r, mx_hx__, mn_hx__, suid_nma,
     access_typ, park_name, park_url, mng_ag_id, mng_agncy, mng_ag_lev, mng_ag_typ, agncy_web,
@@ -38,7 +52,7 @@ full_famd_data <- human %>%
     sg, hx_pp_r,
     gHM_mean, HFP_mean, suid_nma,
     access_typ, gap1_acres, sg_range, hex_range,
-    gap2_acres, gap3_acres, gap4_acres, mng_ag_lev
+    gap2_acres, gap3_acres, gap4_acres, mng_ag_typ
   ) %>%
   drop_na()
 
