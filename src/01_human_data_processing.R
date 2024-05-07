@@ -216,21 +216,19 @@ list_of_files <- list.files(
   full.names = TRUE
 )
 
-safegraph = data.frame()
+safegraph <- read_csv(list_of_files, id = "file_name") %>% 
+  select(-file_name) %>% 
+  mutate(year = lubridate::year(date))
 
-for(i in 1:length(list_of_files)) {
-  file = read_csv(list_of_files[i])
-  safegraph = rbind(safegraph, file)
-}
+### time series processing starting with safegraph
 
-safegraph = safegraph %>%
-  mutate(year = lubridate::year(date)) %>%
+safegraph_sum = safegraph %>%
   full_join(census_blockgroup) %>%
   filter(!is.na(year)) %>% 
   select(-county_id, -date) %>% 
   st_as_sf() %>% 
   st_drop_geometry() %>% 
-  group_by(cbg, year, census_blockgroup_area) %>%
+  group_by(cbg, census_blockgroup_area) %>%
   summarise(
     mean_count = mean(count, na.rm=TRUE),
     sd_count = sd(count, na.rm=TRUE),
@@ -240,14 +238,14 @@ safegraph = safegraph %>%
   )  %>% 
   ungroup()
 
-rm(census_blockgroup, list_of_files, file, i)
+rm(census_blockgroup, list_of_files, safegraph)
 
-safegraph_block <- safegraph %>% 
+safegraph_block <- safegraph_sum %>% 
   full_join(census_block) %>% 
   st_as_sf() %>% 
   select(-cbg)
 
-rm(safegraph, census_block)
+rm(safegraph_sum, census_block)
 
 safegraph_block_sum = safegraph_block %>%
   mutate(block_percent = census_block_area / census_blockgroup_area) %>% 
@@ -265,103 +263,62 @@ safegraph_block_sum = safegraph_block %>%
          min_pop_count = min_count / value) %>% 
   select(-mean_count, -max_count, -min_count, -value)
 
-safegraph_2019 = safegraph_block_sum %>% 
-  filter(year == 2019)
-safegraph_2020 = safegraph_block_sum %>% 
-  filter(year == 2020)
+rm(safegraph_block)
 
-rm(safegraph_block, safegraph_block_sum)
+pop_raster = rasterize(safegraph_block_sum, strava_coarse_masked, field = "pop_count")
+pop_masked <- mask(pop_raster, cpad_super)
 
-pop_raster_2019 = rasterize(safegraph_2019, strava_coarse_masked, field = "pop_count")
-pop_masked_2019 <- mask(pop_raster_2019, cpad_super)
+rm(pop_raster)
 
-rm(pop_raster_2019)
+max_raster = rasterize(safegraph_block_sum, strava_coarse_masked, field = "max_pop_count")
+max_masked  <- mask(max_raster, cpad_super)
 
-max_raster_2019 = rasterize(safegraph_2019, strava_coarse_masked, field = "max_pop_count")
-max_masked_2019  <- mask(max_raster_2019 , cpad_super)
+rm(max_raster)
 
-rm(max_raster_2019 )
+min_raster  = rasterize(safegraph_block_sum, strava_coarse_masked, field = "min_pop_count")
+min_masked  <- mask(min_raster, cpad_super)
 
-min_raster_2019  = rasterize(safegraph_2019, strava_coarse_masked, field = "min_pop_count")
-min_masked_2019  <- mask(min_raster_2019 , cpad_super)
+rm(min_raster, safegraph_block_sum, strava_coarse_masked)
 
-rm(min_raster_2019 , safegraph_2019)
-
-pop_raster_2020 = rasterize(safegraph_2020, strava_coarse_masked, field = "pop_count")
-pop_masked_2020 <- mask(pop_raster_2020, cpad_super)
-
-rm(pop_raster_2020)
-
-max_raster_2020 = rasterize(safegraph_2020, strava_coarse_masked, field = "max_pop_count")
-max_masked_2020  <- mask(max_raster_2020 , cpad_super)
-
-rm(max_raster_2020)
-
-min_raster_2020  = rasterize(safegraph_2020, strava_coarse_masked, field = "min_pop_count")
-min_masked_2020  <- mask(min_raster_2020 , cpad_super)
-
-rm(min_raster_2020 , safegraph_2020, strava_coarse_masked)
-
-block_size2 <- cellSize(pop_masked_2019, unit="m")
+block_size2 <- cellSize(pop_masked, unit="m")
 block_size_masked2 <- mask(block_size2, cpad_super)
 
 rm(block_size2)
 
-pop_cpad_2019 = terra::extract(x = pop_masked_2019, y = cpad_super) %>% 
-  rename(pop_2019 = pop_count)
+pop_cpad = terra::extract(x = pop_masked, y = cpad_super) %>% 
+  rename(pop = pop_count)
 
-rm(pop_masked_2019)
+rm(pop_masked)
 
-max_cpad_2019 = terra::extract(x = max_masked_2019, y = cpad_super) %>% 
-  rename(max_pop_2019 = max_pop_count) %>% 
+max_cpad = terra::extract(x = max_masked, y = cpad_super) %>% 
+  rename(max_pop = max_pop_count) %>% 
   select(-ID)
 
-rm(max_masked_2019)
+rm(max_masked)
 
-min_cpad_2019 = terra::extract(x = min_masked_2019, y = cpad_super) %>% 
-  rename(min_pop_2019 = min_pop_count) %>% 
+min_cpad = terra::extract(x = min_masked, y = cpad_super) %>% 
+  rename(min_pop = min_pop_count) %>% 
   select(-ID)
 
-rm(min_masked_2019)
-
-pop_cpad_2020 = terra::extract(x = pop_masked_2020, y = cpad_super)%>% 
-  rename(pop_2020 = pop_count) %>% 
-  select(-ID)
-
-rm(pop_masked_2020)
-
-max_cpad_2020 = terra::extract(x = max_masked_2020, y = cpad_super) %>% 
-  rename(max_pop_2020 = max_pop_count) %>% 
-  select(-ID)
-
-rm(max_masked_2020)
-
-min_cpad_2020 = terra::extract(x = min_masked_2020, y = cpad_super) %>%  
-  rename(min_pop_2020 = min_pop_count) %>% 
-  select(-ID)
-
-rm(min_masked_2020)
+rm(min_masked)
 
 area_cpad = terra::extract(x = block_size_masked2, y = cpad_super) %>% 
   select(-ID)
 
 rm(block_size_masked2)
 
-safegraph_cpad = list(area_cpad, max_cpad_2020, min_cpad_2020 , pop_cpad_2020, max_cpad_2019, min_cpad_2019, pop_cpad_2019) %>% 
+safegraph_cpad = list(area_cpad, max_cpad, min_cpad, pop_cpad) %>% 
   reduce(cbind) %>% 
   full_join(cpad_super) %>% 
   st_drop_geometry()
 
-rm(area_cpad, max_cpad_2020, min_cpad_2020 , pop_cpad_2020, max_cpad_2019, min_cpad_2019, pop_cpad_2019)
+rm(area_cpad, max_cpad, min_cpad, pop_cpad)
 
 safegraph_pa_sum = safegraph_cpad %>%
   mutate(percent_pa = area / shape_area) %>% 
   group_by(ID, suid_nma) %>% 
-  summarize(sg_2019 = weighted.mean(pop_2019, percent_pa, na.rm = TRUE),
-         max_sg_2019 = weighted.mean(max_pop_2019, percent_pa, na.rm = TRUE),
-         min_sg_2019 = weighted.mean(min_pop_2019, percent_pa, na.rm = TRUE),
-         sg_2020 = weighted.mean(pop_2020, percent_pa, na.rm = TRUE),
-         max_sg_2020 = weighted.mean(max_pop_2020, percent_pa, na.rm = TRUE),
-         min_sg_2020 = weighted.mean(min_pop_2020, percent_pa, na.rm = TRUE))
+  summarize(sg = weighted.mean(pop, percent_pa, na.rm = TRUE),
+         max_sg = weighted.mean(max_pop, percent_pa, na.rm = TRUE),
+         min_sg = weighted.mean(min_pop, percent_pa, na.rm = TRUE))
 
 write_csv(safegraph_pa_sum, here::here("data", "processed_data", "cpad_sg.csv"))
