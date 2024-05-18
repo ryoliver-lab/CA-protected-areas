@@ -9,6 +9,7 @@ library(marginaleffects)
 # For the Wald Test
 library(car)
 library(mgcv)
+library(tidymodels)
 
 class_data <- read_csv(here::here("analysis", "nmds.csv")) %>%
   select(
@@ -30,17 +31,14 @@ classes <- class_data %>%
 
 spatial_data <- read_csv(here::here("data", "processed_data", "spatial_analysis.csv")) %>%
   drop_na() %>%
-  group_by(suid_nma) %>%
-  mutate(count = n()) %>%
-  filter(count > 2) %>%
-  ungroup() %>%
   full_join(classes) %>%
   filter(!is.na(hex_int))
 
 # multinomial regression --------------------------------------------------
 
-fit1 <- multinom(class ~ access_typ + mng_ag_lev + gap1_acres + gap2_acres +
+fit1 <- nnet::multinom(class ~ access_typ + mng_ag_lev + gap1_acres + gap2_acres +
   gap3_acres + gap4_acres + shape_area, data = class_data)
+
 summary(fit1)
 
 Anova(fit1)
@@ -71,6 +69,21 @@ result <- predict_prob %>%
   ) %>%
   mutate(percent_correct = num_correct / n) %>%
   full_join(predict_prob)
+
+accuracy(predict_prob, class, .)
+precision(predict_prob, class, .)
+sensitivity(predict_prob, class, .) # true positive rate
+specificity(predict_prob, class, .) # true negative rate
+
+roc_auc(predict_prob, class, c("low mod / med mobility", 
+                                      "low mod / high mobility", 
+                                      "high mod / low mobility", 
+                                      "high mod / med mobility"))
+
+autoplot(roc_curve(predict_prob, class, c("low mod / med mobility", 
+                                 "low mod / high mobility", 
+                                 "high mod / low mobility", 
+                                 "high mod / med mobility")))
 
 write_csv(result, here::here("analysis", "multinom_pred1.csv"))
 
@@ -138,20 +151,20 @@ cross.entropy <- function(p, phat) {
 const <- 1 - entropy(spatial_data$hex_int) / log(nrow(spatial_data))
 
 class_entropy <- spatial_data %>%
-  group_by(class) %>% 
-  summarise(entropy = entropy(hex_int),
-            inv_sd = 1 / sd(hex_int),
-            const =  1 - entropy(hex_int) / log(n()))
+  group_by(class) %>%
+  summarise(
+    entropy = entropy(hex_int),
+    inv_sd = 1 / sd(hex_int),
+    const = 1 - entropy(hex_int) / log(n())
+  )
 
 park_entropy <- spatial_data %>%
-  group_by(suid_nma, class) %>% 
-  summarise(entropy = entropy(hex_int),
-            inv_sd = 1 / sd(hex_int),
-            const =  1 - entropy(hex_int) / log(n()))
-
-1 / sd(spatial_data$hex_int)
-
-entropy(spatial_data$hex_int)
+  group_by(suid_nma, class) %>%
+  summarise(
+    entropy = entropy(hex_int),
+    inv_sd = 1 / sd(hex_int),
+    const = 1 - entropy(hex_int) / log(n())
+  )
 
 # Consistency: [H(x) + H(y) – H(XY)]/log(n) where y is spatial position
 
