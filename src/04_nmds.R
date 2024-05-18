@@ -17,6 +17,8 @@ human <- list(sg, strava, ghm, hfp) %>%
   reduce(full_join) %>%
   st_as_sf() 
 
+rm(sg, strava, ghm, hfp)
+
 human = human %>%
   filter(shape_area >= 10000) %>%
   filter(!grepl("cemet", park_name, ignore.case = TRUE)) %>% 
@@ -41,10 +43,12 @@ human = human %>%
   ) %>%
   mutate(
     sg_range = max_sg - min_sg,
-    hex_range = mx_hx__ - mn_hx__
+    hex_range = mx_hx__ - mn_hx__,
+    HFP_mean = case_when(
+      HFP_mean < 0 ~ 0,
+      TRUE ~ HFP_mean
+    )
   )
-
-rm(sg, strava, ghm, hfp)
 
 full_famd_data <- human %>%
   st_drop_geometry() %>%
@@ -172,7 +176,7 @@ famd_fig <- ggplot(data = famd_coords) +
   stat_ellipse(aes(Dim.1, Dim.2, color = class, fill = class), geom = "polygon", linewidth = 0.25, alpha = 0.2, show.legend = FALSE) +
   theme_bw() +
   labs(
-    x = "FAMD1 (13.7%)", y = "FAMD2 (8%)", color = "Human Use",
+    x = "FAMD1 (7.5%)", y = "FAMD2 (4.1%)", color = "Human Use",
     fill = "Human Use", title = NULL
   ) +
   scale_y_continuous(position = "right") +
