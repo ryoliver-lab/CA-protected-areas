@@ -46,7 +46,7 @@ strava_coarse <- rast(here::here("data", "raw_data", "strava_coarse.tif")) %>%
 strava_coarse_cropped <- crop(strava_coarse, cpad_super)
 strava_coarse_masked <- mask(strava_coarse_cropped, cpad_super)
 
-cpad_raster <- rasterize(cpad_super, strava_coarse_masked, field = "ID")
+cpad_raster <- rasterize(cpad_super, strava_coarse_masked, field = "suid_nma")
 
 ghm <- resample(ghm_masked, cpad_raster, metho = "cubic")
 hfp <- resample(hfp_masked, cpad_raster, metho = "cubic")
@@ -64,13 +64,13 @@ strava <- strava %>%
 spatial_data <- list(cpad, ghm, hfp, strava) %>%
   reduce(full_join) %>%
   mutate(
-    hex_mean = rgb(strava_coarse_1, strava_coarse_2, strava_coarse_3, maxColorValue = 255),
+    hex_mean = rgb(strava_coarse_1, strava_coarse_2, strava_coarse_3, maxColorValue = 256),
   ) %>%
   mutate(
     hex_int = strtoi(str_remove(hex_mean, "#"), 16L)
   ) %>%
   select(-hex_mean, -strava_coarse_1, -strava_coarse_2, -strava_coarse_3, -strava_coarse_4) %>% 
-  group_by(ID) %>% 
+  group_by(suid_nma) %>% 
   mutate(count = n()) %>% 
   filter(count > 2)
 
