@@ -6,7 +6,7 @@ library(tidycensus)
 # census_api_key("440a21138779ca663e2d17789486ad0389a85339")
 options(tigris_use_cache = TRUE)
 
-# Data Processing ---------------------------------------------------------
+sf_use_s2(FALSE)
 
 cpad_super <- st_read(here::here("data", "raw_data", "CPAD_2023a_SuperUnits.shp")) %>%
   sf::st_transform("EPSG:4326") %>%
@@ -26,7 +26,7 @@ census_blockgroup <- get_decennial(
   year = 2020
 ) %>%
   mutate(census_blockgroup_area = units::drop_units(st_area(geometry))) %>%
-  select(-variable, -NAME) %>%
+  select(-variable, -NAME, -value) %>%
   sf::st_transform("EPSG:4326") %>%
   st_buffer(dist = 0) %>% 
   mutate(cbg = GEOID)
@@ -42,7 +42,13 @@ census_block <- get_decennial(
   select(-variable, -NAME) %>%
   sf::st_transform("EPSG:4326") %>%
   st_buffer(dist = 0) %>% 
-  mutate(cbg = substring(GEOID, 1, 12))
+  mutate(cbg = substring(GEOID, 1, 12)) %>% 
+  select(-GEOID) %>% 
+  st_drop_geometry()
+
+census = full_join(census_block, census_blockgroup)
+
+rm(census_block, census_blockgroup)
 
 list_of_files <- list.files(
   path = here::here("data", "raw_data", "counties-dates-2-10-22-reformatted", "cali"),
@@ -54,21 +60,14 @@ list_of_files <- list.files(
 safegraph <- read_csv(list_of_files, id = "file_name") %>% 
   select(-file_name) %>% 
   mutate(year = lubridate::year(date)) %>%
-  full_join(census_blockgroup) 
+  full_join(census) 
 
-safegraph_block <- safegraph_sum %>% 
-  full_join(census_block) %>% 
-  st_as_sf() %>% 
-  select(-cbg)
-
-rm(census_block, census_blockgroup)
+rm(list_of_files, census)
 
 safegraph_block_sum = safegraph_block %>%
   mutate(block_percent = census_block_area / census_blockgroup_area) %>% 
-  mutate(mean_count = mean_count * block_percent,
+  mutate(count = count * block_percent,
          value = value * block_percent) %>% 
-  filter(!is.na(value)) %>% 
-  filter(!is.na(count)) %>% 
   select(-census_blockgroup_area) %>% 
   mutate(value = case_when(
     value == 0 ~ 1,
