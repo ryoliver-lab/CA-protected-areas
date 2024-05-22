@@ -13,10 +13,25 @@ cpad_super <- st_read(here::here("data", "raw_data", "CPAD_2023a_SuperUnits.shp"
   janitor::clean_names() %>%
   mutate(ID = row_number())
 
+ghm <- rast(here::here("data", "raw_data", "gHM.tif")) %>%
+  project("EPSG:4326")
+
+ghm_cropped <- crop(ghm, cpad_super)
+ghm_masked <- mask(ghm_cropped, cpad_super)
+
+cpad_raster <- rasterize(cpad_super, ghm_masked, field = "suid_nma")
+
+rm(ghm, ghm_cropped, ghm_masked)
+
 strava_coarse <- rast(here::here("data", "raw_data", "strava_coarse.tif")) %>%
   project("EPSG:4326")
 
-strava_coarse_masked <- mask(strava_coarse, cpad_super)
+strava_coarse_cropped <- crop(strava_coarse, cpad_super)
+strava_coarse_masked <- mask(strava_coarse_cropped, cpad_super)
+
+rm(strava_coarse, strava_coarse_cropped)
+
+strava_coarse_masked <- resample(strava_coarse_masked, cpad_raster, method = "cubic")
 
 census_blockgroup <- get_decennial(
   state = "CA",
@@ -64,7 +79,7 @@ safegraph <- read_csv(list_of_files, id = "file_name") %>%
 
 rm(list_of_files, census)
 
-safegraph_block_sum = safegraph_block %>%
+safegraph_block_sum = safegraph %>%
   mutate(block_percent = census_block_area / census_blockgroup_area) %>% 
   mutate(count = count * block_percent,
          value = value * block_percent) %>% 
@@ -74,29 +89,40 @@ safegraph_block_sum = safegraph_block %>%
     TRUE ~ value,
   )) %>% 
   mutate(pop_count = count / value) %>% 
-  select(-count, -value)
+  select(-count, -value) %>% 
+  distinct() %>% 
+  filter(!is.na(pop_count)) %>% 
+  as.data.frame()
 
-rm(safegraph_block)
+rm(safegraph)
 
-pop_raster = rasterize(safegraph_block_sum, strava_coarse_masked, field = "pop_count")
+pop_raster <- rasterize(safegraph_block_sum, cpad_raster, field = "pop_count")
 pop_masked <- mask(pop_raster, cpad_super)
+
+pop_masked <- resample(pop_masked, cpad_raster, method = "cubic")
 
 rm(pop_raster)
 
-max_raster = rasterize(safegraph_block_sum, strava_coarse_masked, field = "max_pop_count")
-max_masked  <- mask(max_raster, cpad_super)
+max_raster <- rasterize(safegraph_block_sum, cpad_raster, field = "max_pop_count")
+max_masked <- mask(max_raster, cpad_super)
+
+max_masked <- resample(max_masked, cpad_raster, method = "cubic")
 
 rm(max_raster)
 
-min_raster  = rasterize(safegraph_block_sum, strava_coarse_masked, field = "min_pop_count")
-min_masked  <- mask(min_raster, cpad_super)
+min_raster <- rasterize(safegraph_block_sum, cpad_raster, field = "min_pop_count")
+min_masked <- mask(min_raster, cpad_super)
 
-rm(min_raster, safegraph_block_sum, strava_coarse_masked)
+min_masked <- resample(min_masked, cpad_raster, method = "cubic")
 
-block_size2 <- cellSize(pop_masked, unit="m")
+rm(min_raster, safegraph_block_sum)
+
+block_size2 <- cellSize(pop_masked, unit = "m")
 block_size_masked2 <- mask(block_size2, cpad_super)
 
-rm(block_size2)
+block_size_masked2 <- resample(block_size_masked2, cpad_raster, method = "cubic")
+
+rm(block_size2, cpad_raster)
 
 pop_cpad = terra::extract(x = pop_masked, y = cpad_super) %>% 
   rename(pop = pop_count)

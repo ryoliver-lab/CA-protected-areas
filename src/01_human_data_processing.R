@@ -278,7 +278,7 @@ st_write(cpad_strava, here::here("data", "processed_data", "cpad_strava.shp"), a
 # Safegraph ---------------------------------------------------------------
 
 census_blockgroup <- census_blockgroup %>%
-  select(-GEOID)
+  select(-GEOID) 
 
 list_of_files <- list.files(
   path = here::here("data", "raw_data", "counties-dates-2-10-22-reformatted", "cali"),
@@ -324,11 +324,10 @@ safegraph_block_sum <- safegraph_block %>%
     mean_count = mean_count * block_percent,
     value = value * block_percent
   ) %>%
-  filter(!is.na(value)) %>%
-  filter(!is.na(mean_count)) %>%
   select(-census_blockgroup_area) %>%
   mutate(value = case_when(
     value == 0 ~ 1,
+    is.na(value) ~ 1,
     TRUE ~ value,
   )) %>%
   mutate(
@@ -336,30 +335,32 @@ safegraph_block_sum <- safegraph_block %>%
     max_pop_count = max_count / value,
     min_pop_count = min_count / value
   ) %>%
-  select(-mean_count, -max_count, -min_count, -value)
+  select(-mean_count, -max_count, -min_count, -value) %>% 
+  distinct() %>% 
+  filter(!is.na(pop_count))
 
 rm(safegraph_block)
 
-pop_raster <- rasterize(safegraph_block_sum, strava_coarse_masked, field = "pop_count")
+pop_raster <- rasterize(safegraph_block_sum, cpad_raster, field = "pop_count")
 pop_masked <- mask(pop_raster, cpad_super)
 
 pop_masked <- resample(pop_masked, cpad_raster, method = "cubic")
 
 rm(pop_raster)
 
-max_raster <- rasterize(safegraph_block_sum, strava_coarse_masked, field = "max_pop_count")
+max_raster <- rasterize(safegraph_block_sum, cpad_raster, field = "max_pop_count")
 max_masked <- mask(max_raster, cpad_super)
 
 max_masked <- resample(max_masked, cpad_raster, method = "cubic")
 
 rm(max_raster)
 
-min_raster <- rasterize(safegraph_block_sum, strava_coarse_masked, field = "min_pop_count")
+min_raster <- rasterize(safegraph_block_sum, cpad_raster, field = "min_pop_count")
 min_masked <- mask(min_raster, cpad_super)
 
 min_masked <- resample(min_masked, cpad_raster, method = "cubic")
 
-rm(min_raster, safegraph_block_sum, strava_coarse_masked)
+rm(min_raster, safegraph_block_sum)
 
 block_size2 <- cellSize(pop_masked, unit = "m")
 block_size_masked2 <- mask(block_size2, cpad_super)
