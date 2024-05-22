@@ -58,7 +58,8 @@ full_famd_data <- human %>%
     access_typ, gap1_acres, sg_range, hex_range,
     gap2_acres, gap3_acres, gap4_acres, mng_ag_typ
   ) %>%
-  drop_na()
+  drop_na() %>% 
+  filter(!is.infinite(sg))
 
 famd_data <- full_famd_data %>%
   select(-suid_nma)
@@ -70,7 +71,8 @@ full_pca_data <- human %>%
     gHM_mean, HFP_mean, suid_nma,
     access_typ, sg_range, hex_range,
   ) %>%
-  drop_na()
+  drop_na()%>% 
+  filter(!is.infinite(sg))
 
 pca_data <- full_pca_data %>%
   select(-suid_nma, -access_typ)
@@ -92,9 +94,9 @@ filled_scores5 <- filled_scores5 %>%
   mutate(id = as.factor(suid_nma), access = as.factor(access_typ)) %>%
   mutate(class = case_when(
     NMDS1 <= 0 & NMDS2 <= 0 ~ "high mod / med mobility",
-    NMDS1 > 0 & NMDS2 > 0 ~ "low mod / med mobility",
-    NMDS1 <= 0 & NMDS2 > 0 ~ "high mod / low mobility",
-    NMDS1 > 0 & NMDS2 <= 0 ~ "low mod / high mobility"
+    NMDS1 > 0 & NMDS2 > 0 ~ "low mod / high safegraph",
+    NMDS1 <= 0 & NMDS2 > 0 ~ "high mod / med mobility",
+    NMDS1 > 0 & NMDS2 <= 0 ~ "low mod / high strava"
   ))
 
 species_scores5 <- as.data.frame(scores(nmds_h)$species)
@@ -140,10 +142,10 @@ nmds <- nmds_cpad %>%
 
 write_csv(nmds, here::here("analysis", "nmds.csv"))
 
-# count = nmds_cpad %>%
-#   st_drop_geometry() %>%
-#   group_by(class) %>%
-#   summarize(n = n())
+count = nmds_cpad %>%
+  st_drop_geometry() %>%
+  group_by(class) %>%
+  summarize(n = n())
 
 # FAMD --------------------------------------------------------------------
 
