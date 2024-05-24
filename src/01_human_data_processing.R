@@ -48,11 +48,14 @@ ca_census <- st_read(here::here("data", "raw_data", "EJSCREEN_2023_BG_StatePct_w
   filter(state_name == "California") %>%
   select(id)
 
-ca_census = ca_census %>%
+ca_census <- ca_census %>%
   mutate(census_area = st_area(ca_census))
 
-cpad_census = st_intersection(ca_census, cpad_super) %>% 
+cpad_census <- st_intersection(ca_census, cpad_super) %>%
   rename(cbg = id)
+
+# cpad_census <- st_read(here::here("data", "processed_data", "cpad_census.shp")) %>%
+#   rename(cbg = id)
 
 # Global Human Modification ----------------------------------------------
 
@@ -207,7 +210,7 @@ strava_block_sum <- strava_block %>%
       mean_1 < 0 ~ 0,
       mean_1 > 255 ~ 255,
       TRUE ~ mean_1
-    ), 
+    ),
     mean_2 = case_when(
       mean_2 < 0 ~ 0,
       mean_2 > 255 ~ 255,
@@ -222,7 +225,7 @@ strava_block_sum <- strava_block %>%
       max_1 < 0 ~ 0,
       max_1 > 255 ~ 255,
       TRUE ~ max_1
-    ), 
+    ),
     max_2 = case_when(
       max_2 < 0 ~ 0,
       max_2 > 255 ~ 255,
@@ -237,7 +240,7 @@ strava_block_sum <- strava_block %>%
       min_1 < 0 ~ 0,
       min_1 > 255 ~ 255,
       TRUE ~ min_1
-    ), 
+    ),
     min_2 = case_when(
       min_2 < 0 ~ 0,
       min_2 > 255 ~ 255,
@@ -290,7 +293,7 @@ st_write(cpad_strava, here::here("data", "processed_data", "cpad_strava.shp"), a
 # Safegraph ---------------------------------------------------------------
 
 census_blockgroup <- census_blockgroup %>%
-  select(-GEOID) 
+  select(-GEOID)
 
 list_of_files <- list.files(
   path = here::here("data", "raw_data", "counties-dates-2-10-22-reformatted", "cali"),
@@ -312,7 +315,7 @@ safegraph_sum <- safegraph %>%
   left_join(census_blockgroup) %>%
   select(-county_id, -date) %>%
   st_as_sf() %>%
-  st_drop_geometry()%>%
+  st_drop_geometry() %>%
   group_by(cbg, census_blockgroup_area) %>%
   summarise(
     mean_count = mean(count, na.rm = TRUE),
@@ -322,12 +325,12 @@ safegraph_sum <- safegraph %>%
     cv_count = sd_count / mean_count
   ) %>%
   ungroup()
-  
+
 rm(census_blockgroup, safegraph)
 
 safegraph_block <- safegraph_sum %>%
   left_join(census_block) %>%
-  st_as_sf() 
+  st_as_sf()
 
 # %>%
 #   select(-cbg)
@@ -351,78 +354,21 @@ safegraph_block_sum <- safegraph_block %>%
     max_pop_count = max_count / value,
     min_pop_count = min_count / value
   ) %>%
-  select(-mean_count, -max_count, -min_count, -value) %>% 
-  distinct() %>% 
+  select(-mean_count, -max_count, -min_count, -value) %>%
+  distinct() %>%
   filter(!is.na(pop_count)) %>%
   mutate(cbg = substring(GEOID, 1, 12))
 
 rm(safegraph_block)
 
-cpad_safgraph_census = full_join(safegraph_block_sum, cpad_census %>% 
-                                   st_drop_geometry())
+cpad_safgraph_census <- full_join(safegraph_block_sum, cpad_census %>%
+  st_drop_geometry())
 
 rm(cpad_census, safegraph_block_sum)
 
-# pop_raster <- rasterize(safegraph_block_sum, cpad_raster, field = "pop_count")
-# pop_masked <- mask(pop_raster, cpad_super)
-# 
-# pop_masked <- resample(pop_masked, cpad_raster, method = "cubic")
-# 
-# rm(pop_raster)
-# 
-# max_raster <- rasterize(safegraph_block_sum, cpad_raster, field = "max_pop_count")
-# max_masked <- mask(max_raster, cpad_super)
-# 
-# max_masked <- resample(max_masked, cpad_raster, method = "cubic")
-# 
-# rm(max_raster)
-# 
-# min_raster <- rasterize(safegraph_block_sum, cpad_raster, field = "min_pop_count")
-# min_masked <- mask(min_raster, cpad_super)
-# 
-# min_masked <- resample(min_masked, cpad_raster, method = "cubic")
-# 
-# rm(min_raster, safegraph_block_sum)
-# 
-# block_size2 <- cellSize(pop_masked, unit = "m")
-# block_size_masked2 <- mask(block_size2, cpad_super)
-# 
-# block_size_masked2 <- resample(block_size_masked2, cpad_raster, method = "cubic")
-# 
-# rm(block_size2, cpad_raster)
-# 
-# pop_cpad <- terra::extract(x = pop_masked, y = cpad_super) %>%
-#   rename(pop = pop_count)
-# 
-# rm(pop_masked)
-# 
-# max_cpad <- terra::extract(x = max_masked, y = cpad_super) %>%
-#   rename(max_pop = max_pop_count) %>%
-#   select(-ID)
-# 
-# rm(max_masked)
-# 
-# min_cpad <- terra::extract(x = min_masked, y = cpad_super) %>%
-#   rename(min_pop = min_pop_count) %>%
-#   select(-ID)
-# 
-# rm(min_masked)
-# 
-# area_cpad <- terra::extract(x = block_size_masked2, y = cpad_super) %>%
-#   select(-ID)
-# 
-# rm(block_size_masked2)
-# 
-# safegraph_cpad <- list(area_cpad, max_cpad, min_cpad, pop_cpad) %>%
-#   reduce(cbind) %>%
-#   full_join(cpad_super) %>%
-#   st_drop_geometry()
-# 
-# rm(area_cpad, max_cpad, min_cpad, pop_cpad)
-
 safegraph_pa_sum <- cpad_safgraph_census %>%
   mutate(percent_pa = census_block_area / shape_r) %>%
-  st_drop_geometry() %>% 
+  st_drop_geometry() %>%
   group_by(suid_nm) %>%
   mutate(
     sg = weighted.mean(pop_count, percent_pa, na.rm = TRUE),

@@ -44,12 +44,12 @@ summary(fit1)
 
 Anova(fit1)
 
-class_data2 = class_data %>% 
-  group_by(class) %>% 
+class_data2 <- class_data %>%
+  group_by(class) %>%
   sample_n(903)
 
-fit2 = nnet::multinom(class ~ access_typ + mng_ag_lev + gap1_acres + gap2_acres +
-                        gap3_acres + gap4_acres + shape_area, data = class_data2)
+fit2 <- nnet::multinom(class ~ access_typ + mng_ag_lev + gap1_acres + gap2_acres +
+  gap3_acres + gap4_acres + shape_area, data = class_data2)
 
 summary(fit2)
 
@@ -186,7 +186,7 @@ count <- result %>%
 
 # Spatial Analysis --------------------------------------------------------
 
-gam1 <- gam(hex_int ~ s(gHM) + s(HFP2009) + s(y, x, bs ="gp", m = 1), data = spatial_data)
+gam1 <- gam(hex_int ~ s(gHM) + s(HFP2009) + s(y, x, bs = "gp", m = 1), data = spatial_data)
 
 summary(gam1)
 AIC(gam1)
@@ -196,12 +196,12 @@ plot(gam1)
 class_models <- spatial_data %>%
   filter(count > 10) %>%
   group_by(class) %>%
-  do(model = gam(hex_int ~ s(gHM) + s(HFP2009) + s(y, x, bs ="gp", m = 1), data = .))
+  do(model = gam(hex_int ~ s(gHM) + s(HFP2009) + s(y, x, bs = "gp", m = 1), data = .))
 
 park_models <- spatial_data %>%
   filter(count > 10) %>%
   group_by(suid_nma, class) %>%
-  do(model = gam(hex_int ~ s(gHM, k = 2) + s(HFP2009, k = 2) + s(y, x, k = 2, bs ="gp", m = 1), data = .))
+  do(model = gam(hex_int ~ s(gHM, k = 2) + s(HFP2009, k = 2) + s(y, x, k = 2, bs = "gp", m = 1), data = .))
 
 # Constancy: 1 – H(x)/log(n), where H(x) is information entropy or  1/sd
 
@@ -227,18 +227,17 @@ const <- 1 - entropy(spatial_data$hex_int) / log(nrow(spatial_data))
 
 # Consistency: [H(x) + H(y) – H(XY)]/log(n) where y is spatial position
 
-single_pt_haversine = function(lat, lng) {
-
-  r = 6371 # Earth's radius (km). Have r = 3956 if you want miles
+single_pt_haversine <- function(lat, lng) {
+  r <- 6371 # Earth's radius (km). Have r = 3956 if you want miles
 
   # 'Single-point' Haversine formula
-  a = sin(lat/2)**2 + cos(lat) * sin(lng/2)**2
-  d = 2 * r * asin(sqrt(a)) 
+  a <- sin(lat / 2)**2 + cos(lat) * sin(lng / 2)**2
+  d <- 2 * r * asin(sqrt(a))
 
   return(d)
 }
 
-spatial_data = spatial_data %>% 
+spatial_data <- spatial_data %>%
   mutate(haversine = single_pt_haversine(y, x))
 
 # need to fix
@@ -251,7 +250,6 @@ class_entropy <- spatial_data %>%
     inv_sd = 1 / sd(hex_int),
     const = 1 - entropy(hex_int) / log(n()),
     contin = (entropy(hex_int) + entropy(haversine) - cross.entropy(hex_int, haversine)) / log(nrow(spatial_data))
-    
   )
 
 park_entropy <- spatial_data %>%
