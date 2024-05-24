@@ -54,6 +54,8 @@ ca_census <- ca_census %>%
 cpad_census <- st_intersection(ca_census, cpad_super) %>%
   rename(cbg = id)
 
+rm(ca_census, cpad_super)
+
 # cpad_census <- st_read(here::here("data", "processed_data", "cpad_census.shp")) %>%
 #   rename(cbg = id)
 
