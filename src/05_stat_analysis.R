@@ -113,7 +113,7 @@ ggsave(a, file = paste0("roc.pdf"), path = here::here("analysis", "figs"), heigh
 
 write_csv(result, here::here("analysis", "multinom_pred1.csv"))
 
-p1 <- ggeffect(fit2, terms = "access_typ") %>%
+p1 <- ggeffect(fit1, terms = "access_typ") %>%
   plot() +
   labs(
     y = "Probability of Being in Class",
@@ -121,7 +121,7 @@ p1 <- ggeffect(fit2, terms = "access_typ") %>%
     title = ""
   )
 
-p2 <- ggeffect(fit2, terms = "mng_ag_lev") %>%
+p2 <- ggeffect(fit1, terms = "mng_ag_lev") %>%
   plot() +
   labs(
     y = "Probability of Being in Class",
@@ -129,7 +129,7 @@ p2 <- ggeffect(fit2, terms = "mng_ag_lev") %>%
     title = ""
   )
 
-p3 <- ggeffect(fit2, terms = "gap1_acres") %>%
+p3 <- ggeffect(fit1, terms = "gap1_acres") %>%
   plot() +
   scale_x_log10() +
   labs(
@@ -138,7 +138,7 @@ p3 <- ggeffect(fit2, terms = "gap1_acres") %>%
     title = ""
   )
 
-p4 <- ggeffect(fit2, terms = "gap2_acres") %>%
+p4 <- ggeffect(fit1, terms = "gap2_acres") %>%
   plot() +
   scale_x_log10() +
   labs(
@@ -147,7 +147,7 @@ p4 <- ggeffect(fit2, terms = "gap2_acres") %>%
     title = ""
   )
 
-p5 <- ggeffect(fit2, terms = "gap3_acres") %>%
+p5 <- ggeffect(fit1, terms = "gap3_acres") %>%
   plot() +
   scale_x_log10() +
   labs(
@@ -156,7 +156,7 @@ p5 <- ggeffect(fit2, terms = "gap3_acres") %>%
     title = ""
   )
 
-p6 <- ggeffect(fit2, terms = "gap4_acres") %>%
+p6 <- ggeffect(fit1, terms = "gap4_acres") %>%
   plot() +
   scale_x_log10() +
   labs(
@@ -165,7 +165,7 @@ p6 <- ggeffect(fit2, terms = "gap4_acres") %>%
     title = ""
   )
 
-p7 <- ggeffect(fit2, terms = "shape_area") %>%
+p7 <- ggeffect(fit1, terms = "shape_area") %>%
   plot() +
   scale_x_log10() +
   labs(
@@ -262,3 +262,8 @@ park_entropy <- spatial_data %>%
     const = 1 - entropy(hex_int) / log(n()),
     contin = (entropy(hex_int) + entropy(haversine) - cross.entropy(hex_int, haversine)) / log(nrow(spatial_data))
   )
+
+1 - entropy(spatial_data$gHM) / log(nrow(spatial_data))
+(entropy(spatial_data$gHM) + entropy(spatial_data$haversine) - cross.entropy(spatial_data$gHM, spatial_data$haversine)) / log(nrow(spatial_data))
+1 - entropy(spatial_data$HFP2009) / log(nrow(spatial_data))
+(entropy(spatial_data$HFP2009) + entropy(spatial_data$haversine) - cross.entropy(spatial_data$HFP2009, spatial_data$haversine)) / log(nrow(spatial_data))
