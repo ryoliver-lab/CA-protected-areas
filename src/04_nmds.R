@@ -19,6 +19,8 @@ human <- list(sg, strava, ghm, hfp) %>%
 
 rm(sg, strava, ghm, hfp)
 
+#take out hoas
+
 human = human %>%
   filter(shape_area >= 10000) %>%
   filter(!grepl("cemet", park_name, ignore.case = TRUE)) %>% 
