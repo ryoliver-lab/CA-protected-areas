@@ -13,6 +13,21 @@ cpad_super <- st_read(here::here("data", "raw_data", "CPAD_2023a_SuperUnits.shp"
   janitor::clean_names() %>%
   mutate(ID = row_number())
 
+# ca_census <- st_read(here::here("data", "raw_data", "EJSCREEN_2023_BG_StatePct_with_AS_CNMI_GU_VI.gdb/")) %>%
+#   janitor::clean_names() %>%
+#   st_transform(crs = st_crs(cpad_super)) %>%
+#   filter(state_name == "California") %>%
+#   select(id)
+# 
+# ca_census = ca_census %>%
+#   mutate(census_area = st_area(ca_census))
+# 
+# cpad_census = st_intersection(ca_census, cpad_super) %>% 
+#   rename(cbg = id)
+
+cpad_census <- st_read(here::here("data", "processed_data", "cpad_census.shp")) %>% 
+  rename(cbg = id)
+
 ghm <- rast(here::here("data", "raw_data", "gHM.tif")) %>%
   project("EPSG:4326")
 

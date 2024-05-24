@@ -42,6 +42,18 @@ census_blockgroup <- get_decennial(
   st_buffer(dist = 0) %>%
   mutate(cbg = GEOID)
 
+ca_census <- st_read(here::here("data", "raw_data", "EJSCREEN_2023_BG_StatePct_with_AS_CNMI_GU_VI.gdb/")) %>%
+  janitor::clean_names() %>%
+  st_transform(crs = st_crs(cpad_super)) %>%
+  filter(state_name == "California") %>%
+  select(id)
+
+ca_census = ca_census %>%
+  mutate(census_area = st_area(ca_census))
+
+cpad_census = st_intersection(ca_census, cpad_super) %>% 
+  rename(cbg = id)
+
 # Global Human Modification ----------------------------------------------
 
 ghm <- rast(here::here("data", "raw_data", "gHM.tif")) %>%
@@ -289,16 +301,18 @@ list_of_files <- list.files(
 
 safegraph <- read_csv(list_of_files, id = "file_name") %>%
   select(-file_name) %>%
-  mutate(year = lubridate::year(date))
+  mutate(year = lubridate::year(date)) %>%
+  filter(!is.na(year))
+
+rm(list_of_files)
 
 ### time series processing starting with safegraph
 
 safegraph_sum <- safegraph %>%
-  full_join(census_blockgroup) %>%
-  filter(!is.na(year)) %>%
+  left_join(census_blockgroup) %>%
   select(-county_id, -date) %>%
   st_as_sf() %>%
-  st_drop_geometry() %>%
+  st_drop_geometry()%>%
   group_by(cbg, census_blockgroup_area) %>%
   summarise(
     mean_count = mean(count, na.rm = TRUE),
@@ -308,13 +322,15 @@ safegraph_sum <- safegraph %>%
     cv_count = sd_count / mean_count
   ) %>%
   ungroup()
-
-rm(census_blockgroup, list_of_files, safegraph)
+  
+rm(census_blockgroup, safegraph)
 
 safegraph_block <- safegraph_sum %>%
-  full_join(census_block) %>%
-  st_as_sf() %>%
-  select(-cbg)
+  left_join(census_block) %>%
+  st_as_sf() 
+
+# %>%
+#   select(-cbg)
 
 rm(safegraph_sum, census_block)
 
@@ -337,74 +353,83 @@ safegraph_block_sum <- safegraph_block %>%
   ) %>%
   select(-mean_count, -max_count, -min_count, -value) %>% 
   distinct() %>% 
-  filter(!is.na(pop_count))
+  filter(!is.na(pop_count)) %>%
+  mutate(cbg = substring(GEOID, 1, 12))
 
 rm(safegraph_block)
 
-pop_raster <- rasterize(safegraph_block_sum, cpad_raster, field = "pop_count")
-pop_masked <- mask(pop_raster, cpad_super)
+cpad_safgraph_census = full_join(safegraph_block_sum, cpad_census %>% 
+                                   st_drop_geometry())
 
-pop_masked <- resample(pop_masked, cpad_raster, method = "cubic")
+rm(cpad_census, safegraph_block_sum)
 
-rm(pop_raster)
+# pop_raster <- rasterize(safegraph_block_sum, cpad_raster, field = "pop_count")
+# pop_masked <- mask(pop_raster, cpad_super)
+# 
+# pop_masked <- resample(pop_masked, cpad_raster, method = "cubic")
+# 
+# rm(pop_raster)
+# 
+# max_raster <- rasterize(safegraph_block_sum, cpad_raster, field = "max_pop_count")
+# max_masked <- mask(max_raster, cpad_super)
+# 
+# max_masked <- resample(max_masked, cpad_raster, method = "cubic")
+# 
+# rm(max_raster)
+# 
+# min_raster <- rasterize(safegraph_block_sum, cpad_raster, field = "min_pop_count")
+# min_masked <- mask(min_raster, cpad_super)
+# 
+# min_masked <- resample(min_masked, cpad_raster, method = "cubic")
+# 
+# rm(min_raster, safegraph_block_sum)
+# 
+# block_size2 <- cellSize(pop_masked, unit = "m")
+# block_size_masked2 <- mask(block_size2, cpad_super)
+# 
+# block_size_masked2 <- resample(block_size_masked2, cpad_raster, method = "cubic")
+# 
+# rm(block_size2, cpad_raster)
+# 
+# pop_cpad <- terra::extract(x = pop_masked, y = cpad_super) %>%
+#   rename(pop = pop_count)
+# 
+# rm(pop_masked)
+# 
+# max_cpad <- terra::extract(x = max_masked, y = cpad_super) %>%
+#   rename(max_pop = max_pop_count) %>%
+#   select(-ID)
+# 
+# rm(max_masked)
+# 
+# min_cpad <- terra::extract(x = min_masked, y = cpad_super) %>%
+#   rename(min_pop = min_pop_count) %>%
+#   select(-ID)
+# 
+# rm(min_masked)
+# 
+# area_cpad <- terra::extract(x = block_size_masked2, y = cpad_super) %>%
+#   select(-ID)
+# 
+# rm(block_size_masked2)
+# 
+# safegraph_cpad <- list(area_cpad, max_cpad, min_cpad, pop_cpad) %>%
+#   reduce(cbind) %>%
+#   full_join(cpad_super) %>%
+#   st_drop_geometry()
+# 
+# rm(area_cpad, max_cpad, min_cpad, pop_cpad)
 
-max_raster <- rasterize(safegraph_block_sum, cpad_raster, field = "max_pop_count")
-max_masked <- mask(max_raster, cpad_super)
-
-max_masked <- resample(max_masked, cpad_raster, method = "cubic")
-
-rm(max_raster)
-
-min_raster <- rasterize(safegraph_block_sum, cpad_raster, field = "min_pop_count")
-min_masked <- mask(min_raster, cpad_super)
-
-min_masked <- resample(min_masked, cpad_raster, method = "cubic")
-
-rm(min_raster, safegraph_block_sum)
-
-block_size2 <- cellSize(pop_masked, unit = "m")
-block_size_masked2 <- mask(block_size2, cpad_super)
-
-block_size_masked2 <- resample(block_size_masked2, cpad_raster, method = "cubic")
-
-rm(block_size2, cpad_raster)
-
-pop_cpad <- terra::extract(x = pop_masked, y = cpad_super) %>%
-  rename(pop = pop_count)
-
-rm(pop_masked)
-
-max_cpad <- terra::extract(x = max_masked, y = cpad_super) %>%
-  rename(max_pop = max_pop_count) %>%
-  select(-ID)
-
-rm(max_masked)
-
-min_cpad <- terra::extract(x = min_masked, y = cpad_super) %>%
-  rename(min_pop = min_pop_count) %>%
-  select(-ID)
-
-rm(min_masked)
-
-area_cpad <- terra::extract(x = block_size_masked2, y = cpad_super) %>%
-  select(-ID)
-
-rm(block_size_masked2)
-
-safegraph_cpad <- list(area_cpad, max_cpad, min_cpad, pop_cpad) %>%
-  reduce(cbind) %>%
-  full_join(cpad_super) %>%
-  st_drop_geometry()
-
-rm(area_cpad, max_cpad, min_cpad, pop_cpad)
-
-safegraph_pa_sum <- safegraph_cpad %>%
-  mutate(percent_pa = area / shape_area) %>%
-  group_by(ID, suid_nma) %>%
-  summarize(
-    sg = weighted.mean(pop, percent_pa, na.rm = TRUE),
-    max_sg = weighted.mean(max_pop, percent_pa, na.rm = TRUE),
-    min_sg = weighted.mean(min_pop, percent_pa, na.rm = TRUE)
+safegraph_pa_sum <- cpad_safgraph_census %>%
+  mutate(percent_pa = census_block_area / shape_r) %>%
+  st_drop_geometry() %>% 
+  group_by(suid_nm) %>%
+  mutate(
+    sg = weighted.mean(pop_count, percent_pa, na.rm = TRUE),
+    max_sg = weighted.mean(max_pop_count, percent_pa, na.rm = TRUE),
+    min_sg = weighted.mean(min_pop_count, percent_pa, na.rm = TRUE)
   )
+
+rm(cpad_safgraph_census)
 
 write_csv(safegraph_pa_sum, here::here("data", "processed_data", "cpad_sg.csv"))
