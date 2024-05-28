@@ -14,8 +14,8 @@ cbg = full_join(cpad_cbg, sg_cbg) %>%
   distinct()
 
 missing_cbg = cbg %>% 
-  filter(is.na(sg_cbg)) %>% 
   select(cpad_cbg) %>% 
+  filter(!is.na(cpad_cbg)) %>% 
   arrange(cpad_cbg)
 
-write_csv(missing_cbg, here::here("data", "missing_cbg.csv"))
+write_csv(missing_cbg, here::here("data", "cpad_cbg.csv"))
