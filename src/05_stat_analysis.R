@@ -11,6 +11,7 @@ library(car)
 library(mgcv)
 library(tidymodels)
 library(patchwork)
+library(MASS)
 
 # Data Input --------------------------------------------------------------
 
@@ -227,6 +228,32 @@ count <- result %>%
 
 # Temporal Analysis -------------------------------------------------------
 
+## Time series for representative park
+
+decom_period <- function(suid) {
+  park <- temporal_data %>%
+    filter(suid_nma == suid) %>%
+    mutate(year = year(date)) %>%
+    filter(year == 2019)
+  
+  park_ts <- ts(park$sg, freq = 30)
+  
+  ### Decomposition
+  
+  decomp <- decompose(park_ts)
+  plot(decomp)
+  
+  ### Periodicity
+  
+  TSA::periodogram(park_ts, plot = TRUE) # compute and plot periodograms
+  abline(h = 0)
+  
+  return(GeneCycle::fisher.g.test(park_ts))
+}
+
+decom_period(129)
+
+decom_period(295)
 
 ### Predictability
 
