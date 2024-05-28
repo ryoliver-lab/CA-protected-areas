@@ -12,6 +12,8 @@ library(mgcv)
 library(tidymodels)
 library(patchwork)
 
+# Data Input --------------------------------------------------------------
+
 class_data <- read_csv(here::here("analysis", "nmds.csv")) %>%
   select(
     class, suid_nma, access_typ, mng_ag_lev, gap1_acres, gap2_acres,
@@ -35,7 +37,45 @@ spatial_data <- read_csv(here::here("data", "processed_data", "spatial_analysis.
   full_join(classes) %>%
   filter(!is.na(hex_int))
 
-# multinomial regression --------------------------------------------------
+temporal_data <- read_csv(here::here("data", "processed_data", "temporal_analysis.csv")) %>%
+  select(suid_nma, date, sg, park_name) %>%
+  full_join(classes) %>%
+  filter(!is.na(sg)) %>%
+  group_by(suid_nma) %>%
+  mutate(count = n()) %>%
+  filter(count > 90)
+
+# Functions ---------------------------------------------------------------
+
+single_pt_haversine <- function(lat, lng) {
+  r <- 6371 # Earth's radius (km). Have r = 3956 if you want miles
+
+  # 'Single-point' Haversine formula
+  a <- sin(lat / 2)**2 + cos(lat) * sin(lng / 2)**2
+  d <- 2 * r * asin(sqrt(a))
+
+  return(d)
+}
+
+entropy <- function(target) {
+  freq <- table(target) / length(target)
+  # vectorize
+  vec <- as.data.frame(freq)[, 2]
+  # drop 0 to avoid NaN resulting from log2
+  vec <- vec[vec > 0]
+  # compute entropy
+  -sum(vec * log2(vec))
+}
+
+cross.entropy <- function(p, phat) {
+  x <- 0
+  for (i in 1:length(p)) {
+    x <- x + (p[i] * log(phat[i]))
+  }
+  return(-x)
+}
+
+# Multinomial Regression --------------------------------------------------
 
 fit1 <- nnet::multinom(class ~ access_typ + mng_ag_lev + gap1_acres + gap2_acres +
   gap3_acres + gap4_acres + shape_area, data = class_data)
@@ -184,6 +224,42 @@ count <- result %>%
   group_by(class, prediction) %>%
   summarize(n = n())
 
+
+# Temporal Analysis -------------------------------------------------------
+
+
+### Predictability
+
+# Constancy: 1 – H(x)/log(n), where H(x) is information entropy or  1/sd
+
+const <- 1 - entropy(temporal_data$sg) / log(nrow(temporal_data))
+
+# Consistency: [H(x) + H(y) – H(XY)]/log(n) where y is spatial position
+
+temporal_data <- temporal_data %>%
+  mutate(date_num = as.numeric(date))
+
+# need to fix
+contin <- (entropy(temporal_data$sg) + entropy(temporal_data$date_num) - cross.entropy(temporal_data$sg, temporal_data$date_num)) / log(nrow(temporal_data))
+
+class_entropy <- temporal_data %>%
+  group_by(class) %>%
+  summarise(
+    entropy = entropy(sg),
+    inv_sd = 1 / sd(sg),
+    const = 1 - entropy(sg) / log(n()),
+    contin = (entropy(sg) + entropy(date_num) - cross.entropy(sg, date_num)) / log(n())
+  )
+
+park_entropy <- temporal_data %>%
+  group_by(suid_nma, class) %>%
+  summarise(
+    entropy = entropy(sg),
+    inv_sd = 1 / sd(sg),
+    const = 1 - entropy(sg) / log(n()),
+    contin = (entropy(sg) + entropy(date_num) - cross.entropy(sg, date_num)) / log(n())
+  )
+
 # Spatial Analysis --------------------------------------------------------
 
 gam1 <- gam(hex_int ~ s(gHM) + s(HFP2009) + s(y, x, bs = "gp", m = 1), data = spatial_data)
@@ -203,39 +279,13 @@ park_models <- spatial_data %>%
   group_by(suid_nma, class) %>%
   do(model = gam(hex_int ~ s(gHM, k = 2) + s(HFP2009, k = 2) + s(y, x, k = 2, bs = "gp", m = 1), data = .))
 
+### Predictibility
+
 # Constancy: 1 – H(x)/log(n), where H(x) is information entropy or  1/sd
-
-entropy <- function(target) {
-  freq <- table(target) / length(target)
-  # vectorize
-  vec <- as.data.frame(freq)[, 2]
-  # drop 0 to avoid NaN resulting from log2
-  vec <- vec[vec > 0]
-  # compute entropy
-  -sum(vec * log2(vec))
-}
-
-cross.entropy <- function(p, phat) {
-  x <- 0
-  for (i in 1:length(p)) {
-    x <- x + (p[i] * log(phat[i]))
-  }
-  return(-x)
-}
 
 const <- 1 - entropy(spatial_data$hex_int) / log(nrow(spatial_data))
 
 # Consistency: [H(x) + H(y) – H(XY)]/log(n) where y is spatial position
-
-single_pt_haversine <- function(lat, lng) {
-  r <- 6371 # Earth's radius (km). Have r = 3956 if you want miles
-
-  # 'Single-point' Haversine formula
-  a <- sin(lat / 2)**2 + cos(lat) * sin(lng / 2)**2
-  d <- 2 * r * asin(sqrt(a))
-
-  return(d)
-}
 
 spatial_data <- spatial_data %>%
   mutate(haversine = single_pt_haversine(y, x))
@@ -249,7 +299,7 @@ class_entropy <- spatial_data %>%
     entropy = entropy(hex_int),
     inv_sd = 1 / sd(hex_int),
     const = 1 - entropy(hex_int) / log(n()),
-    contin = (entropy(hex_int) + entropy(haversine) - cross.entropy(hex_int, haversine)) / log(nrow(spatial_data))
+    contin = (entropy(hex_int) + entropy(haversine) - cross.entropy(hex_int, haversine)) / log(n())
   )
 
 park_entropy <- spatial_data %>%
@@ -258,8 +308,8 @@ park_entropy <- spatial_data %>%
     entropy = entropy(hex_int),
     inv_sd = 1 / sd(hex_int),
     const = 1 - entropy(hex_int) / log(n()),
-    contin = (entropy(hex_int) + entropy(haversine) - cross.entropy(hex_int, haversine)) / log(nrow(spatial_data))
-  )
+    contin = (entropy(hex_int) + entropy(haversine) - cross.entropy(hex_int, haversine)) / log(n())
+  ) # fix nrow
 
 1 - entropy(spatial_data$gHM) / log(nrow(spatial_data))
 (entropy(spatial_data$gHM) + entropy(spatial_data$haversine) - cross.entropy(spatial_data$gHM, spatial_data$haversine)) / log(nrow(spatial_data))
