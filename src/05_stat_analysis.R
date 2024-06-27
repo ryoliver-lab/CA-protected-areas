@@ -9,7 +9,6 @@ library(marginaleffects)
 # For the Wald Test
 library(car)
 library(mgcv)
-library(tidymodels)
 library(patchwork)
 
 # Data Input --------------------------------------------------------------
@@ -84,43 +83,15 @@ summary(fit1)
 
 Anova(fit1)
 
-class_data2 <- class_data %>%
-  group_by(class) %>%
-  sample_n(903)
+tbl_regression(fit1, exp = TRUE)
 
-fit2 <- nnet::multinom(class ~ access_typ + mng_ag_lev + gap1_acres + gap2_acres +
-  gap3_acres + gap4_acres + shape_area, data = class_data2)
+tidy_fit <- tidy(fit1, conf.int = TRUE, exponentiate = TRUE)
 
-summary(fit2)
+write_csv(tidy_fit, here::here("analysis", "multinom_params.csv"))
 
-Anova(fit2)
-
-tbl_regression(fit2, exp = TRUE)
-
-tidy_fit <- tidy(fit2, conf.int = TRUE, exponentiate = TRUE)
-
-write_csv(tidy_fit, here::here("analysis", "multinom_params2.csv"))
-
-predict_class <- predict(fit2, class_data2, type = "class") %>%
+probs <- fitted(fit1) %>%
   as.data.frame() %>%
-  cbind(class_data2)
-
-predict_prob <- predict(fit2, class_data2, type = "prob") %>%
-  as.data.frame() %>%
-  cbind(predict_class) %>%
-  mutate(correct = case_when(
-    . == class ~ 1,
-    . != class ~ 0
-  ))
-
-result <- predict_prob %>%
-  group_by(class) %>%
-  summarize(
-    n = n(),
-    num_correct = sum(correct)
-  ) %>%
-  mutate(percent_correct = num_correct / n) %>%
-  full_join(predict_prob)
+  cbind(class_data)
 
 names(result) <- c(
   "class", "n", "num_correct", "percent_correct",
@@ -131,99 +102,89 @@ names(result) <- c(
   "shape_area", "correct"
 )
 
-accuracy(result, class, prediction)
-precision(result, class, prediction)
-sensitivity(result, class, prediction) # true positive rate
-specificity(result, class, prediction) # true negative rate
+write_csv(probs, here::here("analysis", "multinom_pred.csv"))
 
-roc_auc(predict_prob, class, c(
-  "high mod / med mobility",
-  "low mod / high safegraph",
-  "low mod / high strava"
-))
+slopes <- avg_slopes(fit1, type = "probs", by = "class") %>%
+  mutate(contrast = case_when(
+    contrast == "mean(Open Access) - mean(No Public Access)" ~ "No Public Access to Open Access",
+    contrast == "mean(Restricted Access) - mean(No Public Access)" ~ "No Public Access to Restricted Access",
+    contrast == "mean(Unknown Access) - mean(No Public Access)" ~ "No Public Access to Unknown",
+    contrast == "mean(County) - mean(City)" ~ "City to County",
+    contrast == "mean(Federal) - mean(City)" ~ "City to Federal",
+    contrast == "mean(Home Owners Association) - mean(City)" ~ "City to Home Owners Association",
+    contrast == "mean(Non Profit) - mean(City)" ~ "City to Non Profit",
+    contrast == "mean(Private) - mean(City)" ~ "City to Private",
+    contrast == "mean(Special District) - mean(City)" ~ "City to Special District",
+    contrast == "mean(State) - mean(City)" ~ "City to State",
+    TRUE ~ contrast
+  )) %>%
+  mutate(term = case_when(
+    term == "gap1_acres" ~ "GAP 1 Acres",
+    term == "gap2_acres" ~ "GAP 2 Acres",
+    term == "gap3_acres" ~ "GAP 3 Acres",
+    term == "gap4_acres" ~ "GAP 4 Acres",
+    term == "shape_area" ~ "Shape Area",
+    TRUE ~ term
+  ))
 
-a <- autoplot(roc_curve(predict_prob, class, c(
-  "high mod / med mobility",
-  "low mod / high safegraph",
-  "low mod / high strava"
-))) +
-  theme_bw()
-
-ggsave(a, file = paste0("roc.pdf"), path = here::here("analysis", "figs"), height = 10, width = 15)
-
-write_csv(result, here::here("analysis", "multinom_pred1.csv"))
-
-p1 <- ggeffect(fit1, terms = "access_typ") %>%
-  plot() +
+p1 <- ggplot(slopes %>% filter(term == "access_typ"), aes(contrast, estimate)) +
+  geom_hline(aes(yintercept = 0), linetype = "dashed") +
+  geom_linerange(aes(ymin = conf.low, ymax = conf.high)) +
+  geom_point(aes(color = class), size = 2) +
+  facet_wrap(~group) +
+  theme_bw() +
+  scale_colour_viridis_d()  +
+  theme(
+    strip.text = element_text(face = "bold"),
+    strip.background = element_rect(fill = "white"),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  ) +
   labs(
-    y = "Probability of Being in Class",
-    x = "Access Type",
-    title = ""
+    x = "",
+    y = "Average Change in Odds",
+    color = "Comparison Class"
   )
 
-p2 <- ggeffect(fit1, terms = "mng_ag_lev") %>%
-  plot() +
+p2 <- ggplot(slopes %>% filter(term == "mng_ag_lev"), aes(contrast, estimate)) +
+  geom_hline(aes(yintercept = 0), linetype = "dashed") +
+  geom_linerange(aes(ymin = conf.low, ymax = conf.high)) +
+  geom_point(aes(color = class), size = 2) +
+  facet_wrap(~group) +
+  theme_bw() +
+  scale_colour_viridis_d() +
+  theme(
+    strip.text = element_text(face = "bold"),
+    strip.background = element_rect(fill = "white"),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  ) +
   labs(
-    y = "Probability of Being in Class",
-    x = "Management Level",
-    title = ""
+    x = "",
+    y = "Average Change in Odds",
+    color = "Comparison Class"
   )
 
-p3 <- ggeffect(fit1, terms = "gap1_acres") %>%
-  plot() +
-  scale_x_log10() +
+p3 <- ggplot(slopes %>% filter(term %in% c("GAP 1 Acres", "GAP 2 Acres", "GAP 3 Acres", "GAP 4 Acres", "Shape Area")), aes(term, estimate)) +
+  geom_hline(aes(yintercept = 0), linetype = "dashed") +
+  geom_linerange(aes(ymin = conf.low, ymax = conf.high)) +
+  geom_point(aes(color = class), size = 2) +
+  facet_wrap(~group) +
+  theme_bw() +
+  scale_colour_viridis_d() +
+  theme(
+    strip.text = element_text(face = "bold"),
+    strip.background = element_rect(fill = "white"),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  ) +
   labs(
-    y = "Probability of Being in Class",
-    x = "GAP 1 Acres",
-    title = ""
+    x = "",
+    y = "Average Change in Odds",
+    color = "Comparison Class"
   )
 
-p4 <- ggeffect(fit1, terms = "gap2_acres") %>%
-  plot() +
-  scale_x_log10() +
-  labs(
-    y = "Probability of Being in Class",
-    x = "GAP 2 Acres",
-    title = ""
-  )
+plot <- p1 / p2 / p3 + plot_annotation(tag_levels = "A") + plot_layout(guides = "collect")
+plot
 
-p5 <- ggeffect(fit1, terms = "gap3_acres") %>%
-  plot() +
-  scale_x_log10() +
-  labs(
-    y = "Probability of Being in Class",
-    x = "GAP 3 Acres",
-    title = ""
-  )
-
-p6 <- ggeffect(fit1, terms = "gap4_acres") %>%
-  plot() +
-  scale_x_log10() +
-  labs(
-    y = "Probability of Being in Class",
-    x = "GAP 4 Acres",
-    title = ""
-  )
-
-p7 <- ggeffect(fit1, terms = "shape_area") %>%
-  plot() +
-  scale_x_log10() +
-  labs(
-    y = "Probability of Being in Class",
-    x = "Park Area",
-    title = ""
-  )
-
-plot <- p1 / p2
-# ggsave(plot, file = paste0("accessvmanage.pdf"), path = here::here("analysis", "figs"), height = 15, width = 15)
-
-plot <- p3 / p4 / p5 / p6 / p7
-# ggsave(plot, file = paste0("sizeeffect.pdf"), path = here::here("analysis", "figs"), height = 20, width = 12)
-
-count <- result %>%
-  group_by(class, prediction) %>%
-  summarize(n = n())
-
+ggsave(plot, file = paste0("fig2.pdf"), path = here::here("analysis", "figs"), height = 20, width = 15)
 
 # Temporal Analysis -------------------------------------------------------
 
@@ -234,25 +195,31 @@ decom_period <- function(suid) {
     filter(suid_nma == suid) %>%
     mutate(year = year(date)) %>%
     filter(year == 2019)
-  
+
   park_ts <- ts(park$sg, freq = 30)
-  
+
   ### Decomposition
-  
+
   decomp <- decompose(park_ts)
   plot(decomp)
-  
+
   ### Periodicity
-  
+
   TSA::periodogram(park_ts, plot = TRUE) # compute and plot periodograms
   abline(h = 0)
-  
+
   return(GeneCycle::fisher.g.test(park_ts))
 }
 
 decom_period(129)
 
 decom_period(295)
+
+decom_period(383)
+
+decom_period(399)
+
+decom_period(425)
 
 ### Predictability
 
