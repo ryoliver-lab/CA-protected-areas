@@ -235,42 +235,40 @@ ggsave(plot, file = paste0("fig2.pdf"), path = here::here("analysis", "figs"), h
 
 ## Time series for representative park
 
+temp_enough = temporal_data %>% 
+  filter(count == 322)
+
 decom_period <- function(suid) {
   park <- temporal_data %>%
     filter(suid_nma == suid) %>%
-    mutate(year = year(date)) %>%
-    filter(year == 2019)
+    mutate(year = year(date)) 
 
   park_ts <- ts(park$sg, freq = 30)
 
   ### Decomposition
 
-  decomp <- decompose(park_ts)
-  plot(decomp)
+  # decomp <- decompose(park_ts)
+  # plot(decomp)
 
   ### Periodicity
+  
+  df = data.frame()
 
-  TSA::periodogram(park_ts, plot = TRUE) # compute and plot periodograms
-  abline(h = 0)
+  # TSA::periodogram(park_ts, plot = TRUE) # compute and plot periodograms
+  # abline(h = 0)
+  
+  df$p_value = GeneCycle::fisher.g.test(park_ts)
 
-  return(GeneCycle::fisher.g.test(park_ts))
+  return(df)
 }
 
 decom_period(129)
-
-decom_period(295)
-
-decom_period(383)
-
-decom_period(399)
-
-decom_period(425)
 
 ### Predictability
 
 # Constancy: 1 – H(x)/log(n), where H(x) is information entropy or  1/sd
 
-const <- 1 - entropy(temporal_data$sg) / log(nrow(temporal_data))
+const_temp <- 1 - entropy(temporal_data$sg) / log(nrow(temporal_data))
 
 # Consistency: [H(x) + H(y) – H(XY)]/log(n) where y is spatial position
 
@@ -278,24 +276,28 @@ temporal_data <- temporal_data %>%
   mutate(date_num = as.numeric(date))
 
 # need to fix
-contin <- (entropy(temporal_data$sg) + entropy(temporal_data$date_num) - cross.entropy(temporal_data$sg, temporal_data$date_num)) / log(nrow(temporal_data))
+contin_temp <- (entropy(temporal_data$sg) + entropy(temporal_data$date_num) - cross.entropy(temporal_data$sg, temporal_data$date_num)) / log(nrow(temporal_data))
 
-class_entropy <- temporal_data %>%
+pred_temp = const_temp + contin_temp
+
+class_entropy_temp <- temporal_data %>%
   group_by(class) %>%
   summarise(
     entropy = entropy(sg),
     inv_sd = 1 / sd(sg),
     const = 1 - entropy(sg) / log(n()),
-    contin = (entropy(sg) + entropy(date_num) - cross.entropy(sg, date_num)) / log(n())
+    contin = (entropy(sg) + entropy(date_num) - cross.entropy(sg, date_num)) / log(n()),
+    pred = const + contin
   )
 
-park_entropy <- temporal_data %>%
+park_entropy_temp <- temporal_data %>%
   group_by(suid_nma, class) %>%
   summarise(
     entropy = entropy(sg),
     inv_sd = 1 / sd(sg),
     const = 1 - entropy(sg) / log(n()),
-    contin = (entropy(sg) + entropy(date_num) - cross.entropy(sg, date_num)) / log(n())
+    contin = (entropy(sg) + entropy(date_num) - cross.entropy(sg, date_num)) / log(n()),
+    pred = const + contin
   )
 
 # Spatial Analysis --------------------------------------------------------
@@ -310,7 +312,26 @@ class_models <- spatial_data %>%
   group_by(class) %>%
   do(model = gam(hex_int ~ s(gHM) + s(HFP2009) + s(y, x, bs = "gp", m = 1), data = .))
 
+gam_slopes = avg_slopes(class_models[[2]][[1]])
 
+p1 = plot_slopes(class_models[[2]][[1]], variables = "gHM", by = "gHM") +
+  theme_bw() +
+  labs(x = "Global Human Modification",
+       y = "Strava Value")
+
+p2 = plot_slopes(class_models[[2]][[1]], variables = "HFP2009", by = "HFP2009") +
+  theme_bw() +
+  labs(x = "Human Footprint Index",
+       y = "Strava Value")
+
+p3 = plot_slopes(class_models[[2]][[1]], variables = "longitude", by = "latitude") +
+  theme_bw() +
+  labs(x = "Longitude",
+       y = "Strava Value")
+
+plot = (p1 + p2) / p3 + plot_annotation(tag_levels = "A") + plot_layout(guides = "collect")
+
+ggsave(plot, file = paste0("fig4.pdf"), path = here::here("analysis", "figs"), height = 15, width = 25)
 
 ### Dispersion and Predictibility
 
@@ -391,3 +412,10 @@ p3 = ggplot(park_entropy %>% filter(!is.na(class))) +
 plot = p1 + p2 + p3 + plot_annotation(tag_levels = "A") + plot_layout(guides = "collect")
 
 ggsave(plot, file = paste0("fig3.pdf"), path = here::here("analysis", "figs"), height = 10, width = 20)
+
+park_filter = park_entropy %>% 
+  filter(!is.na(class))
+
+cor(park_filter$mod_disp, park_filter$disp)
+cor(park_filter$disp, park_filter$pred)
+cor(park_filter$mod_disp, park_filter$pred)
