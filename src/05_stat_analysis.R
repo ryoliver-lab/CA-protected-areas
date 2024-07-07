@@ -239,7 +239,7 @@ temp_enough = temporal_data %>%
   filter(count == 322)
 
 decom_period <- function(suid) {
-  park <- temporal_data %>%
+  park <- temp_enough %>%
     filter(suid_nma == suid) %>%
     mutate(year = year(date)) 
 
@@ -252,17 +252,30 @@ decom_period <- function(suid) {
 
   ### Periodicity
   
-  df = data.frame()
-
+  freq = TSA::periodogram(park_ts)[["freq"]]
+  specs = TSA::periodogram(park_ts)[["spec"]]
+  
   # TSA::periodogram(park_ts, plot = TRUE) # compute and plot periodograms
   # abline(h = 0)
   
+  df = data.frame(freq = freq, specs = specs)
+  
   df$p_value = GeneCycle::fisher.g.test(park_ts)
+  
+  df$suid_nma = suid
 
   return(df)
 }
 
-decom_period(129)
+period = data.frame()
+
+unique_ids = unique(temp_enough$suid_nma)
+
+for(i in 1:length(unique_ids)) {
+  int_data = decom_period(unique_ids[i])
+  
+  period = rbind(period, int_data)
+}
 
 ### Predictability
 
