@@ -3,15 +3,63 @@ library(nnet)
 library(gtsummary)
 library(broom)
 # To plot predicted values
-library(ggeffects)
-# To get average marginal effect
 library(marginaleffects)
 # For the Wald Test
 library(car)
 library(mgcv)
 library(patchwork)
+library(sf)
 
 # Data Input --------------------------------------------------------------
+
+cpad_super <- st_read(here::here("data", "raw_data", "CPAD_2023a_SuperUnits.shp")) %>%
+  sf::st_transform("EPSG:4326") %>%
+  janitor::clean_names() %>%
+  mutate(ID = row_number())
+
+sg <- read_csv(here::here("data", "processed_data", "cpad_sg.csv"))
+strava <- st_read(here::here("data", "processed_data", "cpad_strava.shp"))
+ghm <- st_read(here::here("data", "processed_data", "cpad_ghm.shp"))
+hfp <- st_read(here::here("data", "processed_data", "cpad_hfp.shp"))
+
+human <- list(sg, strava, ghm, hfp) %>%
+  reduce(full_join) %>%
+  st_as_sf()
+
+rm(sg, strava, ghm, hfp)
+
+# take out hoas
+
+human <- human %>%
+  filter(shape_area >= 10000) %>%
+  filter(!grepl("cemet", park_name, ignore.case = TRUE)) %>%
+  filter(!grepl("sport", park_name, ignore.case = TRUE)) %>%
+  filter(!grepl("farm", park_name, ignore.case = TRUE)) %>%
+  filter(!grepl("playground", park_name, ignore.case = TRUE)) %>%
+  filter(!grepl("golf", park_name, ignore.case = TRUE)) %>%
+  filter(!grepl("dog park", park_name, ignore.case = TRUE)) %>%
+  filter(!grepl("zoo", park_name, ignore.case = TRUE)) %>%
+  filter(!grepl("baseball", park_name, ignore.case = TRUE)) %>%
+  filter(!grepl("soccer", park_name, ignore.case = TRUE)) %>%
+  filter(!grepl("softball", park_name, ignore.case = TRUE)) %>%
+  filter(!grepl("athel", park_name, ignore.case = TRUE)) %>%
+  filter(!grepl("community center", park_name, ignore.case = TRUE)) %>%
+  filter(!grepl("school", park_name, ignore.case = TRUE)) %>%
+  select(
+    max_sg, min_sg, sg, hx_pp_r, mx_hx__, mn_hx__, suid_nma,
+    access_typ, park_name, park_url, mng_ag_id, mng_agncy, mng_ag_lev, mng_ag_typ, agncy_web,
+    label_name, gap1_acres, gap2_acres, gap3_acres, gap4_acres, gap_tot_ac, shape_leng, shape_area,
+    gHM_min, gHM_mean, gHM_max, gHM_median, gHM_sd, gHM_range, gHM_cv, HFP_min,
+    HFP_mean, HFP_max, HFP_median, HFP_sd, HFP_range, HFP_cv
+  ) %>%
+  mutate(
+    sg_range = max_sg - min_sg,
+    hex_range = mx_hx__ - mn_hx__,
+    HFP_mean = case_when(
+      HFP_mean < 0 ~ 0,
+      TRUE ~ HFP_mean
+    )
+  )
 
 class_data <- read_csv(here::here("analysis", "nmds.csv")) %>%
   select(
@@ -46,6 +94,10 @@ temporal_data <- read_csv(here::here("data", "processed_data", "temporal_analysi
 
 # Functions ---------------------------------------------------------------
 
+normalize <- function(x, na.rm = TRUE) {
+  return((x- min(x)) /(max(x)-min(x)))
+}
+
 single_pt_haversine <- function(lat, lng) {
   r <- 6371 # Earth's radius (km). Have r = 3956 if you want miles
 
@@ -74,6 +126,8 @@ cross.entropy <- function(p, phat) {
   return(-x)
 }
 
+# Human Map ---------------------------------------------------------------
+
 # Multinomial Regression --------------------------------------------------
 
 fit1 <- nnet::multinom(class ~ access_typ + mng_ag_lev + gap1_acres + gap2_acres +
@@ -92,15 +146,6 @@ write_csv(tidy_fit, here::here("analysis", "multinom_params.csv"))
 probs <- fitted(fit1) %>%
   as.data.frame() %>%
   cbind(class_data)
-
-names(result) <- c(
-  "class", "n", "num_correct", "percent_correct",
-  "high mod / med mobility", "low mod / high safegraph", "low mod / high strava", "prediction",
-  "suid_nma", "access_typ", "mng_ag_lev", "gap1_acres",
-  "gap2_acres", "gap3_acres", "gap4_acres", "gHM_mean",
-  "HFP_mean", "sg", "hx_pp_r", "park_name",
-  "shape_area", "correct"
-)
 
 write_csv(probs, here::here("analysis", "multinom_pred.csv"))
 
@@ -133,7 +178,7 @@ p1 <- ggplot(slopes %>% filter(term == "access_typ"), aes(contrast, estimate)) +
   geom_point(aes(color = class), size = 2) +
   facet_wrap(~group) +
   theme_bw() +
-  scale_colour_viridis_d()  +
+  scale_colour_viridis_d() +
   theme(
     strip.text = element_text(face = "bold"),
     strip.background = element_rect(fill = "white"),
@@ -260,19 +305,18 @@ gam1 <- gam(hex_int ~ s(gHM) + s(HFP2009) + s(y, x, bs = "gp", m = 1), data = sp
 summary(gam1)
 AIC(gam1)
 
-plot(gam1)
-
 class_models <- spatial_data %>%
   filter(count > 10) %>%
   group_by(class) %>%
   do(model = gam(hex_int ~ s(gHM) + s(HFP2009) + s(y, x, bs = "gp", m = 1), data = .))
 
-park_models <- spatial_data %>%
-  filter(count > 10) %>%
-  group_by(suid_nma, class) %>%
-  do(model = gam(hex_int ~ s(gHM, k = 2) + s(HFP2009, k = 2) + s(y, x, k = 2, bs = "gp", m = 1), data = .))
 
-### Predictibility
+
+### Dispersion and Predictibility
+
+# Dispersion
+
+disp = var(spatial_data$hex_int) / mean(spatial_data$hex_int)
 
 # Constancy: 1 – H(x)/log(n), where H(x) is information entropy or  1/sd
 
@@ -283,28 +327,67 @@ const <- 1 - entropy(spatial_data$hex_int) / log(nrow(spatial_data))
 spatial_data <- spatial_data %>%
   mutate(haversine = single_pt_haversine(y, x))
 
-# need to fix
 contin <- (entropy(spatial_data$hex_int) + entropy(spatial_data$haversine) - cross.entropy(spatial_data$hex_int, spatial_data$haversine)) / log(nrow(spatial_data))
 
+pred = const + contin
+
 class_entropy <- spatial_data %>%
+  mutate(gHM_scale = normalize(gHM),
+         HFP_scale = normalize(HFP2009)) %>% 
+  mutate(mod = (gHM_scale + HFP_scale) / 2) %>% 
   group_by(class) %>%
   summarise(
+    mod_disp = var(mod) / mean(mod), 
+    disp = var(hex_int) / mean(hex_int),
     entropy = entropy(hex_int),
     inv_sd = 1 / sd(hex_int),
     const = 1 - entropy(hex_int) / log(n()),
-    contin = (entropy(hex_int) + entropy(haversine) - cross.entropy(hex_int, haversine)) / log(n())
+    contin = (entropy(hex_int) + entropy(haversine) - cross.entropy(hex_int, haversine)) / log(n()),
+    pred = const + contin
   )
 
 park_entropy <- spatial_data %>%
+  mutate(gHM_scale = normalize(gHM),
+         HFP_scale = normalize(HFP2009)) %>% 
+  mutate(mod = (gHM_scale + HFP_scale) / 2) %>% 
   group_by(suid_nma, class) %>%
   summarise(
+    mod_disp = var(mod) / mean(mod), 
+    disp = var(hex_int) / mean(hex_int),
     entropy = entropy(hex_int),
     inv_sd = 1 / sd(hex_int),
     const = 1 - entropy(hex_int) / log(n()),
-    contin = (entropy(hex_int) + entropy(haversine) - cross.entropy(hex_int, haversine)) / log(n())
-  ) # fix nrow
+    contin = (entropy(hex_int) + entropy(haversine) - cross.entropy(hex_int, haversine)) / log(n()),
+    pred = const + contin
+  ) %>% 
+  left_join(cpad_super) %>% 
+  left_join(class_data) %>% 
+  st_as_sf()
 
-1 - entropy(spatial_data$gHM) / log(nrow(spatial_data))
-(entropy(spatial_data$gHM) + entropy(spatial_data$haversine) - cross.entropy(spatial_data$gHM, spatial_data$haversine)) / log(nrow(spatial_data))
-1 - entropy(spatial_data$HFP2009) / log(nrow(spatial_data))
-(entropy(spatial_data$HFP2009) + entropy(spatial_data$haversine) - cross.entropy(spatial_data$HFP2009, spatial_data$haversine)) / log(nrow(spatial_data))
+p1 = ggplot(park_entropy %>% filter(!is.na(class))) +
+  geom_sf(aes(fill = mod_disp, color = class), linewidth = 0.5) +
+  theme_bw() +
+  scale_fill_viridis_c() +
+  scale_color_manual(values = c("pink", "pink4", "darkred")) +
+  labs(fill = "Index of Dispersion for Modification",
+       color = "Human Use Class") 
+
+p2 = ggplot(park_entropy %>% filter(!is.na(class))) +
+  geom_sf(aes(fill = disp, color = class), linewidth = 0.5) +
+  theme_bw() +
+  scale_fill_viridis_c() +
+  scale_color_manual(values = c("pink", "pink4", "darkred")) +
+  labs(fill = "Index of Dispersion for Strava",
+       color = "Human Use Class") 
+
+p3 = ggplot(park_entropy %>% filter(!is.na(class))) +
+  geom_sf(aes(fill = pred, color = class), linewidth = 0.5) +
+  theme_bw() +
+  scale_fill_viridis_c() +
+  scale_color_manual(values = c("pink", "pink4", "darkred")) +
+  labs(fill = "Predictibility of Strava",
+       color = "Human Use Class") 
+
+plot = p1 + p2 + p3 + plot_annotation(tag_levels = "A") + plot_layout(guides = "collect")
+
+ggsave(plot, file = paste0("fig3.pdf"), path = here::here("analysis", "figs"), height = 10, width = 20)
