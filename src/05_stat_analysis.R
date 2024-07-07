@@ -277,6 +277,37 @@ for(i in 1:length(unique_ids)) {
   period = rbind(period, int_data)
 }
 
+period_maxs = period %>% 
+  filter(p_value < 0.05) %>%
+  mutate(period = 1 / freq) %>% 
+  mutate(mag = floor(log10(specs))) %>% 
+  group_by(suid_nma) %>% 
+  mutate(max_mag = max(mag)) %>% 
+  ungroup() %>% 
+  filter(mag == max_mag) %>% 
+  select(-mag, -max_mag) %>% 
+  left_join(classes)
+
+top_periods = period_maxs %>% 
+  group_by(period) %>% 
+  summarize(n = n()) %>% 
+  mutate(percent = n / length(unique_ids) * 100) %>% 
+  slice_max(order_by = percent, n = 5)
+
+# write_csv(period_maxs, here::here("analysis", "periodicity.csv"))
+
+p = ggplot(period_maxs %>% filter(!is.na(class))) +
+  geom_vline(data = top_periods, aes(xintercept = period), color = "red", alpha = 0.3, linetype = "dashed") +
+  geom_density(aes(period, color = class)) +
+  theme_bw() +
+  scale_x_log10() +
+  scale_color_viridis_d() +
+  labs(x = "Period (days)",
+       y = "Density",
+       color = "Human Use Class")
+
+ggsave(p, file = paste0("fig5.pdf"), path = here::here("analysis", "figs"), height = 10, width = 10)
+
 ### Predictability
 
 # Constancy: 1 – H(x)/log(n), where H(x) is information entropy or  1/sd
