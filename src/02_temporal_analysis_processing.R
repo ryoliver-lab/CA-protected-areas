@@ -31,7 +31,7 @@ cpad_census <- st_read(here::here("data", "processed_data", "cpad_census.shp")) 
   rename(cbg = id)
 
 list_of_files <- list.files(
-  path = here::here("data", "raw_data", "counties-dates-2-10-22-reformatted", "cali"),
+  path = here::here("data", "raw_data", "safegraph"),
   recursive = TRUE,
   pattern = "\\.csv$",
   full.names = TRUE

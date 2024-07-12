@@ -298,7 +298,7 @@ census_blockgroup <- census_blockgroup %>%
   select(-GEOID)
 
 list_of_files <- list.files(
-  path = here::here("data", "raw_data", "counties-dates-2-10-22-reformatted", "cali"),
+  path = here::here("data", "raw_data", "safegraph"),
   recursive = TRUE,
   pattern = "\\.csv$",
   full.names = TRUE
