@@ -51,13 +51,13 @@ ca_census <- st_read(here::here("data", "raw_data", "EJSCREEN_2023_BG_StatePct_w
 ca_census <- ca_census %>%
   mutate(census_area = st_area(ca_census))
 
-cpad_census <- st_intersection(ca_census, cpad_super) %>%
-  rename(cbg = id)
+# cpad_census <- st_intersection(ca_census, cpad_super) %>%
+#   rename(cbg = id)
 
 rm(ca_census, cpad_super)
 
-# cpad_census <- st_read(here::here("data", "processed_data", "cpad_census.shp")) %>%
-#   rename(cbg = id)
+cpad_census <- st_read(here::here("data", "processed_data", "cpad_census.shp")) %>%
+  rename(cbg = id)
 
 # Global Human Modification ----------------------------------------------
 
@@ -300,12 +300,16 @@ census_blockgroup <- census_blockgroup %>%
 list_of_files <- list.files(
   path = here::here("data", "raw_data", "safegraph"),
   recursive = TRUE,
-  pattern = "\\.csv$",
+  pattern = "\\.txt$",
   full.names = TRUE
 )
 
 safegraph <- read_csv(list_of_files, id = "file_name") %>%
-  select(-file_name) %>%
+  mutate(file_name = str_replace(file_name, "C:/Users/acaug/Documents/School/PhD/CA-protected-areas/data/raw_data/safegraph/", ""))%>% 
+  mutate(file_name = str_replace(file_name, "_cbg_daily.txt", "")) %>% 
+  mutate(date = as.Date(file_name)) %>% 
+  select(-file_name)%>% 
+  rename(cbg = cpad_cbg) %>% 
   mutate(year = lubridate::year(date)) %>%
   filter(!is.na(year))
 
@@ -315,15 +319,15 @@ rm(list_of_files)
 
 safegraph_sum <- safegraph %>%
   left_join(census_blockgroup) %>%
-  select(-county_id, -date) %>%
+  select(-date) %>%
   st_as_sf() %>%
   st_drop_geometry() %>%
   group_by(cbg, census_blockgroup_area) %>%
   summarise(
-    mean_count = mean(count, na.rm = TRUE),
-    sd_count = sd(count, na.rm = TRUE),
-    max_count = max(count, na.rm = TRUE),
-    min_count = min(count, na.rm = TRUE),
+    mean_count = mean(device_count, na.rm = TRUE),
+    sd_count = sd(device_count, na.rm = TRUE),
+    max_count = max(device_count, na.rm = TRUE),
+    min_count = min(device_count, na.rm = TRUE),
     cv_count = sd_count / mean_count
   ) %>%
   ungroup()
