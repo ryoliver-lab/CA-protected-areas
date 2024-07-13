@@ -43,6 +43,7 @@ safegraph <- read_csv(list_of_files, id = "file_name") %>%
   mutate(date = as.Date(file_name)) %>% 
   select(-file_name) %>% 
   rename(cbg = cpad_cbg) %>% 
+  mutate(cbg = as.factor(cbg))%>% 
   full_join(cpad_census) %>%
   distinct() %>%
   filter(!is.na(device_count)) %>%

@@ -24,7 +24,8 @@ census_block <- get_decennial(
   select(-variable, -NAME) %>%
   sf::st_transform("EPSG:4326") %>%
   st_buffer(dist = 0) %>%
-  mutate(cbg = substring(GEOID, 1, 12))
+  mutate(cbg = substring(GEOID, 1, 12)) %>% 
+  mutate(cbg = as.factor(cbg))
 
 block <- census_block %>%
   st_drop_geometry()
@@ -40,7 +41,8 @@ census_blockgroup <- get_decennial(
   select(-variable, -NAME, -value) %>%
   sf::st_transform("EPSG:4326") %>%
   st_buffer(dist = 0) %>%
-  mutate(cbg = GEOID)
+  mutate(cbg = GEOID) %>% 
+  mutate(cbg = as.factor(cbg))
 
 ca_census <- st_read(here::here("data", "raw_data", "EJSCREEN_2023_BG_StatePct_with_AS_CNMI_GU_VI.gdb/")) %>%
   janitor::clean_names() %>%
@@ -311,7 +313,8 @@ safegraph <- read_csv(list_of_files, id = "file_name") %>%
   select(-file_name)%>% 
   rename(cbg = cpad_cbg) %>% 
   mutate(year = lubridate::year(date)) %>%
-  filter(!is.na(year))
+  filter(!is.na(year)) %>% 
+  mutate(cbg = as.factor(cbg))
 
 rm(list_of_files)
 
@@ -380,7 +383,15 @@ safegraph_pa_sum <- cpad_safgraph_census %>%
     sg = weighted.mean(pop_count, percent_pa, na.rm = TRUE),
     max_sg = weighted.mean(max_pop_count, percent_pa, na.rm = TRUE),
     min_sg = weighted.mean(min_pop_count, percent_pa, na.rm = TRUE)
-  )
+  ) %>% 
+  select(-GEOID, -pop_count, -min_pop_count, -max_pop_count, 
+         -census_block_area, -block_percent, -combo_r, -percent_pa, -prcnt__,
+         -cbg, -sd_count, -cv_count, -censs_r) %>% 
+  distinct()
+
+safegraph_pa_sum = safegraph_pa_sum %>% 
+  select(-cbg, -sd_count, -cv_count, -censs_r) %>% 
+  distinct()
 
 rm(cpad_safgraph_census)
 
