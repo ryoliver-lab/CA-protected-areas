@@ -24,7 +24,7 @@ census_block <- get_decennial(
   select(-variable, -NAME) %>%
   sf::st_transform("EPSG:4326") %>%
   st_buffer(dist = 0) %>%
-  mutate(cbg = substring(GEOID, 1, 12)) %>% 
+  mutate(cbg = substring(GEOID, 1, 12)) %>%
   mutate(cbg = as.factor(cbg))
 
 block <- census_block %>%
@@ -41,8 +41,15 @@ census_blockgroup <- get_decennial(
   select(-variable, -NAME, -value) %>%
   sf::st_transform("EPSG:4326") %>%
   st_buffer(dist = 0) %>%
-  mutate(cbg = GEOID) %>% 
+  mutate(cbg = GEOID) %>%
   mutate(cbg = as.factor(cbg))
+
+ej_screen <- st_read(here::here("data", "raw_data", "EJSCREEN_2023_BG_StatePct_with_AS_CNMI_GU_VI.gdb/")) %>%
+  janitor::clean_names() %>%
+  st_transform(crs = st_crs(cpad_super)) %>%
+  filter(state_name == "California") %>%
+  rename(cbg = id) %>%
+  select(cbg, peopcolorpct, lowincpct)
 
 ca_census <- st_read(here::here("data", "raw_data", "EJSCREEN_2023_BG_StatePct_with_AS_CNMI_GU_VI.gdb/")) %>%
   janitor::clean_names() %>%
@@ -53,13 +60,13 @@ ca_census <- st_read(here::here("data", "raw_data", "EJSCREEN_2023_BG_StatePct_w
 ca_census <- ca_census %>%
   mutate(census_area = st_area(ca_census))
 
-# cpad_census <- st_intersection(ca_census, cpad_super) %>%
-#   rename(cbg = id)
+cpad_census <- st_intersection(ca_census, cpad_super) %>%
+  rename(cbg = id) %>%
+  st_join(ej_screen) %>%
+  select(-cbg.y) %>%
+  rename(cbg = cbg.x)
 
-rm(ca_census, cpad_super)
-
-cpad_census <- st_read(here::here("data", "processed_data", "cpad_census.shp")) %>%
-  rename(cbg = id)
+rm(ca_census, ej_screen)
 
 # Global Human Modification ----------------------------------------------
 
@@ -307,13 +314,13 @@ list_of_files <- list.files(
 )
 
 safegraph <- read_csv(list_of_files, id = "file_name") %>%
-  mutate(file_name = str_replace(file_name, "C:/Users/acaug/Documents/School/PhD/CA-protected-areas/data/raw_data/safegraph/", ""))%>% 
-  mutate(file_name = str_replace(file_name, "_cbg_daily.txt", "")) %>% 
-  mutate(date = as.Date(file_name)) %>% 
-  select(-file_name)%>% 
-  rename(cbg = cpad_cbg) %>% 
+  mutate(file_name = str_replace(file_name, "C:/Users/acaug/Documents/School/PhD/CA-protected-areas/data/raw_data/safegraph/", "")) %>%
+  mutate(file_name = str_replace(file_name, "_cbg_daily.txt", "")) %>%
+  mutate(date = as.Date(file_name)) %>%
+  select(-file_name) %>%
+  rename(cbg = cpad_cbg) %>%
   mutate(year = lubridate::year(date)) %>%
-  filter(!is.na(year)) %>% 
+  filter(!is.na(year)) %>%
   mutate(cbg = as.factor(cbg))
 
 rm(list_of_files)
@@ -351,7 +358,7 @@ safegraph_block_sum <- safegraph_block %>%
   mutate(block_percent = case_when(
     is.infinite(block_percent) ~ 100,
     TRUE ~ block_percent
-  )) %>% 
+  )) %>%
   mutate(
     mean_count = mean_count * block_percent,
     value = value * block_percent
@@ -367,7 +374,7 @@ safegraph_block_sum <- safegraph_block %>%
     max_pop_count = max_count / value,
     min_pop_count = min_count / value
   ) %>%
-  select(-mean_count, -max_count, -min_count, -value) %>%
+  select(-mean_count, -max_count, -min_count) %>%
   distinct() %>%
   # filter(!is.na(pop_count)) %>%
   mutate(cbg = substring(GEOID, 1, 12))
@@ -386,11 +393,16 @@ safegraph_pa_sum <- cpad_safgraph_census %>%
   mutate(
     sg = weighted.mean(pop_count, percent_pa, na.rm = TRUE),
     max_sg = weighted.mean(max_pop_count, percent_pa, na.rm = TRUE),
-    min_sg = weighted.mean(min_pop_count, percent_pa, na.rm = TRUE)
-  ) %>% 
-  select(-GEOID, -pop_count, -min_pop_count, -max_pop_count, 
-         -census_block_area, -block_percent, -combo_r, -percent_pa, -prcnt__,
-         -cbg, -sd_count, -cv_count, -censs_r) %>% 
+    min_sg = weighted.mean(min_pop_count, percent_pa, na.rm = TRUE),
+    outside_pop = weighted.mean(value, percent_pa, na.rm = TRUE),
+    peopcolorpct = weighted.mean(peopcolorpct, percent_pa, na.rm = TRUE),
+    lowincpct = weighted.mean(lowincpct, percent_pa, na.rm = TRUE)
+  ) %>%
+  select(
+    -GEOID, -pop_count, -min_pop_count, -max_pop_count,
+    -census_block_area, -block_percent, -combo_r, -percent_pa, -prcnt__,
+    -cbg, -sd_count, -cv_count, -censs_r, -value
+  ) %>%
   distinct()
 
 rm(cpad_safgraph_census)
