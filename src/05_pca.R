@@ -12,12 +12,13 @@ sg <- read_csv(here::here("data", "processed_data", "cpad_sg.csv"))
 strava <- st_read(here::here("data", "processed_data", "cpad_strava.shp"))
 ghm <- st_read(here::here("data", "processed_data", "cpad_ghm.shp"))
 hfp <- st_read(here::here("data", "processed_data", "cpad_hfp.shp"))
+park_pred <- read_csv(here::here("data", "processed_data", "spatial_predictability.csv"))
 
-human <- list(sg, strava, ghm, hfp) %>%
+human <- list(sg, strava, ghm, hfp, park_pred) %>%
   reduce(full_join) %>%
   st_as_sf()
 
-rm(sg, strava, ghm, hfp)
+rm(sg, strava, ghm, hfp, park_pred)
 
 # take out hoas
 
@@ -218,6 +219,7 @@ famd_fig <- ggplot(data = famd_coords) +
 famd_fig
 
 ggsave(famd_fig, file = paste0("FAMD.pdf"), path = here::here("analysis", "figs"), height = 10, width = 12)
+
 
 
 # OLD ---------------------------------------------------------------------

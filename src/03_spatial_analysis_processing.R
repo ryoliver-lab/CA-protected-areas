@@ -71,7 +71,6 @@ spatial_data <- list(cpad, ghm, hfp, strava) %>%
   ) %>%
   select(-hex_mean, -strava_coarse_1, -strava_coarse_2, -strava_coarse_3, -strava_coarse_4) %>%
   group_by(suid_nma) %>%
-  mutate(count = n()) %>%
-  filter(count > 2)
+  mutate(count = n()) 
 
 write_csv(spatial_data, here::here("data", "processed_data", "spatial_analysis.csv"))
