@@ -41,7 +41,7 @@ human <- human %>%
     access_typ, park_name, park_url, mng_ag_id, mng_agncy, mng_ag_lev, mng_ag_typ, agncy_web,
     label_name, gap1_acres, gap2_acres, gap3_acres, gap4_acres, gap_tot_ac, shape_leng, shape_area,
     gHM_min, gHM_mean, gHM_max, gHM_median, gHM_sd, gHM_range, gHM_cv, HFP_min,
-    HFP_mean, HFP_max, HFP_median, HFP_sd, HFP_range, HFP_cv
+    HFP_mean, HFP_max, HFP_median, HFP_sd, HFP_range, HFP_cv, outside_pop, peopcolorpct, lowincpct
   ) %>%
   mutate(
     sg_range = max_sg - min_sg,
@@ -50,15 +50,23 @@ human <- human %>%
       HFP_mean < 0 ~ 0,
       TRUE ~ HFP_mean
     )
-  )
+  ) %>% 
+  rowwise() %>% 
+  mutate(gap = max(gap1_acres, gap2_acres, gap3_acres, gap4_acres)) %>% 
+  mutate(gap_status = case_when(
+    gap == gap1_acres ~ "GAP 1",
+    gap == gap2_acres ~ "GAP 2",
+    gap == gap3_acres ~ "GAP 3",
+    gap == gap4_acres ~ "GAP 4"
+  ))
 
 full_famd_data <- human %>%
   st_drop_geometry() %>%
   select(
     sg, hx_pp_r,
     gHM_mean, HFP_mean, suid_nma,
-    access_typ, gap1_acres,
-    gap2_acres, gap3_acres, gap4_acres, mng_ag_typ
+    access_typ, gap_status, mng_ag_typ,
+    outside_pop, peopcolorpct, lowincpct
   ) %>%
   drop_na() %>%
   mutate(
@@ -71,8 +79,7 @@ full_famd_data <- human %>%
 famd_data <- full_famd_data %>%
   select(-suid_nma)
 
-full_pca_data <- human %>%
-  st_drop_geometry() %>%
+full_pca_data <- full_famd_data %>%
   select(
     sg, hx_pp_r,
     gHM_mean, HFP_mean, suid_nma,
@@ -177,8 +184,9 @@ famd_var <- famd_var %>%
   mutate(var = c(
     "Safegraph", "Strava Value",
     "Global Human Modification", "Human Footprint Index",
-    "Access Type", "GAP 1",
-    "GAP 2", "GAP 3", "GAP 4", "Management Type"
+    "Access Type", "GAP Status",
+     "Management Type", "Surrounding Population", 
+    "Percent People of Color", "Percent Low Income"
   ))
 
 famd_fig <- ggplot(data = famd_coords) +
@@ -211,143 +219,6 @@ famd_fig
 
 ggsave(famd_fig, file = paste0("FAMD.pdf"), path = here::here("analysis", "figs"), height = 10, width = 12)
 
-
-# Set 2!!! ----------------------------------------------------------------
-
-full_famd_data2 <- human %>%
-  st_drop_geometry() %>%
-  select(
-    hx_pp_r,
-    gHM_mean, HFP_mean, suid_nma,
-    access_typ, gap1_acres,
-    gap2_acres, gap3_acres, gap4_acres, mng_ag_typ
-  ) %>%
-  drop_na() %>%
-  mutate(
-    hx_pp_r = scale(hx_pp_r),
-    gHM_mean = scale(gHM_mean),
-    HFP_mean = scale(HFP_mean)
-  )
-
-famd_data <- full_famd_data2 %>%
-  select(-suid_nma)
-
-full_pca_data2 <- human %>%
-  st_drop_geometry() %>%
-  select(
-    hx_pp_r,
-    gHM_mean, HFP_mean, suid_nma,
-    access_typ
-  ) %>%
-  drop_na()
-
-pca <- PCA(pca_data, graph = FALSE)
-
-pca_data <- full_pca_data2 %>%
-  select(-suid_nma, -access_typ)
-
-pca_coords <- as.data.frame(pca$ind[["coord"]]) %>%
-  select(Dim.1, Dim.2) %>%
-  mutate(class = case_when(
-    Dim.1 <= 0 & Dim.2 <= 0 ~ "low mod / low mobility",
-    Dim.1 > 0 & Dim.2 > 0 ~ "high mod / high mobility",
-    Dim.1 <= 0 & Dim.2 > 0 ~ "low mod / high mobility",
-    Dim.1 > 0 & Dim.2 <= 0 ~ "high mod / low mobility"
-  ))
-
-pca_centroid <- pca_coords %>%
-  group_by(class) %>%
-  summarize(Dim.1 = mean(Dim.1), Dim.2 = mean(Dim.2))
-
-eigen <- pca$eig
-# eigen
-
-pca_var <- as.data.frame(pca$var)
-pca_var <- pca_var %>%
-  mutate(var = c(
-    "Strava Value",
-    "Global Human Modification", "Human Footprint Index"
-  ))
-
-pca_coords$suid_nma = full_pca_data2$suid_nma
-
-pca_fig <- ggplot(data = pca_coords) +
-  geom_point(aes(Dim.1, Dim.2, color = class)) +
-  theme_bw() +
-  labs(
-    x = "PCA1 (48.4%)", y = "PCA2 (25.1%)", color = "Human Use",
-    fill = "Human Use", title = NULL
-  ) +
-  scale_y_continuous(position = "right") +
-  theme(legend.position = "left") +
-  geom_point(data = pca_centroid, aes(Dim.1, Dim.2, color = class), size = 4, alpha = 0.9) +
-  geom_segment(
-    data = pca_var, aes(x = 0, xend = coord.Dim.1 * 7, y = 0, yend = coord.Dim.2 * 7),
-    arrow = arrow(length = unit(0.25, "cm")), colour = "grey10", lwd = 0.5
-  ) +
-  ggrepel::geom_label_repel(
-    data = pca_var, aes(x = coord.Dim.1 * 7, y = coord.Dim.2 * 7, label = var),
-    cex = 3, direction = "both", segment.size = 0.25
-  ) +
-  geom_vline(xintercept = 0, linetype = "dashed", color = "grey") +
-  geom_hline(yintercept = 0, linetype = "dashed", color = "grey") +
-  xlim(-5, 8) +
-  ylim(-5, 8) +
-  scale_color_viridis_d() +
-  scale_fill_viridis_d()
-
-pca_fig
-
-famd <- FAMD(famd_data, graph = FALSE)
-
-famd_coords <- as.data.frame(famd$ind[["coord"]]) %>%
-  select(Dim.1, Dim.2)
-
-famd_coords$class <- pca_coords$class
-
-famd_centroid <- famd_coords %>%
-  group_by(class) %>%
-  summarize(Dim.1 = mean(Dim.1), Dim.2 = mean(Dim.2))
-
-eigen <- famd$eig
-# eigen
-
-famd_var <- as.data.frame(famd$var)
-famd_var <- famd_var %>%
-  mutate(var = c(
-     "Strava Value",
-    "Global Human Modification", "Human Footprint Index",
-    "Access Type", "GAP 1",
-    "GAP 2", "GAP 3", "GAP 4", "Management Type"
-  ))
-
-famd_fig <- ggplot(data = famd_coords) +
-  geom_point(aes(Dim.1, Dim.2, color = class)) +
-  stat_ellipse(aes(Dim.1, Dim.2, color = class, fill = class), geom = "polygon", linewidth = 0.25, alpha = 0.2, show.legend = FALSE) +
-  theme_bw() +
-  labs(
-    x = "FAMD1 (7.6%)", y = "FAMD2 (4.1%)", color = "Human Use",
-    fill = "Human Use", title = NULL
-  ) +
-  scale_y_continuous(position = "right") +
-  theme(legend.position = "left") +
-  geom_point(data = famd_centroid, aes(Dim.1, Dim.2, color = class), size = 4, alpha = 0.9) +
-  geom_segment(
-    data = famd_var, aes(x = 0, xend = coord.Dim.1 * 7, y = 0, yend = coord.Dim.2 * 7),
-    arrow = arrow(length = unit(0.25, "cm")), colour = "grey10", lwd = 0.5
-  ) +
-  ggrepel::geom_label_repel(
-    data = famd_var, aes(x = coord.Dim.1 * 7, y = coord.Dim.2 * 7, label = var),
-    cex = 3, direction = "both", segment.size = 0.25
-  ) +
-  geom_vline(xintercept = 0, linetype = "dashed", color = "grey") +
-  geom_hline(yintercept = 0, linetype = "dashed", color = "grey") +
-  xlim(-5, 8) +
-  ylim(-5, 8) +
-  scale_color_viridis_d() +
-  scale_fill_viridis_d()
-
-famd_fig
 
 # OLD ---------------------------------------------------------------------
 
