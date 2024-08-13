@@ -61,7 +61,7 @@ human <- human %>%
     )
   )
 
-class_data <- read_csv(here::here("analysis", "nmds.csv")) %>%
+class_data <- read_csv(here::here("analysis", "pca.csv")) %>%
   select(
     class, suid_nma, access_typ, mng_ag_lev, gap1_acres, gap2_acres,
     gap3_acres, gap4_acres, gHM_mean, HFP_mean, sg, hx_pp_r, park_name, shape_area
@@ -69,11 +69,7 @@ class_data <- read_csv(here::here("analysis", "nmds.csv")) %>%
   drop_na() %>%
   filter(mng_ag_lev != "Tribal") %>%
   filter(mng_ag_lev != "Joint") %>%
-  mutate_if(is.character, as.factor) %>%
-  mutate(class = fct_relevel(class, c(
-    "high mod / med mobility", "low mod / high safegraph",
-    "low mod / high strava"
-  )))
+  mutate_if(is.character, as.factor) 
 
 classes <- class_data %>%
   select(suid_nma, class) %>%
@@ -128,7 +124,9 @@ cross.entropy <- function(p, phat) {
 
 # Human Map ---------------------------------------------------------------
 
-# Multinomial Regression --------------------------------------------------
+# PCA Regression --------------------------------------------------
+
+## Diagnoses
 
 fit1 <- nnet::multinom(class ~ access_typ + mng_ag_lev + gap1_acres + gap2_acres +
   gap3_acres + gap4_acres + shape_area, data = class_data)

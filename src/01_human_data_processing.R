@@ -348,6 +348,10 @@ rm(safegraph_sum, census_block)
 
 safegraph_block_sum <- safegraph_block %>%
   mutate(block_percent = census_block_area / census_blockgroup_area) %>%
+  mutate(block_percent = case_when(
+    is.infinite(block_percent) ~ 100,
+    TRUE ~ block_percent
+  )) %>% 
   mutate(
     mean_count = mean_count * block_percent,
     value = value * block_percent
@@ -365,7 +369,7 @@ safegraph_block_sum <- safegraph_block %>%
   ) %>%
   select(-mean_count, -max_count, -min_count, -value) %>%
   distinct() %>%
-  filter(!is.na(pop_count)) %>%
+  # filter(!is.na(pop_count)) %>%
   mutate(cbg = substring(GEOID, 1, 12))
 
 rm(safegraph_block)
@@ -387,10 +391,6 @@ safegraph_pa_sum <- cpad_safgraph_census %>%
   select(-GEOID, -pop_count, -min_pop_count, -max_pop_count, 
          -census_block_area, -block_percent, -combo_r, -percent_pa, -prcnt__,
          -cbg, -sd_count, -cv_count, -censs_r) %>% 
-  distinct()
-
-safegraph_pa_sum = safegraph_pa_sum %>% 
-  select(-cbg, -sd_count, -cv_count, -censs_r) %>% 
   distinct()
 
 rm(cpad_safgraph_census)
