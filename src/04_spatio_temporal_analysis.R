@@ -4,8 +4,6 @@ library(gtsummary)
 library(broom)
 # To plot predicted values
 library(marginaleffects)
-# For the Wald Test
-library(car)
 library(mgcv)
 library(patchwork)
 library(sf)
@@ -71,21 +69,17 @@ human <- human %>%
 
 spatial_data <- read_csv(here::here("data", "processed_data", "spatial_analysis.csv")) %>%
   filter(!is.na(hex_int)) %>%
-  filter(suid_nma %in% human$suid_nma)
+  filter(suid_nma %in% human$suid_nma) %>% 
+  filter(count >= 2)
 
 temporal_data <- read_csv(here::here("data", "processed_data", "temporal_analysis.csv")) %>%
   select(suid_nma, date, sg, park_name) %>%
-  full_join(classes) %>%
   filter(!is.na(sg)) %>%
   group_by(suid_nma) %>%
   mutate(count = n()) %>%
   filter(suid_nma %in% human$suid_nma)
 
 # Functions ---------------------------------------------------------------
-
-normalize <- function(x, na.rm = TRUE) {
-  return((x - min(x)) / (max(x) - min(x)))
-}
 
 single_pt_haversine <- function(lat, lng) {
   r <- 6371 # Earth's radius (km). Have r = 3956 if you want miles
@@ -125,12 +119,19 @@ gam1 <- gam(hex_int ~ s(gHM) + s(HFP2009) + s(y, x, bs = "gp", m = 1), data = sp
 summary(gam1)
 AIC(gam1)
 
+park_models <- spatial_data %>%
+  filter(count > 2) %>%
+  filter() %>% 
+  group_by(suid_nma) %>%
+  do(model = gam(hex_int ~ s(gHM) + s(HFP2009) + s(y, x, bs = "gp", m = 1), data = .))
+
 ghm_slopes = slopes(gam1, variables = "gHM", by = "gHM")
 hfp_slopes = slopes(gam1, variables = "HFP2009", by = "HFP2009")
-xy_slopes = slopes(gam1, variables = "longitude", by = "latitude")
+xy_slopes = slopes(gam1, variables = "x", by = "y")
 
-p1 <-  +
+p1 <- plot_slopes(gam1, variables = "gHM", by = "gHM")+
   theme_bw() +
+  geom_rug(sides="b") +
   labs(
     x = "Global Human Modification",
     y = "Strava Value"
@@ -144,7 +145,6 @@ p2 <- +
   )
 
 p3 <- plot_slopes(gam1, variables = "longitude", by = "latitude") +
-  geom_rug() +
   theme_bw() +
   labs(
     x = "Longitude",
@@ -174,27 +174,34 @@ contin <- (entropy(spatial_data$hex_int) + entropy(spatial_data$haversine) - cro
 
 pred <- const + contin
 
-park_entropy <- spatial_data %>%
+mod_entropy <- spatial_data %>%
   mutate(
-    gHM_scale = normalize(gHM),
-    HFP_scale = normalize(HFP2009)
+    gHM_scale = scale(gHM),
+    HFP_scale = scale(HFP2009)
   ) %>%
-  mutate(mod = (gHM_scale + HFP_scale) / 2) %>%
+  mutate(mod = (gHM_scale[,1] + HFP_scale[,1]) / 2) %>%
+  drop_na() %>% 
   group_by(suid_nma) %>%
   summarise(
     mod_disp = var(mod) / mean(mod),
-    disp = var(hex_int) / mean(hex_int),
-    entropy = entropy(hex_int),
-    inv_sd = 1 / sd(hex_int),
-    const = 1 - entropy(hex_int) / log(n()),
-    contin = (entropy(hex_int) + entropy(haversine) - cross.entropy(hex_int, haversine)) / log(n()),
-    pred = const + contin,
     const_mod = 1 - entropy(mod) / log(n()),
     contin_mod = (entropy(mod) + entropy(haversine) - cross.entropy(mod, haversine)) / log(n()),
     pred_mod = const_mod + contin_mod
   ) %>%
   left_join(cpad_super) %>%
   st_as_sf()
+
+spatial_entropy <- spatial_data %>% 
+  group_by(suid_nma) %>%
+  summarize(
+    disp = var(hex_int) / mean(hex_int),
+    entropy = entropy(hex_int),
+    inv_sd = 1 / sd(hex_int),
+    const = 1 - entropy(hex_int) / log(n()),
+    contin = (entropy(hex_int) + entropy(haversine) - cross.entropy(hex_int, haversine)) / log(n()),
+    pred = const + contin)
+
+park_entropy = full_join(mod_entropy, spatial_entropy)
 
 p1 <- ggplot(park_entropy) +
   geom_sf(aes(fill = mod_disp), color = NA, linewidth = 0.1) +
@@ -231,7 +238,7 @@ write_csv(park_entropy, here::here("data", "processed_data", "spatial_predictabi
 ## Time series for representative park
 
 temp_enough <- temporal_data %>%
-  filter(count == 322)
+  filter(count == 322) #UPDATE
 
 decom_period <- function(suid) {
   park <- temp_enough %>%

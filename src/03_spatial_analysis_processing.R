@@ -2,7 +2,6 @@ library(tidyverse)
 library(sf)
 library(terra)
 
-
 # Data Processing ---------------------------------------------------------
 
 cpad_super <- st_read(here::here("data", "raw_data", "CPAD_2023a_SuperUnits.shp")) %>%
@@ -46,31 +45,50 @@ strava_coarse <- rast(here::here("data", "raw_data", "strava_coarse.tif")) %>%
 strava_coarse_cropped <- crop(strava_coarse, cpad_super)
 strava_coarse_masked <- mask(strava_coarse_cropped, cpad_super)
 
-cpad_raster <- rasterize(cpad_super, strava_coarse_masked, field = "suid_nma")
+cpad_raster <- rasterize(cpad_super, ghm_masked, field = "suid_nma")
 
-ghm <- resample(ghm_masked, cpad_raster, metho = "cubic")
-hfp <- resample(hfp_masked, cpad_raster, metho = "cubic")
-strava <- resample(strava_coarse_masked, cpad_raster, metho = "cubic")
+ghm_masked <- resample(ghm_masked, cpad_raster, metho = "cubic")
+hfp_masked <- resample(hfp_masked, cpad_raster, metho = "cubic")
+strava_coarse_masked <- resample(strava_coarse_masked, cpad_raster, metho = "cubic")
 
-cpad <- cpad_raster %>%
-  as.data.frame(xy = TRUE)
-ghm <- ghm %>%
-  as.data.frame(xy = TRUE)
-hfp <- hfp %>%
-  as.data.frame(xy = TRUE)
-strava <- strava %>%
-  as.data.frame(xy = TRUE)
+ghm <- extract(ghm_masked, cpad_super)
+hfp <- extract(hfp_masked, cpad_super) %>% 
+  select(-ID)
+strava <- extract(strava_coarse_masked, cpad_super) %>% 
+  mutate(strava_coarse_1 = case_when(
+    strava_coarse_1 < 0 ~ 0,
+    strava_coarse_1 > 255 ~ 255,
+    TRUE ~ strava_coarse_1
+  )) %>% 
+  mutate(strava_coarse_2 = case_when(
+    strava_coarse_2 < 0 ~ 0,
+    strava_coarse_2 > 255 ~ 255,
+    TRUE ~ strava_coarse_2
+  )) %>% 
+  mutate(strava_coarse_3 = case_when(
+    strava_coarse_3 < 0 ~ 0, 
+    strava_coarse_3 > 255 ~ 255,
+    TRUE ~ strava_coarse_3
+  )) %>% 
+  select(-ID)
 
-spatial_data <- list(cpad, ghm, hfp, strava) %>%
-  reduce(full_join) %>%
+
+# Combine Data ------------------------------------------------------------
+
+spatial_data <- list(ghm, hfp, strava) %>%
+  reduce(cbind) %>% 
+  full_join(cpad_super) %>%
+  st_drop_geometry() %>% 
+  filter(!is.na(strava_coarse_1)) %>% 
   mutate(
-    hex_mean = rgb(strava_coarse_1, strava_coarse_2, strava_coarse_3, maxColorValue = 256),
+    hex_mean = rgb(strava_coarse_1, strava_coarse_2, strava_coarse_3, maxColorValue = 255),
   ) %>%
   mutate(
     hex_int = strtoi(str_remove(hex_mean, "#"), 16L)
   ) %>%
   select(-hex_mean, -strava_coarse_1, -strava_coarse_2, -strava_coarse_3, -strava_coarse_4) %>%
   group_by(suid_nma) %>%
-  mutate(count = n()) 
+  mutate(count = n()) %>% 
+  select(-ID)
 
 write_csv(spatial_data, here::here("data", "processed_data", "spatial_analysis.csv"))

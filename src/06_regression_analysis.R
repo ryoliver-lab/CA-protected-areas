@@ -1,104 +1,78 @@
-# PCA Regression --------------------------------------------------
+library(tidyverse)
+library(patchwork)
+library(sf)
+library(gtsummary)
+library(broom)
+library(marginaleffects)
 
-## Diagnoses
 
-fit1 <- nnet::multinom(class ~ access_typ + mng_ag_lev + gap1_acres + gap2_acres +
-                         gap3_acres + gap4_acres + shape_area, data = class_data)
+# Load in Data ------------------------------------------------------------
 
-summary(fit1)
+sg <- read_csv(here::here("data", "processed_data", "cpad_sg.csv"))
+strava <- st_read(here::here("data", "processed_data", "cpad_strava.shp"))
+ghm <- st_read(here::here("data", "processed_data", "cpad_ghm.shp"))
+hfp <- st_read(here::here("data", "processed_data", "cpad_hfp.shp"))
+park_pred <- read_csv(here::here("data", "processed_data", "spatial_predictability.csv"))
 
-Anova(fit1)
+human <- list(sg, strava, ghm, hfp, park_pred) %>%
+  reduce(full_join) %>%
+  st_as_sf()
 
-tbl_regression(fit1, exp = TRUE)
+rm(sg, strava, ghm, hfp, park_pred)
 
-tidy_fit <- tidy(fit1, conf.int = TRUE, exponentiate = TRUE)
+# take out hoas
 
-write_csv(tidy_fit, here::here("analysis", "multinom_params.csv"))
-
-probs <- fitted(fit1) %>%
-  as.data.frame() %>%
-  cbind(class_data)
-
-write_csv(probs, here::here("analysis", "multinom_pred.csv"))
-
-slopes <- avg_slopes(fit1, type = "probs", by = "class") %>%
-  mutate(contrast = case_when(
-    contrast == "mean(Open Access) - mean(No Public Access)" ~ "No Public Access to Open Access",
-    contrast == "mean(Restricted Access) - mean(No Public Access)" ~ "No Public Access to Restricted Access",
-    contrast == "mean(Unknown Access) - mean(No Public Access)" ~ "No Public Access to Unknown",
-    contrast == "mean(County) - mean(City)" ~ "City to County",
-    contrast == "mean(Federal) - mean(City)" ~ "City to Federal",
-    contrast == "mean(Home Owners Association) - mean(City)" ~ "City to Home Owners Association",
-    contrast == "mean(Non Profit) - mean(City)" ~ "City to Non Profit",
-    contrast == "mean(Private) - mean(City)" ~ "City to Private",
-    contrast == "mean(Special District) - mean(City)" ~ "City to Special District",
-    contrast == "mean(State) - mean(City)" ~ "City to State",
-    TRUE ~ contrast
-  )) %>%
-  mutate(term = case_when(
-    term == "gap1_acres" ~ "GAP 1 Acres",
-    term == "gap2_acres" ~ "GAP 2 Acres",
-    term == "gap3_acres" ~ "GAP 3 Acres",
-    term == "gap4_acres" ~ "GAP 4 Acres",
-    term == "shape_area" ~ "Shape Area",
-    TRUE ~ term
+human <- human %>%
+  filter(shape_area >= 10000) %>%
+  filter(!grepl("cemet", park_name, ignore.case = TRUE)) %>%
+  filter(!grepl("sport", park_name, ignore.case = TRUE)) %>%
+  filter(!grepl("farm", park_name, ignore.case = TRUE)) %>%
+  filter(!grepl("playground", park_name, ignore.case = TRUE)) %>%
+  filter(!grepl("golf", park_name, ignore.case = TRUE)) %>%
+  filter(!grepl("dog park", park_name, ignore.case = TRUE)) %>%
+  filter(!grepl("zoo", park_name, ignore.case = TRUE)) %>%
+  filter(!grepl("baseball", park_name, ignore.case = TRUE)) %>%
+  filter(!grepl("soccer", park_name, ignore.case = TRUE)) %>%
+  filter(!grepl("softball", park_name, ignore.case = TRUE)) %>%
+  filter(!grepl("athel", park_name, ignore.case = TRUE)) %>%
+  filter(!grepl("community center", park_name, ignore.case = TRUE)) %>%
+  filter(!grepl("school", park_name, ignore.case = TRUE)) %>%
+  select(
+    max_sg, min_sg, sg, hx_pp_r, mx_hx__, mn_hx__, suid_nma,
+    access_typ, park_name, park_url, mng_ag_id, mng_agncy, mng_ag_lev, mng_ag_typ, agncy_web,
+    label_name, gap1_acres, gap2_acres, gap3_acres, gap4_acres, gap_tot_ac, shape_leng, shape_area,
+    gHM_min, gHM_mean, gHM_max, gHM_median, gHM_sd, gHM_range, gHM_cv, HFP_min,
+    HFP_mean, HFP_max, HFP_median, HFP_sd, HFP_range, HFP_cv, outside_pop, peopcolorpct, lowincpct
+  ) %>%
+  mutate(
+    sg_range = max_sg - min_sg,
+    hex_range = mx_hx__ - mn_hx__,
+    HFP_mean = case_when(
+      HFP_mean < 0 ~ 0,
+      TRUE ~ HFP_mean
+    )
+  ) %>% 
+  rowwise() %>% 
+  mutate(gap = max(gap1_acres, gap2_acres, gap3_acres, gap4_acres)) %>% 
+  mutate(gap_status = case_when(
+    gap == gap1_acres ~ "GAP 1",
+    gap == gap2_acres ~ "GAP 2",
+    gap == gap3_acres ~ "GAP 3",
+    gap == gap4_acres ~ "GAP 4"
   ))
 
-p1 <- ggplot(slopes %>% filter(term == "access_typ"), aes(contrast, estimate)) +
-  geom_hline(aes(yintercept = 0), linetype = "dashed") +
-  geom_linerange(aes(ymin = conf.low, ymax = conf.high)) +
-  geom_point(aes(color = class), size = 2) +
-  facet_wrap(~group) +
-  theme_bw() +
-  scale_colour_viridis_d() +
-  theme(
-    strip.text = element_text(face = "bold"),
-    strip.background = element_rect(fill = "white"),
-    axis.text.x = element_text(angle = 45, hjust = 1)
-  ) +
-  labs(
-    x = "",
-    y = "Average Change in Odds",
-    color = "Comparison Class"
-  )
+# PCA Regression --------------------------------------------------
 
-p2 <- ggplot(slopes %>% filter(term == "mng_ag_lev"), aes(contrast, estimate)) +
-  geom_hline(aes(yintercept = 0), linetype = "dashed") +
-  geom_linerange(aes(ymin = conf.low, ymax = conf.high)) +
-  geom_point(aes(color = class), size = 2) +
-  facet_wrap(~group) +
-  theme_bw() +
-  scale_colour_viridis_d() +
-  theme(
-    strip.text = element_text(face = "bold"),
-    strip.background = element_rect(fill = "white"),
-    axis.text.x = element_text(angle = 45, hjust = 1)
-  ) +
-  labs(
-    x = "",
-    y = "Average Change in Odds",
-    color = "Comparison Class"
-  )
 
-p3 <- ggplot(slopes %>% filter(term %in% c("GAP 1 Acres", "GAP 2 Acres", "GAP 3 Acres", "GAP 4 Acres", "Shape Area")), aes(term, estimate)) +
-  geom_hline(aes(yintercept = 0), linetype = "dashed") +
-  geom_linerange(aes(ymin = conf.low, ymax = conf.high)) +
-  geom_point(aes(color = class), size = 2) +
-  facet_wrap(~group) +
-  theme_bw() +
-  scale_colour_viridis_d() +
-  theme(
-    strip.text = element_text(face = "bold"),
-    strip.background = element_rect(fill = "white"),
-    axis.text.x = element_text(angle = 45, hjust = 1)
-  ) +
-  labs(
-    x = "",
-    y = "Average Change in Odds",
-    color = "Comparison Class"
-  )
+# Peak Regression ---------------------------------------------------------
 
-plot <- p1 / p2 / p3 + plot_annotation(tag_levels = "A") + plot_layout(guides = "collect")
-plot
 
-ggsave(plot, file = paste0("fig2.pdf"), path = here::here("analysis", "figs"), height = 20, width = 15)
+# Predictability Regression - Spatial -------------------------------------
+
+
+# Predictability Regression - Mod -----------------------------------------
+
+
+# Predictability Regression - Temporal ------------------------------------
+
+
