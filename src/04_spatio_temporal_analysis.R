@@ -69,8 +69,7 @@ human <- human %>%
 
 spatial_data <- read_csv(here::here("data", "processed_data", "spatial_analysis.csv")) %>%
   filter(!is.na(hex_int)) %>%
-  filter(suid_nma %in% human$suid_nma) %>% 
-  filter(count >= 2)
+  filter(suid_nma %in% human$suid_nma)
 
 temporal_data <- read_csv(here::here("data", "processed_data", "temporal_analysis.csv")) %>%
   select(suid_nma, date, sg, park_name) %>%
@@ -80,6 +79,8 @@ temporal_data <- read_csv(here::here("data", "processed_data", "temporal_analysi
   filter(suid_nma %in% human$suid_nma)
 
 # Functions ---------------------------------------------------------------
+
+normalize = function(x) {(x-min(x))/(max(x)-min(x))}
 
 single_pt_haversine <- function(lat, lng) {
   r <- 6371 # Earth's radius (km). Have r = 3956 if you want miles
@@ -114,16 +115,11 @@ cross.entropy <- function(p, phat) {
 
 # Spatial Analysis --------------------------------------------------------
 
-gam1 <- gam(hex_int ~ s(gHM) + s(HFP2009) + s(y, x, bs = "gp", m = 1), data = spatial_data, family = nb)
+gam1 <- gam(hex_int ~ s(gHM) + s(HFP2009) + s(y, x, bs = "gp", m = 1), 
+            data = spatial_data, family = nb)
 
 summary(gam1)
 AIC(gam1)
-
-park_models <- spatial_data %>%
-  filter(count > 2) %>%
-  filter() %>% 
-  group_by(suid_nma) %>%
-  do(model = gam(hex_int ~ s(gHM) + s(HFP2009) + s(y, x, bs = "gp", m = 1), data = .))
 
 ghm_slopes = slopes(gam1, variables = "gHM", by = "gHM")
 hfp_slopes = slopes(gam1, variables = "HFP2009", by = "HFP2009")
@@ -137,14 +133,14 @@ p1 <- plot_slopes(gam1, variables = "gHM", by = "gHM")+
     y = "Strava Value"
   )
 
-p2 <- +
+p2 <- plot_slopes(gam1, variables = "HFP2009", by = "HFP2009")+
   theme_bw() +
   labs(
     x = "Human Footprint Index",
     y = "Strava Value"
   )
 
-p3 <- plot_slopes(gam1, variables = "longitude", by = "latitude") +
+p3 <- plot_slopes(gam1, variables = "x", by = "y") +
   theme_bw() +
   labs(
     x = "Longitude",
@@ -153,7 +149,7 @@ p3 <- plot_slopes(gam1, variables = "longitude", by = "latitude") +
 
 plot <- (p1 + p2) / p3 + plot_annotation(tag_levels = "A") + plot_layout(guides = "collect")
 
-ggsave(plot, file = paste0("fig4.pdf"), path = here::here("analysis", "figs"), height = 15, width = 25)
+# ggsave(plot, file = paste0("fig4.pdf"), path = here::here("analysis", "figs"), height = 15, width = 25)
 
 ### Dispersion and Predictibility
 
@@ -175,12 +171,8 @@ contin <- (entropy(spatial_data$hex_int) + entropy(spatial_data$haversine) - cro
 pred <- const + contin
 
 mod_entropy <- spatial_data %>%
-  mutate(
-    gHM_scale = scale(gHM),
-    HFP_scale = scale(HFP2009)
-  ) %>%
-  mutate(mod = (gHM_scale[,1] + HFP_scale[,1]) / 2) %>%
-  drop_na() %>% 
+  mutate(mod = (scale(gHM) + scale(HFP2009)) / 2) %>%
+  filter(!is.na(mod)) %>% 
   group_by(suid_nma) %>%
   summarise(
     mod_disp = var(mod) / mean(mod),
@@ -188,8 +180,8 @@ mod_entropy <- spatial_data %>%
     contin_mod = (entropy(mod) + entropy(haversine) - cross.entropy(mod, haversine)) / log(n()),
     pred_mod = const_mod + contin_mod
   ) %>%
-  left_join(cpad_super) %>%
-  st_as_sf()
+  left_join(cpad_super)%>%
+  st_as_sf() 
 
 spatial_entropy <- spatial_data %>% 
   group_by(suid_nma) %>%
@@ -199,7 +191,9 @@ spatial_entropy <- spatial_data %>%
     inv_sd = 1 / sd(hex_int),
     const = 1 - entropy(hex_int) / log(n()),
     contin = (entropy(hex_int) + entropy(haversine) - cross.entropy(hex_int, haversine)) / log(n()),
-    pred = const + contin)
+    pred = const + contin) %>%
+  left_join(cpad_super) %>% 
+  select(-geometry)
 
 park_entropy = full_join(mod_entropy, spatial_entropy)
 
@@ -231,14 +225,14 @@ plot <- (p1 + p2) / (p3 + p4) + plot_annotation(tag_levels = "A")
 
 ggsave(plot, file = paste0("fig3.pdf"), path = here::here("analysis", "figs"), height = 15, width = 15)
 
-write_csv(park_entropy, here::here("data", "processed_data", "spatial_predictability.csv"))
+write_csv(park_entropy %>% st_drop_geometry() %>% select(-mod_disp), here::here("data", "processed_data", "spatial_predictability.csv"))
 
 # Temporal Analysis -------------------------------------------------------
 
 ## Time series for representative park
 
 temp_enough <- temporal_data %>%
-  filter(count == 322) #UPDATE
+  filter(count == 837) 
 
 decom_period <- function(suid) {
   park <- temp_enough %>%
@@ -282,13 +276,13 @@ for (i in 1:length(unique_ids)) {
 period_maxs <- period %>%
   filter(p_value < 0.05) %>%
   mutate(period = 1 / freq) %>%
+  filter(period < 837) %>% 
   mutate(mag = floor(log10(specs))) %>%
   group_by(suid_nma) %>%
   mutate(max_mag = max(mag)) %>%
   ungroup() %>%
   filter(mag == max_mag) %>%
-  select(-mag, -max_mag) %>%
-  left_join(classes)
+  select(-mag, -max_mag) 
 
 top_periods <- period_maxs %>%
   group_by(period) %>%
@@ -296,11 +290,20 @@ top_periods <- period_maxs %>%
   mutate(percent = n / length(unique_ids) * 100) %>%
   slice_max(order_by = percent, n = 5)
 
-# write_csv(period_maxs, here::here("analysis", "periodicity.csv"))
+top_periods1 <- period_maxs %>%
+  group_by(period) %>%
+  mutate(n = n()) %>%
+  mutate(percent = n / length(unique_ids) * 100) %>%
+  group_by(suid_nma) %>% 
+  slice_max(order_by = percent, n = 1)
+
+write_csv(period_maxs, here::here("analysis", "periodicity.csv"))
+
+write_csv(top_periods1, here::here("analysis", "periodicity_max.csv"))
 
 p <- ggplot(period_maxs %>% filter(!is.na(class))) +
   geom_vline(data = top_periods, aes(xintercept = period), color = "red", alpha = 0.3, linetype = "dashed") +
-  geom_density(aes(period, color = class)) +
+  geom_density(aes(period)) +
   theme_bw() +
   scale_x_log10() +
   scale_color_viridis_d() +
@@ -343,26 +346,38 @@ park_entropy_temp <- temporal_data %>%
 
 predictability = full_join(park_entropy, park_entropy_temp)
 
-ggplot(predictability) +
+write_csv(predictability %>% st_drop_geometry() %>% select(-mod_disp), here::here("data", "processed_data", "predictability.csv"))
+
+p1 = ggplot(predictability) +
   geom_point(aes(pred, pred_mod)) +
+  scale_x_log10() +
+  scale_y_log10()+
   theme_bw() +
   labs(
     x = "Predictibility of Strava",
     y = "Predictibility of Modification"
   )
 
-ggplot(predictability) +
+p2 = ggplot(predictability) +
   geom_point(aes(pred, pred_temp)) +
   theme_bw() +
+  scale_x_log10() +
+  scale_y_log10()+
   labs(
     x = "Predictibility of Strava",
     y = "Predictibility of Safegraph"
   )
 
-ggplot(predictability) +
+p3 = ggplot(predictability) +
   geom_point(aes(disp, mod_disp)) +
   theme_bw() +
+  scale_x_log10() +
+  scale_y_log10()+
   labs(
     x = "Index of Dispersion for Strava",
     y = "Index of Dispersion for Modification"
   )
+
+plot <- p1 + p2  + p3 + plot_annotation(tag_levels = "A")
+
+ggsave(plot, file = paste0("fig4.pdf"), path = here::here("analysis", "figs"), height = 8, width = 15)

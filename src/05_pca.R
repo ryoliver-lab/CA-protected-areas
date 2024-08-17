@@ -12,13 +12,15 @@ sg <- read_csv(here::here("data", "processed_data", "cpad_sg.csv"))
 strava <- st_read(here::here("data", "processed_data", "cpad_strava.shp"))
 ghm <- st_read(here::here("data", "processed_data", "cpad_ghm.shp"))
 hfp <- st_read(here::here("data", "processed_data", "cpad_hfp.shp"))
-park_pred <- read_csv(here::here("data", "processed_data", "spatial_predictability.csv"))
+park_pred <- read_csv(here::here("data", "processed_data", "predictability.csv"))
+periods = read_csv(here::here("analysis", "periodicity_max.csv"))
 
-human <- list(sg, strava, ghm, hfp, park_pred) %>%
+
+human <- list(sg, strava, ghm, hfp, park_pred, periods) %>%
   reduce(full_join) %>%
   st_as_sf()
 
-rm(sg, strava, ghm, hfp, park_pred)
+rm(sg, strava, ghm, hfp, park_pred, periods)
 
 # take out hoas
 
@@ -42,7 +44,8 @@ human <- human %>%
     access_typ, park_name, park_url, mng_ag_id, mng_agncy, mng_ag_lev, mng_ag_typ, agncy_web,
     label_name, gap1_acres, gap2_acres, gap3_acres, gap4_acres, gap_tot_ac, shape_leng, shape_area,
     gHM_min, gHM_mean, gHM_max, gHM_median, gHM_sd, gHM_range, gHM_cv, HFP_min,
-    HFP_mean, HFP_max, HFP_median, HFP_sd, HFP_range, HFP_cv, outside_pop, peopcolorpct, lowincpct
+    HFP_mean, HFP_max, HFP_median, HFP_sd, HFP_range, HFP_cv, outside_pop, peopcolorpct, lowincpct,
+    period, pred_temp, pred_mod, pred
   ) %>%
   mutate(
     sg_range = max_sg - min_sg,
@@ -123,15 +126,15 @@ pca_var <- pca_var %>%
 pca_coords$suid_nma = full_pca_data$suid_nma
 
 pca_fig <- ggplot(data = pca_coords) +
-  geom_point(aes(Dim.1, Dim.2, color = class)) +
+  geom_point(aes(Dim.1, Dim.2)) + #, color = class
   theme_bw() +
   labs(
-    x = "PCA1 (48.4%)", y = "PCA2 (25.1%)", color = "Human Use",
+    x = "PCA1 (25.39%)", y = "PCA2 (18.00%)", color = "Human Use",
     fill = "Human Use", title = NULL
   ) +
   scale_y_continuous(position = "right") +
   theme(legend.position = "left") +
-  geom_point(data = pca_centroid, aes(Dim.1, Dim.2, color = class), size = 4, alpha = 0.9) +
+  geom_point(data = pca_centroid, aes(Dim.1, Dim.2), size = 4, alpha = 0.9) + #, color = class
   geom_segment(
     data = pca_var, aes(x = 0, xend = coord.Dim.1 * 7, y = 0, yend = coord.Dim.2 * 7),
     arrow = arrow(length = unit(0.25, "cm")), colour = "grey10", lwd = 0.5
@@ -158,11 +161,6 @@ pca_data <- pca_cpad %>%
   st_drop_geometry()
 
 write_csv(pca_data, here::here("analysis", "pca.csv"))
-
-count <- pca_cpad %>%
-  st_drop_geometry() %>%
-  group_by(class) %>%
-  summarize(n = n())
 
 # FAMD --------------------------------------------------------------------
 
@@ -191,8 +189,7 @@ famd_var <- famd_var %>%
   ))
 
 famd_fig <- ggplot(data = famd_coords) +
-  geom_point(aes(Dim.1, Dim.2, color = class)) +
-  stat_ellipse(aes(Dim.1, Dim.2, color = class, fill = class), geom = "polygon", linewidth = 0.25, alpha = 0.2, show.legend = FALSE) +
+  geom_point(aes(Dim.1, Dim.2)) + # , color = class
   theme_bw() +
   labs(
     x = "FAMD1 (7.6%)", y = "FAMD2 (4.1%)", color = "Human Use",
@@ -200,7 +197,7 @@ famd_fig <- ggplot(data = famd_coords) +
   ) +
   scale_y_continuous(position = "right") +
   theme(legend.position = "left") +
-  geom_point(data = famd_centroid, aes(Dim.1, Dim.2, color = class), size = 4, alpha = 0.9) +
+  geom_point(data = famd_centroid, aes(Dim.1, Dim.2), size = 4, alpha = 0.9) + # , color = class
   geom_segment(
     data = famd_var, aes(x = 0, xend = coord.Dim.1 * 7, y = 0, yend = coord.Dim.2 * 7),
     arrow = arrow(length = unit(0.25, "cm")), colour = "grey10", lwd = 0.5
@@ -219,8 +216,6 @@ famd_fig <- ggplot(data = famd_coords) +
 famd_fig
 
 ggsave(famd_fig, file = paste0("FAMD.pdf"), path = here::here("analysis", "figs"), height = 10, width = 12)
-
-
 
 # OLD ---------------------------------------------------------------------
 

@@ -54,7 +54,7 @@ strava_coarse_masked <- resample(strava_coarse_masked, cpad_raster, metho = "cub
 ghm <- extract(ghm_masked, cpad_super)
 hfp <- extract(hfp_masked, cpad_super) %>% 
   select(-ID)
-strava <- extract(strava_coarse_masked, cpad_super) %>% 
+strava <- extract(strava_coarse_masked, cpad_super, xy=TRUE) %>% 
   mutate(strava_coarse_1 = case_when(
     strava_coarse_1 < 0 ~ 0,
     strava_coarse_1 > 255 ~ 255,
@@ -89,6 +89,7 @@ spatial_data <- list(ghm, hfp, strava) %>%
   select(-hex_mean, -strava_coarse_1, -strava_coarse_2, -strava_coarse_3, -strava_coarse_4) %>%
   group_by(suid_nma) %>%
   mutate(count = n()) %>% 
-  select(-ID)
+  select(-ID, -geometry) %>% 
+  filter(count >= 2)
 
 write_csv(spatial_data, here::here("data", "processed_data", "spatial_analysis.csv"))
