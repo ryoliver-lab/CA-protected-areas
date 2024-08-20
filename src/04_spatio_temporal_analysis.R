@@ -121,17 +121,18 @@ gam1 <- gam(hex_int ~ s(gHM) + s(HFP2009) + s(y, x, bs = "gp", m = 1),
 summary(gam1)
 AIC(gam1)
 
-ghm_slopes = slopes(gam1, variables = "gHM", by = "gHM")
-hfp_slopes = slopes(gam1, variables = "HFP2009", by = "HFP2009")
-xy_slopes = slopes(gam1, variables = "x", by = "y")
+ghm_pred = predictions(gam1, variables = "gHM", by = "gHM")
+hfp_pred = predictions(gam1, variables = "HFP2009", by = "HFP2009")
+xy_pred = predictions(gam1, variables = "x", by = "y")
 
-p1 <- plot_slopes(gam1, variables = "gHM", by = "gHM")+
-  theme_bw() +
-  geom_rug(sides="b") +
+p1 = ggplot(ghm_avg) +
+  geom_smooth(aes(gHM, estimate)) +
+  theme_bw()+
   labs(
     x = "Global Human Modification",
     y = "Strava Value"
   )
+p1
 
 p2 <- plot_slopes(gam1, variables = "HFP2009", by = "HFP2009")+
   theme_bw() +
@@ -149,9 +150,9 @@ p3 <- plot_slopes(gam1, variables = "x", by = "y") +
 
 plot <- (p1 + p2) / p3 + plot_annotation(tag_levels = "A") + plot_layout(guides = "collect")
 
-# ggsave(plot, file = paste0("fig4.pdf"), path = here::here("analysis", "figs"), height = 15, width = 25)
+ggsave(plot, file = paste0("fig2.pdf"), path = here::here("analysis", "figs"), height = 15, width = 25)
 
-### Dispersion and Predictibility
+### Dispersion and Predictability
 
 # Dispersion
 
@@ -171,7 +172,7 @@ contin <- (entropy(spatial_data$hex_int) + entropy(spatial_data$haversine) - cro
 pred <- const + contin
 
 mod_entropy <- spatial_data %>%
-  mutate(mod = (scale(gHM) + scale(HFP2009)) / 2) %>%
+  mutate(mod = gHM) %>%
   filter(!is.na(mod)) %>% 
   group_by(suid_nma) %>%
   summarise(

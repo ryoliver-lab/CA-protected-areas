@@ -70,7 +70,8 @@ full_famd_data <- human %>%
     sg, hx_pp_r,
     gHM_mean, HFP_mean, suid_nma,
     access_typ, gap_status, mng_ag_typ,
-    outside_pop, peopcolorpct, lowincpct
+    outside_pop, peopcolorpct, lowincpct,
+    period, pred_temp, pred_mod, pred
   ) %>%
   drop_na() %>%
   mutate(
@@ -87,7 +88,7 @@ full_pca_data <- full_famd_data %>%
   select(
     sg, hx_pp_r,
     gHM_mean, HFP_mean, suid_nma,
-    access_typ
+    access_typ, period, pred_temp, pred_mod, pred
   ) %>%
   drop_na() %>%
   filter(!is.infinite(sg))
@@ -120,7 +121,9 @@ pca_var <- as.data.frame(pca$var)
 pca_var <- pca_var %>%
   mutate(var = c(
     "Safegraph", "Strava Value",
-    "Global Human Modification", "Human Footprint Index"
+    "Global Human Modification", "Human Footprint Index",
+    "Peak Periodicity", "Temporal Predictibility", "Predictiblity of Modification",
+    "Spatial Predictibility"
   ))
 
 pca_coords$suid_nma = full_pca_data$suid_nma
@@ -134,7 +137,7 @@ pca_fig <- ggplot(data = pca_coords) +
   ) +
   scale_y_continuous(position = "right") +
   theme(legend.position = "left") +
-  geom_point(data = pca_centroid, aes(Dim.1, Dim.2), size = 4, alpha = 0.9) + #, color = class
+  # geom_point(data = pca_centroid, aes(Dim.1, Dim.2), size = 4, alpha = 0.9) + #, color = class
   geom_segment(
     data = pca_var, aes(x = 0, xend = coord.Dim.1 * 7, y = 0, yend = coord.Dim.2 * 7),
     arrow = arrow(length = unit(0.25, "cm")), colour = "grey10", lwd = 0.5
@@ -152,7 +155,7 @@ pca_fig <- ggplot(data = pca_coords) +
 
 pca_fig
 
-ggsave(pca_fig, file = paste0("PCA.pdf"), path = here::here("analysis", "figs"), height = 10, width = 12)
+ggsave(pca_fig, file = paste0("PCA_pred.pdf"), path = here::here("analysis", "figs"), height = 10, width = 12)
 
 pca_cpad <- human %>%
   full_join(pca_coords)
@@ -185,8 +188,13 @@ famd_var <- famd_var %>%
     "Global Human Modification", "Human Footprint Index",
     "Access Type", "GAP Status",
      "Management Type", "Surrounding Population", 
-    "Percent People of Color", "Percent Low Income"
+    "Percent People of Color", "Percent Low Income",
+    "Peak Periodicity", "Temporal Predictibility", "Predictiblity of Modification",
+    "Spatial Predictibility"
   ))
+
+pca_var$coord.Dim.1
+pca_var$cos2.Dim.1
 
 famd_fig <- ggplot(data = famd_coords) +
   geom_point(aes(Dim.1, Dim.2)) + # , color = class
@@ -197,7 +205,7 @@ famd_fig <- ggplot(data = famd_coords) +
   ) +
   scale_y_continuous(position = "right") +
   theme(legend.position = "left") +
-  geom_point(data = famd_centroid, aes(Dim.1, Dim.2), size = 4, alpha = 0.9) + # , color = class
+  # geom_point(data = famd_centroid, aes(Dim.1, Dim.2), size = 4, alpha = 0.9) + # , color = class
   geom_segment(
     data = famd_var, aes(x = 0, xend = coord.Dim.1 * 7, y = 0, yend = coord.Dim.2 * 7),
     arrow = arrow(length = unit(0.25, "cm")), colour = "grey10", lwd = 0.5
@@ -215,7 +223,7 @@ famd_fig <- ggplot(data = famd_coords) +
 
 famd_fig
 
-ggsave(famd_fig, file = paste0("FAMD.pdf"), path = here::here("analysis", "figs"), height = 10, width = 12)
+ggsave(famd_fig, file = paste0("FAMD_pred.pdf"), path = here::here("analysis", "figs"), height = 10, width = 12)
 
 # OLD ---------------------------------------------------------------------
 
