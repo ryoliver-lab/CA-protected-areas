@@ -49,15 +49,9 @@ ej_screen <- st_read(here::here("data", "raw_data", "EJSCREEN_2023_BG_StatePct_w
   st_transform(crs = st_crs(cpad_super)) %>%
   filter(state_name == "California") %>%
   rename(cbg = id) %>%
-  select(cbg, peopcolorpct, lowincpct)
+  select(cbg, peopcolorpct, lowincpct, id)
 
-ca_census <- st_read(here::here("data", "raw_data", "EJSCREEN_2023_BG_StatePct_with_AS_CNMI_GU_VI.gdb/")) %>%
-  janitor::clean_names() %>%
-  st_transform(crs = st_crs(cpad_super)) %>%
-  filter(state_name == "California") %>%
-  select(id)
-
-ca_census <- ca_census %>%
+ca_census <- ej_screen %>%
   mutate(census_area = st_area(ca_census))
 
 cpad_census <- st_intersection(ca_census, cpad_super) %>%
