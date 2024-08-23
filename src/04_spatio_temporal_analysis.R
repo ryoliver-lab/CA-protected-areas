@@ -79,7 +79,9 @@ temporal_data <- read_csv(here::here("data", "processed_data", "temporal_analysi
   filter(!is.na(sg)) %>%
   group_by(suid_nma) %>%
   mutate(count = n()) %>%
-  filter(suid_nma %in% human$suid_nma)
+  filter(suid_nma %in% human$suid_nma)%>% 
+  mutate(year = year(date))
+  
 
 # Functions ---------------------------------------------------------------
 
@@ -120,39 +122,55 @@ cross.entropy <- function(p, phat) {
 
 # Spatial Analysis --------------------------------------------------------
 
-gam1 <- gam(hex_int ~ s(gHM) + s(HFP2009) + s(y, x, bs = "gp", m = 1),
-  data = spatial_data, family = nb
-)
+park_models <- spatial_data %>% 
+  select(hex_int, suid_nma, gHM, HFP2009, y, x) %>%
+  na.omit() %>% 
+  group_by(suid_nma) %>%
+  mutate(count = n())%>%
+  filter(count > 10) %>% 
+  do(model = gam(hex_int ~ s(gHM, k = 6) + s(HFP2009, k = 6) + s(y, x, bs = "gp", m = 1, k = 6), data = .))
+
+gam1 = park_models
 
 summary(gam1)
 AIC(gam1)
 
 ghm_pred <- predictions(gam1, variables = "gHM", by = "gHM")
-hfp_pred <- predictions(gam1, variables = "HFP2009", by = "HFP2009")
-xy_pred <- predictions(gam1, variables = "x", by = "y")
+hfp_pred <- predictions(gam1, variables = "HFP2009", by = "HFP2009") %>% 
+  
+# xy_pred <- predictions(gam1, variables = "x", by = c("x", "y")) %>% 
+#   mutate(y = as.numeric(round(y))) 
 
-p1 <- ggplot(ghm_avg) +
-  geom_smooth(aes(gHM, estimate)) +
+write_csv(ghm_pred, here::here("data", "processed_data", "ghm_pred.csv"))
+write_csv(hfp_pred, here::here("data", "processed_data", "hfp_pred.csv"))
+# write_csv(xy_pred, here::here("data", "processed_data", "xy_pred.csv"))
+
+p1 <- plot_predictions(gam1,  by = "gHM") +
+  geom_rug(data = human, aes(gHM_mean, 0),  alpha = 1/2, position = "jitter", outside = TRUE) +
   theme_bw() +
   labs(
     x = "Global Human Modification",
     y = "Strava Value"
-  )
-p1
+  )+
+  coord_cartesian(clip = "off")
 
-p2 <- plot_slopes(gam1, variables = "HFP2009", by = "HFP2009") +
+p2 <- plot_predictions(gam1, by = "HFP2009") +
+  geom_rug(data = human, aes(HFP_mean, 0),  alpha = 1/2, position = "jitter", outside = TRUE) +
   theme_bw() +
   labs(
     x = "Human Footprint Index",
     y = "Strava Value"
-  )
+  ) +
+  coord_cartesian(clip = "off")
 
-p3 <- plot_slopes(gam1, variables = "x", by = "y") +
+p3 <- plot_predictions(gam1, by = c("x", "y")) +
   theme_bw() +
   labs(
     x = "Longitude",
-    y = "Strava Value"
-  )
+    y = "Strava Value",
+    color = "Latitude"
+  ) +
+  coord_cartesian(clip = "off")
 
 plot <- (p1 + p2) / p3 + plot_annotation(tag_levels = "A") + plot_layout(guides = "collect")
 
@@ -253,22 +271,16 @@ temp_2019 <- temporal_data %>%
   filter(year == 2019) %>%
   group_by(suid_nma) %>%
   mutate(count = n()) %>% 
-  filter(count == max(count))
+  filter(count == 365)
 
 temp_2020 <- temporal_data %>%
   filter(year == 2020) %>%
   group_by(suid_nma) %>%
   mutate(count = n())  %>% 
-  filter(count == max(count))
+  filter(count == 366)
 
-temp_2021 <- temporal_data %>%
-  filter(year == 2021)  %>%
-  group_by(suid_nma) %>%
-  mutate(count = n()) %>% 
-  filter(count == max(count))
-
-decom_period <- function(suid) {
-  park <- temp_enough %>%
+decom_period <- function(suid, data_set) {
+  park <- data_set %>%
     filter(suid_nma == suid) %>%
     mutate(year = year(date))
 
@@ -301,7 +313,7 @@ period <- data.frame()
 unique_ids <- unique(temp_enough$suid_nma)
 
 for (i in 1:length(unique_ids)) {
-  int_data <- decom_period(unique_ids[i])
+  int_data <- decom_period(unique_ids[i], temp_enough)
 
   period <- rbind(period, int_data)
 }
@@ -318,12 +330,6 @@ period_maxs <- period %>%
   select(-mag, -max_mag) %>% 
   mutate(year = NA)
 
-top_periods <- period_maxs %>%
-  group_by(period) %>%
-  summarize(n = n()) %>%
-  mutate(percent = n / length(unique_ids) * 100) %>%
-  slice_max(order_by = percent, n = 5)
-
 top_periods1 <- period_maxs %>%
   group_by(period) %>%
   mutate(n = n()) %>%
@@ -337,7 +343,7 @@ period <- data.frame()
 unique_ids <- unique(temp_2019$suid_nma)
 
 for (i in 1:length(unique_ids)) {
-  int_data <- decom_period(unique_ids[i])
+  int_data <- decom_period(unique_ids[i], temp_2019)
   
   period <- rbind(period, int_data)
 }
@@ -345,7 +351,7 @@ for (i in 1:length(unique_ids)) {
 period_maxs_2019 <- period %>%
   filter(p_value < 0.05) %>%
   mutate(period = 1 / freq) %>%
-  filter(period < 837) %>%
+  filter(period < 365) %>%
   mutate(mag = floor(log10(specs))) %>%
   group_by(suid_nma) %>%
   mutate(max_mag = max(mag)) %>%
@@ -367,7 +373,7 @@ period <- data.frame()
 unique_ids <- unique(temp_2020$suid_nma)
 
 for (i in 1:length(unique_ids)) {
-  int_data <- decom_period(unique_ids[i])
+  int_data <- decom_period(unique_ids[i], temp_2020)
   
   period <- rbind(period, int_data)
 }
@@ -375,7 +381,7 @@ for (i in 1:length(unique_ids)) {
 period_maxs_2020 <- period %>%
   filter(p_value < 0.05) %>%
   mutate(period = 1 / freq) %>%
-  filter(period < 837) %>%
+  filter(period < 366) %>%
   mutate(mag = floor(log10(specs))) %>%
   group_by(suid_nma) %>%
   mutate(max_mag = max(mag)) %>%
@@ -392,63 +398,27 @@ top_periods1_2020 <- period_maxs_2020 %>%
   slice_max(order_by = specs, n = 3) %>%
   mutate(rank = rank(specs))
 
-period <- data.frame()
-
-unique_ids <- unique(temp_2021$suid_nma)
-
-for (i in 1:length(unique_ids)) {
-  int_data <- decom_period(unique_ids[i])
-  
-  period <- rbind(period, int_data)
-}
-
-period_maxs_2021 <- period %>%
-  filter(p_value < 0.05) %>%
-  mutate(period = 1 / freq) %>%
-  filter(period < 837) %>%
-  mutate(mag = floor(log10(specs))) %>%
-  group_by(suid_nma) %>%
-  mutate(max_mag = max(mag)) %>%
-  ungroup() %>%
-  filter(mag == max_mag) %>%
-  select(-mag, -max_mag) %>% 
-  mutate(year = 2021)
-
-top_periods1_2021 <- period_maxs_2021 %>%
-  group_by(period) %>%
-  mutate(n = n()) %>%
-  mutate(percent = n / length(unique_ids) * 100) %>%
-  group_by(suid_nma) %>%
-  slice_max(order_by = specs, n = 3) %>%
-  mutate(rank = rank(specs))
-
-period_max_all = list(period_maxs, period_maxs_2019, period_maxs_2020, period_maxs_2021) %>% 
+period_max_all = list(period_maxs, period_maxs_2019, period_maxs_2020) %>% 
   reduce(full_join)
 
-top_periods_all = list(top_periods1, top_periods1_2019, top_periods1_2020, top_periods1_2021) %>% 
+top_periods_all = list(top_periods1, top_periods1_2019, top_periods1_2020) %>% 
   reduce(full_join)
 
 temp_highlight <- top_periods1 %>%
   filter(suid_nma %in% c(highlight_parks)) %>%
-  left_join(human) %>%
+  left_join(cpad_super) %>%
   mutate(label = paste(park_name, "Top Peak")) %>%
   filter(rank == 1)
 
 temp_highlight_2019 <- top_periods1_2019  %>%
   filter(suid_nma %in% c(highlight_parks)) %>%
-  left_join(human) %>%
+  left_join(cpad_super) %>%
   mutate(label = paste(park_name, "Top Peak")) %>%
   filter(rank == 1)
 
 temp_highlight_2020  <- top_periods1_2020  %>%
   filter(suid_nma %in% c(highlight_parks)) %>%
-  left_join(human) %>%
-  mutate(label = paste(park_name, "Top Peak")) %>%
-  filter(rank == 1)
-
-temp_highlight_2021  <- top_periods1_2021  %>%
-  filter(suid_nma %in% c(highlight_parks)) %>%
-  left_join(human) %>%
+  left_join(cpad_super) %>%
   mutate(label = paste(park_name, "Top Peak")) %>%
   filter(rank == 1)
 
@@ -459,7 +429,7 @@ write_csv(top_periods_all, here::here("analysis", "periodicity_max.csv"))
 colors <- c("1" = "black", "2" = "blue", "3" = "darkgreen")
 
 p1 <- ggplot() +
-  geom_vline(aes(xintercept = c(30, 90, 180, 360)), color = "red", alpha = 0.3, linetype = "dashed") +
+  geom_vline(aes(xintercept = c(30, 90, 180, 365, 365 + 365)), color = "red", alpha = 0.3, linetype = "dashed") +
   geom_vline(data = temp_highlight, aes(xintercept = period), color = "black", linetype = "dashed") +
   geom_density(data = top_periods1 %>% filter(rank == 1), aes(period, color = "1"), linewidth = 1) +
   geom_density(data = top_periods1 %>% filter(rank == 2), aes(period, color = "2"), linetype = "dashed", linewidth = 1) +
@@ -483,8 +453,8 @@ p1 <- ggplot() +
   )
 
 p2 <- ggplot() +
-  geom_vline(aes(xintercept = c(30, 90, 180, 360)), color = "red", alpha = 0.3, linetype = "dashed") +
-  geom_vline(data = temp_highlight, aes(xintercept = period), color = "black", linetype = "dashed") +
+  geom_vline(aes(xintercept = c(30, 90, 180, 365)), color = "red", alpha = 0.3, linetype = "dashed") +
+  geom_vline(data = temp_highlight_2019, aes(xintercept = period), color = "black", linetype = "dashed") +
   geom_density(data = top_periods1_2019 %>% filter(rank == 1), aes(period, color = "1"), linewidth = 1) +
   geom_density(data = top_periods1_2019 %>% filter(rank == 2), aes(period, color = "2"), linetype = "dashed", linewidth = 1) +
   geom_density(data = top_periods1_2019 %>% filter(rank == 3), aes(period, color = "3"), linetype = "dotdash", linewidth = 1) +
@@ -507,8 +477,8 @@ p2 <- ggplot() +
   )
 
 p3 <- ggplot() +
-  geom_vline(aes(xintercept = c(30, 90, 180, 360)), color = "red", alpha = 0.3, linetype = "dashed") +
-  geom_vline(data = temp_highlight, aes(xintercept = period), color = "black", linetype = "dashed") +
+  geom_vline(aes(xintercept = c(30, 90, 180, 365)), color = "red", alpha = 0.3, linetype = "dashed") +
+  geom_vline(data = temp_highlight_2020, aes(xintercept = period), color = "black", linetype = "dashed") +
   geom_density(data = top_periods1_2020 %>% filter(rank == 1), aes(period, color = "1"), linewidth = 1) +
   geom_density(data = top_periods1_2020 %>% filter(rank == 2), aes(period, color = "2"), linetype = "dashed", linewidth = 1) +
   geom_density(data = top_periods1_2020 %>% filter(rank == 3), aes(period, color = "3"), linetype = "dotdash", linewidth = 1) +
@@ -521,7 +491,7 @@ p3 <- ggplot() +
   ) +
   scale_color_manual(values = colors) +
   geom_label_repel(
-    data = temp_highlight_2020, aes(x = period, y = c(0.01, 0.005), label = label),
+    data = temp_highlight_2020, aes(x = period, y = c(0.015, 0.01), label = label),
     size = 4,
     alpha = 0.65,
     min.segment.length = 1,
@@ -530,31 +500,7 @@ p3 <- ggplot() +
     color = "black"
   )
 
-p4 <- ggplot() +
-  geom_vline(aes(xintercept = c(30, 90, 180, 360)), color = "red", alpha = 0.3, linetype = "dashed") +
-  geom_vline(data = temp_highlight, aes(xintercept = period), color = "black", linetype = "dashed") +
-  geom_density(data = top_periods1_2021 %>% filter(rank == 1), aes(period, color = "1"), linewidth = 1) +
-  geom_density(data = top_periods1_2021 %>% filter(rank == 2), aes(period, color = "2"), linetype = "dashed", linewidth = 1) +
-  geom_density(data = top_periods1_2021 %>% filter(rank == 3), aes(period, color = "3"), linetype = "dotdash", linewidth = 1) +
-  theme_bw() +
-  # scale_x_log10() +
-  labs(
-    x = "Period (days)",
-    y = "Density",
-    color = "Peak Rank"
-  ) +
-  scale_color_manual(values = colors) +
-  geom_label_repel(
-    data = temp_highlight_2021, aes(x = period, y = c(0.01, 0.005), label = label),
-    size = 4,
-    alpha = 0.65,
-    min.segment.length = 1,
-    arrow = arrow(length = unit(0.1, "inches")),
-    box.padding = 1,
-    color = "black"
-  )
-
-ggsave(p1 / p2 / p3 / p4 + plot_annotation(tag_levels = "A") + plot_layout(guides = "collect"), file = paste0("fig5.pdf"), path = here::here("analysis", "figs"), height = 24, width = 15)
+ggsave(p1 / p2 / p3 + plot_annotation(tag_levels = "A") + plot_layout(guides = "collect"), file = paste0("fig5.pdf"), path = here::here("analysis", "figs"), height = 18, width = 15)
 
 ### Predictability
 
