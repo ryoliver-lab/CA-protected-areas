@@ -82,7 +82,6 @@ temporal_data <- read_csv(here::here("data", "processed_data", "temporal_analysi
   filter(suid_nma %in% human$suid_nma)%>% 
   mutate(year = year(date))
   
-
 # Functions ---------------------------------------------------------------
 
 normalize <- function(x) {
@@ -552,6 +551,35 @@ p3 <- ggplot() +
   )
 
 ggsave(p1 / p2 / p3 + plot_annotation(tag_levels = "A") + plot_layout(guides = "collect"), file = paste0("fig5.pdf"), path = here::here("analysis", "figs"), height = 18, width = 15)
+
+top_periods_rank = top_periods_all %>% 
+  filter(is.na(year)) %>% 
+  select(suid_nma, period, rank) %>% 
+  pivot_wider(names_from = rank, values_from = period)
+
+names(top_periods_rank) = c("suid_nma", "rank1", "rank2", "rank3")
+
+top_highlight = top_periods_rank %>% 
+  filter(suid_nma %in% highlight_parks) %>% 
+  left_join(human)
+
+p = ggplot() +
+  geom_point(data = top_periods_rank, aes(rank1, rank2)) +
+  geom_point(data = top_highlight, aes(rank1, rank2), color = "red") +
+  theme_bw() +
+  labs(x = "Highest Peak",
+       y = "Next Highest Peak") +
+  geom_label_repel(
+    data = top_highlight, aes(rank1, rank2, label = park_name),
+    size = 4,
+    alpha = 0.65,
+    min.segment.length = 1,
+    arrow = arrow(length = unit(0.1, "inches")),
+    box.padding = 1,
+    color = "black"
+  )
+
+ggsave(p, file = paste0("fig5.2.pdf"), path = here::here("analysis", "figs"), height = 10, width = 10)
 
 ### Predictability
 
