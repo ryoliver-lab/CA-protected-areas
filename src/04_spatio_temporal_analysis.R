@@ -127,54 +127,105 @@ park_models <- spatial_data %>%
   na.omit() %>% 
   group_by(suid_nma) %>%
   mutate(count = n())%>%
-  filter(count > 10) %>% 
-  do(model = gam(hex_int ~ s(gHM, k = 6) + s(HFP2009, k = 6) + s(y, x, bs = "gp", m = 1, k = 6), data = .))
+  filter(count > 10) 
 
-gam1 = park_models
+park_data = human %>% 
+  filter(suid_nma %in% park_models$suid_nma)
+
+yosemite = human %>% 
+  filter(suid_nma == 14310)
+
+yosemite_spatial = spatial_data %>% 
+  filter(suid_nma == 14310) %>% 
+  select(suid_nma, x, y) %>% 
+  mutate(x = round(x),
+         y = round(y)) %>% 
+  distinct() %>% 
+  full_join(yosemite)
+
+gam1 = gam(hex_int ~ s(gHM, k = 6) + s(HFP2009, k = 6) + s(y, x, bs = "gp", m = 1, k = 6), data = park_models)
 
 summary(gam1)
 AIC(gam1)
 
 ghm_pred <- predictions(gam1, variables = "gHM", by = "gHM")
-hfp_pred <- predictions(gam1, variables = "HFP2009", by = "HFP2009") %>% 
-  
-# xy_pred <- predictions(gam1, variables = "x", by = c("x", "y")) %>% 
-#   mutate(y = as.numeric(round(y))) 
+hfp_pred <- predictions(gam1, variables = "HFP2009", by = "HFP2009")
+xy_pred <- predictions(gam1, variables = "x", by = c("x", "y"))
 
-write_csv(ghm_pred, here::here("data", "processed_data", "ghm_pred.csv"))
-write_csv(hfp_pred, here::here("data", "processed_data", "hfp_pred.csv"))
+# write_csv(ghm_pred, here::here("data", "processed_data", "ghm_pred.csv"))
+# write_csv(hfp_pred, here::here("data", "processed_data", "hfp_pred.csv"))
 # write_csv(xy_pred, here::here("data", "processed_data", "xy_pred.csv"))
 
-p1 <- plot_predictions(gam1,  by = "gHM") +
-  geom_rug(data = human, aes(gHM_mean, 0),  alpha = 1/2, position = "jitter", outside = TRUE) +
+p1 <- plot_predictions(gam1,  condition = "gHM") +
+  geom_rug(data = park_data, aes(gHM_mean),  alpha = 1/2, outside = TRUE, sides = "b") +
+  scale_y_log10() +
   theme_bw() +
   labs(
     x = "Global Human Modification",
     y = "Strava Value"
   )+
-  coord_cartesian(clip = "off")
+  coord_cartesian(clip = "off") +
+  theme(axis.text.x = element_text(margin = margin(t = 10)),
+        axis.ticks.x = element_blank()) +
+  geom_point(data = yosemite, aes(gHM_mean, hx_pp_r)) +
+  geom_label_repel(
+    data = yosemite, aes(gHM_mean, hx_pp_r, label = park_name),
+    size = 4,
+    alpha = 0.65,
+    min.segment.length = 1,
+    arrow = arrow(length = unit(0.1, "inches")),
+    box.padding = 1,
+    color = "black"
+  )
 
-p2 <- plot_predictions(gam1, by = "HFP2009") +
-  geom_rug(data = human, aes(HFP_mean, 0),  alpha = 1/2, position = "jitter", outside = TRUE) +
+p2 <- plot_predictions(gam1, condition = "HFP2009") +
+  geom_rug(data = park_data, aes(HFP_mean),  alpha = 1/2, outside = TRUE, sides = "b") +
+  scale_y_log10() +
   theme_bw() +
   labs(
     x = "Human Footprint Index",
     y = "Strava Value"
   ) +
-  coord_cartesian(clip = "off")
+  coord_cartesian(clip = "off") +
+  theme(axis.text.x = element_text(margin = margin(t = 10)),
+        axis.ticks.x = element_blank())+
+  geom_point(data = yosemite, aes(HFP_mean, hx_pp_r)) +
+  geom_label_repel(
+    data = yosemite, aes(HFP_mean, hx_pp_r, label = park_name),
+    size = 4,
+    alpha = 0.65,
+    min.segment.length = 1,
+    arrow = arrow(length = unit(0.1, "inches")),
+    box.padding = 1,
+    color = "black"
+  )
 
-p3 <- plot_predictions(gam1, by = c("x", "y")) +
+p3 <- plot_predictions(gam1, condition  = c("x", "y")) +
+  scale_y_log10() +
   theme_bw() +
   labs(
     x = "Longitude",
     y = "Strava Value",
-    color = "Latitude"
+    color = "Latitude",
+    fill ="Latitude"
   ) +
-  coord_cartesian(clip = "off")
+  scale_color_viridis_d(direction = -1, guide = guide_legend(reverse = TRUE), labels = rev(c("42.00", 39.83, 36.81, 34.91, 32.56))) +
+  scale_fill_viridis_d(direction = -1, guide = guide_legend(reverse = TRUE), labels = rev(c("42.00", 39.83, 36.81, 34.91, 32.56))) +
+  coord_cartesian(clip = "off")+
+  geom_point(data = yosemite_spatial, aes(x, hx_pp_r), color = "#addc30") +
+  geom_label_repel(
+    data = yosemite_spatial, aes(x, hx_pp_r, label = park_name),
+    size = 4,
+    alpha = 0.65,
+    min.segment.length = 1,
+    arrow = arrow(length = unit(0.1, "inches")),
+    box.padding = 1,
+    color = "black"
+  )
 
-plot <- (p1 + p2) / p3 + plot_annotation(tag_levels = "A") + plot_layout(guides = "collect")
+plot <- (p1 + p2) / p3 + plot_annotation(tag_levels = "A")
 
-ggsave(plot, file = paste0("fig2.pdf"), path = here::here("analysis", "figs"), height = 15, width = 25)
+ggsave(plot, file = paste0("fig2.pdf"), path = here::here("analysis", "figs"), height = 15, width = 15)
 
 ### Dispersion and Predictability
 
