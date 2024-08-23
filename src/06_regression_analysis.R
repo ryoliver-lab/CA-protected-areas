@@ -5,7 +5,6 @@ library(gtsummary)
 library(broom)
 library(marginaleffects)
 
-
 # Load in Data ------------------------------------------------------------
 
 sg <- read_csv(here::here("data", "processed_data", "cpad_sg.csv"))
@@ -25,6 +24,7 @@ rm(sg, strava, ghm, hfp, park_pred, periods, pca)
 # take out hoas
 
 human <- human %>%
+  st_drop_geometry() %>% 
   filter(shape_area >= 10000) %>%
   filter(!grepl("cemet", park_name, ignore.case = TRUE)) %>%
   filter(!grepl("sport", park_name, ignore.case = TRUE)) %>%
@@ -45,7 +45,7 @@ human <- human %>%
     label_name, gap1_acres, gap2_acres, gap3_acres, gap4_acres, gap_tot_ac, shape_leng, shape_area,
     gHM_min, gHM_mean, gHM_max, gHM_median, gHM_sd, gHM_range, gHM_cv, HFP_min,
     HFP_mean, HFP_max, HFP_median, HFP_sd, HFP_range, HFP_cv, outside_pop, peopcolorpct, lowincpct,
-    period, pred, pred_mod, pred_temp, Dim.1, Dim.2
+    period, pred, pred_mod, pred_temp, Dim.1, Dim.2, rank
   ) %>%
   mutate(
     sg_range = max_sg - min_sg,
@@ -63,76 +63,102 @@ human <- human %>%
     gap == gap3_acres ~ "GAP 3",
     gap == gap4_acres ~ "GAP 4"
   )) %>% 
-  select(-gap1_acres, -gap2_acres, -gap3_acres, -gap4_acres)
+  select(-gap1_acres, -gap2_acres, -gap3_acres, -gap4_acres) %>% 
+  filter(rank == 1) %>% 
+  distinct()
 
 # PCA Regression --------------------------------------------------
 
-pca_mod = lm(Dim.1 ~ access_typ + mng_ag_lev + gap_status + shape_leng + outside_pop + peopcolorpct + lowincpct, data = human)
+pca_mod = lm(Dim.1 ~ access_typ + mng_ag_lev + gap_status + shape_leng + outside_pop, data = human)
+
+MASS::stepAIC(pca_mod, direction = "both")
 
 summary(pca_mod)
-plot(pca_mod)
+anova(pca_mod)
 
 plot_predictions(pca_mod, by = "access_typ", variable = "access_typ")
 plot_predictions(pca_mod, by = "mng_ag_lev", variable = "mng_ag_lev")
 plot_predictions(pca_mod, by = "gap_status", variable = "gap_status")
 plot_predictions(pca_mod, by = "shape_leng", variable = "shape_leng")
 plot_predictions(pca_mod, by = "outside_pop", variable = "outside_pop")
-plot_predictions(pca_mod, by = "peopcolorpct", variable = "peopcolorpct")
-plot_predictions(pca_mod, by = "lowincpct", variable = "lowincpct")
 
 # Peak Regression ---------------------------------------------------------
 
-peak_mod = glm(period ~ access_typ + mng_ag_lev+ gap_status + shape_leng + outside_pop + peopcolorpct + lowincpct, data = human, family = poisson)
+peak_mod = glm(period ~ access_typ + mng_ag_lev+ gap_status + shape_leng + outside_pop, data = human)
 
-summary(peak_mod)
+MASS::stepAIC(peak_mod, direction = "both")
 
-plot_predictions(peak_mod, by = "access_typ", variable = "access_typ")
-plot_predictions(peak_mod, by = "mng_ag_lev", variable = "mng_ag_lev")
-plot_predictions(peak_mod, by = "gap_status", variable = "gap_status")
-plot_predictions(peak_mod, by = "shape_leng", variable = "shape_leng")
-plot_predictions(peak_mod, by = "outside_pop", variable = "outside_pop")
-plot_predictions(peak_mod, by = "peopcolorpct", variable = "peopcolorpct")
-plot_predictions(peak_mod, by = "lowincpct", variable = "lowincpct")
+peak_mod2 = glm(period ~ mng_ag_lev + outside_pop, data = human)
+peak_mod3 = glm(period ~ mng_ag_lev, data = human)
+
+anova(peak_mod2, peak_mod3, test = "LRT")
+
+summary(peak_mod3)
+anova(peak_mod3, test = "Chisq")
+AIC(peak_mod)
+
+# plot_predictions(peak_mod, by = "access_typ", variable = "access_typ")
+plot_predictions(peak_mod3, by = "mng_ag_lev", variable = "mng_ag_lev")
+# plot_predictions(peak_mod, by = "gap_status", variable = "gap_status")
+# plot_predictions(peak_mod, by = "shape_leng", variable = "shape_leng")
+# plot_predictions(peak_mod, by = "outside_pop", variable = "outside_pop")
+# plot_predictions(peak_mod, by = "peopcolorpct", variable = "peopcolorpct")
+# plot_predictions(peak_mod, by = "lowincpct", variable = "lowincpct")
 
 # Predictability Regression - Spatial -------------------------------------
 
-ps_mod = lm(pred ~ access_typ + mng_ag_lev + gap_status+ shape_leng + outside_pop + peopcolorpct + lowincpct, data = human)
+ps_mod = lm(log(pred) ~ access_typ + mng_ag_lev + gap_status+ shape_leng + outside_pop, data = human)
 
-summary(ps_mod)
+MASS::stepAIC(ps_mod, direction = "both")
 
-plot_predictions(ps_mod, by = "access_typ", variable = "access_typ")
-plot_predictions(ps_mod, by = "mng_ag_lev", variable = "mng_ag_lev")
-plot_predictions(ps_mod, by = "gap_status", variable = "gap_status")
-plot_predictions(ps_mod, by = "shape_leng", variable = "shape_leng")
-plot_predictions(ps_mod, by = "outside_pop", variable = "outside_pop")
-plot_predictions(ps_mod, by = "peopcolorpct", variable = "peopcolorpct")
-plot_predictions(ps_mod, by = "lowincpct", variable = "lowincpct")
+ps_mod2 = lm(log(pred) ~ access_typ + mng_ag_lev + gap_status, 
+   data = human)
+ps_mod3 = lm(log(pred) ~ access_typ + mng_ag_lev + gap_status + outside_pop, 
+             data = human)
+
+anova(ps_mod2, ps_mod3)
+
+summary(ps_mod2)
+
+plot_predictions(ps_mod2, by = "access_typ", variable = "access_typ")
+plot_predictions(ps_mod2, by = "mng_ag_lev", variable = "mng_ag_lev")
+plot_predictions(ps_mod2, by = "gap_status", variable = "gap_status")
+# plot_predictions(ps_mod, by = "shape_leng", variable = "shape_leng")
+# plot_predictions(ps_mod, by = "outside_pop", variable = "outside_pop")
 
 # Predictability Regression - Mod -----------------------------------------
 
-pm_mod = lm(pred_mod ~ access_typ + mng_ag_lev+ gap_status + shape_leng + outside_pop + peopcolorpct + lowincpct, data = human)
+pm_mod = lm(log(pred_mod) ~ access_typ + mng_ag_lev + gap_status + shape_leng + outside_pop, data = human)
 
-summary(pm_mod)
+MASS::stepAIC(pm_mod, direction = "both")
 
-plot_predictions(pm_mod, by = "access_typ", variable = "access_typ")
-plot_predictions(pm_mod, by = "mng_ag_lev", variable = "mng_ag_lev")
-plot_predictions(pm_mod, by = "gap_status", variable = "gap_status")
-plot_predictions(pm_mod, by = "shape_leng", variable = "shape_leng")
-plot_predictions(pm_mod, by = "outside_pop", variable = "outside_pop")
-plot_predictions(pm_mod, by = "peopcolorpct", variable = "peopcolorpct")
-plot_predictions(pm_mod, by = "lowincpct", variable = "lowincpct")
+pm_mod2 = lm(log(pred_mod) ~ access_typ + mng_ag_lev + gap_status + shape_leng, data = human)
+
+anova(pm_mod, pm_mod2, test = "LRT")
+
+summary(pm_mod2)
+
+plot_predictions(pm_mod2, by = "access_typ", variable = "access_typ")
+plot_predictions(pm_mod2, by = "mng_ag_lev", variable = "mng_ag_lev")
+plot_predictions(pm_mod2, by = "gap_status", variable = "gap_status")
+plot_predictions(pm_mod2, by = "shape_leng", variable = "shape_leng")
+# plot_predictions(pm_mod, by = "outside_pop", variable = "outside_pop")
 
 # Predictability Regression - Temporal ------------------------------------
 
-pt_mod = lm(pred_temp ~ access_typ + mng_ag_lev+ gap_status + shape_leng + outside_pop + peopcolorpct + lowincpct, data = human)
+pt_mod = lm(log(pred_temp) ~ access_typ + mng_ag_lev+ gap_status + shape_leng + outside_pop, data = human)
 
-summary(pt_mod)
+MASS::stepAIC(pt_mod, direction = "both")
 
-plot_predictions(pt_mod, by = "access_typ", variable = "access_typ")
-plot_predictions(pt_mod, by = "mng_ag_lev", variable = "mng_ag_lev")
-plot_predictions(pt_mod, by = "gap_status", variable = "gap_status")
-plot_predictions(pt_mod, by = "shape_leng", variable = "shape_leng")
-plot_predictions(pt_mod, by = "outside_pop", variable = "outside_pop")
-plot_predictions(pt_mod, by = "peopcolorpct", variable = "peopcolorpct")
-plot_predictions(pt_mod, by = "lowincpct", variable = "lowincpct")
+pt_mod2 = lm(log(pred_temp) ~ mng_ag_lev + gap_status + outside_pop, 
+data = human)
 
+anova(pt_mod, pt_mod2)
+
+summary(pt_mod2)
+
+# plot_predictions(pt_mod, by = "access_typ", variable = "access_typ")
+plot_predictions(pt_mod2, by = "mng_ag_lev", variable = "mng_ag_lev")
+plot_predictions(pt_mod2, by = "gap_status", variable = "gap_status")
+# plot_predictions(pt_mod, by = "shape_leng", variable = "shape_leng")
+plot_predictions(pt_mod2, by = "outside_pop", variable = "outside_pop")
