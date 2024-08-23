@@ -4,6 +4,8 @@ library(vegan)
 library(FactoMineR)
 library(factoextra)
 
+sf_use_s2(FALSE)
+
 set.seed(42)
 
 # Load Data ---------------------------------------------------------------
@@ -15,7 +17,6 @@ hfp <- st_read(here::here("data", "processed_data", "cpad_hfp.shp"))
 park_pred <- read_csv(here::here("data", "processed_data", "predictability.csv"))
 periods = read_csv(here::here("analysis", "periodicity_max.csv"))
 
-
 human <- list(sg, strava, ghm, hfp, park_pred, periods) %>%
   reduce(full_join) %>%
   st_as_sf()
@@ -24,7 +25,8 @@ rm(sg, strava, ghm, hfp, park_pred, periods)
 
 # take out hoas
 
-human <- human %>%
+human_filter <- human %>%
+  st_drop_geometry() %>% 
   filter(shape_area >= 10000) %>%
   filter(!grepl("cemet", park_name, ignore.case = TRUE)) %>%
   filter(!grepl("sport", park_name, ignore.case = TRUE)) %>%
@@ -67,7 +69,7 @@ human <- human %>%
 
 highlight_parks <- c(14310, 22386)
 
-full_famd_data <- human %>%
+full_famd_data <- human_filter %>%
   st_drop_geometry() %>%
   select(
     sg, hx_pp_r,
@@ -98,6 +100,16 @@ full_pca_data <- full_famd_data %>%
 pca_data <- full_pca_data %>%
   select(-suid_nma, -access_typ)
 
+# Clustering  -------------------------------------------------------------
+
+fviz_nbclust(pca_data, FUNcluster = kmeans)
+
+set.seed(42)
+km_res <- kmeans(pca_data, 3)
+
+print(km_res)
+
+full_pca_data$cluster = km_res$cluster
 
 # PCA ---------------------------------------------------------------------
 
@@ -117,18 +129,20 @@ pca_var <- pca_var %>%
   ))
 
 pca_coords$suid_nma = full_pca_data$suid_nma
+pca_coords$cluster = as.factor(full_pca_data$cluster)
 
 pca_highlight = pca_coords %>% 
   filter(suid_nma %in% highlight_parks) %>% 
-  left_join(human %>% select(-period)) %>% 
+  left_join(human_filter) %>% 
   distinct()
 
 pca_fig <- ggplot(data = pca_coords) +
-  geom_point(aes(Dim.1, Dim.2)) + #, color = class
+  geom_point(aes(Dim.1, Dim.2, color = cluster)) + #
   geom_point(data = pca_highlight, aes(Dim.1, Dim.2), color = "red", size = 2) + #, color = class
   theme_bw() +
   labs(
     x = "PCA1 (48.46%)", y = "PCA2 (25.02%)",
+    color = "Kmeans Cluster",
     title = NULL
   ) +
   scale_y_continuous(position = "right") +
@@ -147,7 +161,6 @@ pca_fig <- ggplot(data = pca_coords) +
   xlim(-5, 8) +
   ylim(-5, 8) +
   scale_color_viridis_d() +
-  scale_fill_viridis_d()+
   ggrepel::geom_label_repel(
     data = pca_highlight, aes(Dim.1, Dim.2, label = park_name),
     cex = 3,
@@ -178,6 +191,7 @@ famd_coords <- as.data.frame(famd$ind[["coord"]]) %>%
   select(Dim.1, Dim.2)
 
 famd_coords$suid_nma = full_famd_data$suid_nma
+famd_coords$cluster = as.factor(full_pca_data$cluster)
 
 eigen <- famd$eig
 # eigen
@@ -193,16 +207,16 @@ famd_var <- famd_var %>%
 
 famd_highlight = famd_coords %>% 
   filter(suid_nma %in% highlight_parks) %>% 
-  left_join(human %>% select(-period)) %>% 
+  left_join(human_filter) %>% 
   distinct()
 
 famd_fig <- ggplot(data = famd_coords) +
-  geom_point(aes(Dim.1, Dim.2)) + # , color = class
+  geom_point(aes(Dim.1, Dim.2, color = cluster)) + # 
   geom_point(data = famd_highlight, aes(Dim.1, Dim.2), color = "red", size = 2) + #, color = class
   theme_bw() +
   labs(
-    x = "FAMD1 (7.6%)", y = "FAMD2 (4.1%)", color = "Human Use",
-    fill = "Human Use", title = NULL
+    x = "FAMD1 (7.6%)", y = "FAMD2 (4.1%)",  color = "Kmeans Cluster",
+    title = NULL
   ) +
   scale_y_continuous(position = "right") +
   theme(legend.position = "left") +
