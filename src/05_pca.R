@@ -14,10 +14,10 @@ sg <- read_csv(here::here("data", "processed_data", "cpad_sg.csv"))
 strava <- st_read(here::here("data", "processed_data", "cpad_strava.shp"))
 ghm <- st_read(here::here("data", "processed_data", "cpad_ghm.shp"))
 hfp <- st_read(here::here("data", "processed_data", "cpad_hfp.shp"))
-park_pred <- read_csv(here::here("data", "processed_data", "predictability.csv"))
-periods = read_csv(here::here("analysis", "periodicity_max.csv"))
+# park_pred <- read_csv(here::here("data", "processed_data", "predictability.csv"))
+# periods = read_csv(here::here("analysis", "periodicity_max.csv"))
 
-human <- list(sg, strava, ghm, hfp, park_pred, periods) %>%
+human <- list(sg, strava, ghm, hfp) %>%
   reduce(full_join) %>%
   st_as_sf()
 
@@ -41,7 +41,6 @@ human_filter <- human %>%
   filter(!grepl("athel", park_name, ignore.case = TRUE)) %>%
   filter(!grepl("community center", park_name, ignore.case = TRUE)) %>%
   filter(!grepl("school", park_name, ignore.case = TRUE)) %>% 
-  filter(rank == 1) %>%
   select(
     max_sg, min_sg, sg, hx_pp_r, mx_hx__, mn_hx__, suid_nma,
     access_typ, park_name, park_url, mng_ag_id, mng_agncy, mng_ag_lev, mng_ag_typ, agncy_web,
@@ -66,6 +65,7 @@ human_filter <- human %>%
     gap == gap3_acres ~ "GAP 3",
     gap == gap4_acres ~ "GAP 4"
   ))
+
 
 highlight_parks <- c(14310, 22386)
 
@@ -94,22 +94,10 @@ full_pca_data <- full_famd_data %>%
     gHM_mean, HFP_mean, suid_nma,
     access_typ
   ) %>%
-  drop_na() %>%
-  filter(!is.infinite(sg))
+  drop_na() 
 
 pca_data <- full_pca_data %>%
   select(-suid_nma, -access_typ)
-
-# Clustering  -------------------------------------------------------------
-
-fviz_nbclust(pca_data, FUNcluster = kmeans)
-
-set.seed(42)
-km_res <- kmeans(pca_data, 3)
-
-print(km_res)
-
-full_pca_data$cluster = km_res$cluster
 
 # PCA ---------------------------------------------------------------------
 
@@ -129,7 +117,6 @@ pca_var <- pca_var %>%
   ))
 
 pca_coords$suid_nma = full_pca_data$suid_nma
-pca_coords$cluster = as.factor(full_pca_data$cluster)
 
 pca_highlight = pca_coords %>% 
   filter(suid_nma %in% highlight_parks) %>% 
@@ -137,12 +124,11 @@ pca_highlight = pca_coords %>%
   distinct()
 
 pca_fig <- ggplot(data = pca_coords) +
-  geom_point(aes(Dim.1, Dim.2, color = cluster)) + #
+  geom_point(aes(Dim.1, Dim.2)) + #
   geom_point(data = pca_highlight, aes(Dim.1, Dim.2), color = "red", size = 2) + #, color = class
   theme_bw() +
   labs(
     x = "PCA1 (48.46%)", y = "PCA2 (25.02%)",
-    color = "Kmeans Cluster",
     title = NULL
   ) +
   scale_y_continuous(position = "right") +
@@ -191,7 +177,6 @@ famd_coords <- as.data.frame(famd$ind[["coord"]]) %>%
   select(Dim.1, Dim.2)
 
 famd_coords$suid_nma = full_famd_data$suid_nma
-famd_coords$cluster = as.factor(full_pca_data$cluster)
 
 eigen <- famd$eig
 # eigen
@@ -211,11 +196,11 @@ famd_highlight = famd_coords %>%
   distinct()
 
 famd_fig <- ggplot(data = famd_coords) +
-  geom_point(aes(Dim.1, Dim.2, color = cluster)) + # 
+  geom_point(aes(Dim.1, Dim.2)) + # 
   geom_point(data = famd_highlight, aes(Dim.1, Dim.2), color = "red", size = 2) + #, color = class
   theme_bw() +
   labs(
-    x = "FAMD1 (7.6%)", y = "FAMD2 (4.1%)",  color = "Kmeans Cluster",
+    x = "FAMD1 (7.6%)", y = "FAMD2 (4.1%)",
     title = NULL
   ) +
   scale_y_continuous(position = "right") +
