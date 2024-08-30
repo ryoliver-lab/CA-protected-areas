@@ -623,11 +623,12 @@ pred_highlight <- predictability %>%
   filter(suid_nma %in% c(highlight_parks))
 
 write_csv(predictability %>% st_drop_geometry(), here::here("data", "processed_data", "predictability.csv"))
+
 p1 <- ggplot() +
   geom_point(data = predictability %>% filter(year == 2019), aes(pred, pred_mod)) +
   geom_point(data = pred_highlight %>% filter(year == 2019), aes(pred, pred_mod), color = "red", size = 2) +
-  scale_x_log10() +
-  scale_y_log10() +
+  # scale_x_log10() +
+  # scale_y_log10() +
   theme_bw() +
   labs(
     x = "Predictibility of Strava",
@@ -647,8 +648,8 @@ p2 <- ggplot() +
   geom_point(data = predictability %>% filter(year == 2019), aes(pred, pred_temp)) +
   geom_point(data = pred_highlight %>% filter(year == 2019), aes(pred, pred_temp), color = "red", size = 2) +
   theme_bw() +
-  scale_x_log10() +
-  scale_y_log10() +
+  # scale_x_log10() +
+  # scale_y_log10() +
   labs(
     x = "Predictibility of Strava",
     y = "Predictibility of Safegraph"
@@ -667,8 +668,8 @@ p3 <- ggplot() +
   geom_point(data = predictability %>% filter(year == 2020), aes(pred, pred_temp)) +
   geom_point(data = pred_highlight %>% filter(year == 2020), aes(pred, pred_temp), color = "red", size = 2) +
   theme_bw() +
-  scale_x_log10() +
-  scale_y_log10() +
+  # scale_x_log10() +
+  # scale_y_log10() +
   labs(
     x = "Predictibility of Strava",
     y = "Predictibility of Safegraph"
@@ -687,8 +688,8 @@ p4 <- ggplot() +
   geom_point(data = predictability %>% filter(year == 2019), aes(disp, mod_disp)) +
   geom_point(data = pred_highlight %>% filter(year == 2019), aes(disp, mod_disp), color = "red", size = 2) +
   theme_bw() +
-  scale_x_log10() +
-  scale_y_log10() +
+  # scale_x_log10() +
+  # scale_y_log10() +
   labs(
     x = "Index of Dispersion for Strava",
     y = "Index of Dispersion for Modification"
