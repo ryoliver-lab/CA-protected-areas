@@ -65,6 +65,7 @@ human <- human %>%
   )) %>%
   select(-gap1_acres, -gap2_acres, -gap3_acres, -gap4_acres) %>%
   filter(rank == 1) %>%
+  filter(year == 2019) %>% 
   distinct()
 
 # PCA Regression --------------------------------------------------
