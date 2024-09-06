@@ -118,6 +118,35 @@ cross.entropy <- function(p, phat) {
 
 # Human Map ---------------------------------------------------------------
 
+sg_have <- human %>%
+  filter(!is.na(sg)) %>%
+  mutate(sg_present = "Yes")
+
+sg_havenot <- human %>%
+  filter(is.na(sg)) %>%
+  mutate(sg_present = "No")
+
+p1 <- ggplot() +
+  geom_sf(data = sg_have, fill = "blue", color = "transparent") +
+  geom_sf(data = sg_havenot, fill = "red", color = "red") +
+  theme_bw()
+p1
+
+ggsave(p1, file = paste0("missing_parks.pdf"), path = here::here("analysis", "figs"), height = 15, width = 15)
+
+missing_sum <- rbind(sg_have, sg_havenot) %>%
+  st_drop_geometry() %>%
+  group_by(sg_present) %>%
+  summarize(
+    ghm_mean = mean(gHM_mean, na.rm = TRUE),
+    ghm_sd = sd(gHM_mean, na.rm = TRUE),
+    hfp_mean = mean(HFP_mean, na.rm = TRUE),
+    hfp_sd = sd(HFP_mean, na.rm = TRUE),
+    strava_mean = mean(hx_pp_r, na.rm = TRUE),
+    strava_sd = sd(hx_pp_r, na.rm = TRUE),
+    sg_mean = mean(sg, na.rm = TRUE),
+    sg_sd = sd(sg, na.rm = TRUE)
+  )
 
 # Spatial Analysis --------------------------------------------------------
 
@@ -260,9 +289,9 @@ mod_entropy <- spatial_data %>%
     const_mod = 1 - entropy(mod) / log(n()),
     contin_mod = (entropy(mod) + entropy(haversine) - cross.entropy(mod, haversine)) / log(n()),
   ) %>%
-  ungroup() %>% 
-  filter(!is.na(const_mod)) %>% 
-  filter(!is.na(contin_mod)) %>% 
+  ungroup() %>%
+  filter(!is.na(const_mod)) %>%
+  filter(!is.na(contin_mod)) %>%
   mutate(
     const_mod_scale = normalize(const_mod),
     contin_mod_scale = normalize(contin_mod)
@@ -282,22 +311,24 @@ spatial_entropy <- spatial_data %>%
     const = 1 - entropy(hex_int) / log(n()),
     contin = (entropy(hex_int) + entropy(haversine) - cross.entropy(hex_int, haversine)) / log(n())
   ) %>%
-  ungroup() %>% 
-  filter(!is.na(const)) %>% 
-  filter(!is.na(contin)) %>% 
+  ungroup() %>%
+  filter(!is.na(const)) %>%
+  filter(!is.na(contin)) %>%
   mutate(
     const_scale = scale(const),
     contin_scale = scale(contin)
-  ) %>% 
-  mutate(const_scale = const_scale[,1],
-         contin_scale = contin_scale[,1]) %>% 
+  ) %>%
+  mutate(
+    const_scale = const_scale[, 1],
+    contin_scale = contin_scale[, 1]
+  ) %>%
   mutate(
     pred = const_scale + contin_scale
   ) %>%
   left_join(cpad_super) %>%
   select(-geometry)
 
-park_entropy <- full_join(mod_entropy, spatial_entropy) %>% 
+park_entropy <- full_join(mod_entropy, spatial_entropy) %>%
   st_drop_geometry()
 
 parks_highlight <- park_entropy %>%
@@ -602,15 +633,17 @@ park_entropy_temp <- temporal_data %>%
     const_temp = 1 - entropy(sg) / log(n()),
     contin_temp = (entropy(sg) + entropy(date_num) - cross.entropy(sg, date_num)) / log(n())
   ) %>%
-  ungroup() %>% 
-  filter(!is.na(const_temp)) %>% 
-  filter(!is.na(contin_temp)) %>% 
+  ungroup() %>%
+  filter(!is.na(const_temp)) %>%
+  filter(!is.na(contin_temp)) %>%
   mutate(
     const_temp_scale = scale(const_temp),
     contin_temp_scale = scale(contin_temp)
   ) %>%
-  mutate(const_temp_scale = const_temp_scale[,1],
-         contin_temp_scale = contin_temp_scale[,1]) %>% 
+  mutate(
+    const_temp_scale = const_temp_scale[, 1],
+    contin_temp_scale = contin_temp_scale[, 1]
+  ) %>%
   mutate(
     pred_temp = const_temp_scale + contin_temp_scale
   )
@@ -708,14 +741,16 @@ plot <- (p1 + p4) / (p2 + p3) + plot_annotation(tag_levels = "A")
 
 ggsave(plot, file = paste0("fig4.pdf"), path = here::here("analysis", "figs"), height = 6, width = 15)
 
-p = ggplot(predictability %>% filter(year %in% c(2019, 2020))) +
+p <- ggplot(predictability %>% filter(year %in% c(2019, 2020))) +
   geom_point(aes(as.factor(year), pred_temp)) +
   geom_line(aes(as.factor(year), pred_temp, group = suid_nma)) +
   geom_point(data = pred_highlight %>% filter(year %in% c(2019, 2020)), aes(as.factor(year), pred_temp), color = "red") +
   geom_line(data = pred_highlight %>% filter(year %in% c(2019, 2020)), aes(as.factor(year), pred_temp, group = suid_nma), color = "red") +
   theme_bw() +
-  labs(x = "Year",
-       y = "Temporal Predictability") +
+  labs(
+    x = "Year",
+    y = "Temporal Predictability"
+  ) +
   geom_label_repel(
     data = pred_highlight %>% filter(year == 2019), aes(as.factor(year), pred_temp, label = park_name),
     size = 4,
