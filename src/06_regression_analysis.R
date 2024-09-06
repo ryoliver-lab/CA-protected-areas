@@ -21,6 +21,20 @@ human <- list(sg, strava, ghm, hfp, park_pred, periods, pca) %>%
 
 rm(sg, strava, ghm, hfp, park_pred, periods, pca)
 
+# PCA Outliers
+
+pca_out = human %>% 
+  filter(Dim.2 > 2)
+
+#high levels of safegraph
+
+unique(pca_out$park_name)
+
+ggplot() +
+  geom_sf(data = human) +
+  geom_sf(data = pca_out, fill = "blue", color = "blue", linewidth = 3) +
+  theme_bw()
+
 # take out hoas
 
 human <- human %>%

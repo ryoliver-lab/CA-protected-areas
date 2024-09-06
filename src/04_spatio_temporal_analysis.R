@@ -335,6 +335,49 @@ spatial_entropy <- spatial_data %>%
 park_entropy <- full_join(mod_entropy, spatial_entropy) %>%
   st_drop_geometry()
 
+ggplot() +
+  geom_point(data = park_entropy, aes(disp, mod_disp)) +
+  theme_bw() +
+  scale_x_log10() +
+  scale_y_log10() +
+  labs(
+    x = "Index of Dispersion for Strava",
+    y = "Index of Dispersion for Modification"
+  )
+
+strava_disp = park_entropy %>% 
+  left_join(human) %>% 
+  st_as_sf() %>% 
+  select(suid_nma, park_name, disp, gHM_mean, HFP_mean, hx_pp_r) %>% 
+  mutate(bin = case_when(
+    disp <= 0.00002 ~ "Low",
+    disp >= 1 ~ "High",
+    TRUE ~ "Med"
+  ))
+
+ggplot() +
+  geom_sf(data = strava_disp, aes(fill = bin), color = "transparent") +
+  scale_fill_viridis_d() +
+  theme_bw()
+
+strava_disp_sum = strava_disp %>%
+  st_drop_geometry() %>%
+  group_by(bin) %>%
+  summarize(
+    ghm_mean = mean(gHM_mean, na.rm = TRUE),
+    ghm_sd = sd(gHM_mean, na.rm = TRUE),
+    ghm_max = max(gHM_mean, na.rm = TRUE),
+    ghm_min = min(gHM_mean, na.rm = TRUE),
+    hfp_mean = mean(HFP_mean, na.rm = TRUE),
+    hfp_sd = sd(HFP_mean, na.rm = TRUE),
+    hfp_max = max(HFP_mean, na.rm = TRUE),
+    hfp_min = min(HFP_mean, na.rm = TRUE),
+    strava_mean = mean(hx_pp_r, na.rm = TRUE),
+    strava_sd = sd(hx_pp_r, na.rm = TRUE),
+    strava_max = max(hx_pp_r, na.rm = TRUE),
+    strava_min = min(hx_pp_r, na.rm = TRUE)
+  )
+
 parks_highlight <- park_entropy %>%
   filter(suid_nma %in% highlight_parks)
 
