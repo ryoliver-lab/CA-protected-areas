@@ -140,12 +140,16 @@ missing_sum <- rbind(sg_have, sg_havenot) %>%
   summarize(
     ghm_mean = mean(gHM_mean, na.rm = TRUE),
     ghm_sd = sd(gHM_mean, na.rm = TRUE),
+    ghm_max = max(gHM_mean, na.rm = TRUE),
+    ghm_min = min(gHM_mean, na.rm = TRUE),
     hfp_mean = mean(HFP_mean, na.rm = TRUE),
     hfp_sd = sd(HFP_mean, na.rm = TRUE),
+    hfp_max = max(HFP_mean, na.rm = TRUE),
+    hfp_min = min(HFP_mean, na.rm = TRUE),
     strava_mean = mean(hx_pp_r, na.rm = TRUE),
     strava_sd = sd(hx_pp_r, na.rm = TRUE),
-    sg_mean = mean(sg, na.rm = TRUE),
-    sg_sd = sd(sg, na.rm = TRUE)
+    strava_max = max(hx_pp_r, na.rm = TRUE),
+    strava_min = min(hx_pp_r, na.rm = TRUE)
   )
 
 # Spatial Analysis --------------------------------------------------------
