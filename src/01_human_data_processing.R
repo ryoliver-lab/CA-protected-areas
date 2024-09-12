@@ -383,7 +383,7 @@ rm(cpad_census, safegraph_block_sum)
 safegraph_pa_sum <- cpad_safgraph_census %>%
   mutate(percent_pa = census_block_area / shape_r) %>%
   st_drop_geometry() %>%
-  group_by(suid_nm) %>%
+  group_by(suid_nm, year) %>%
   mutate(
     sg = weighted.mean(pop_count, percent_pa, na.rm = TRUE),
     max_sg = weighted.mean(max_pop_count, percent_pa, na.rm = TRUE),
@@ -397,7 +397,9 @@ safegraph_pa_sum <- cpad_safgraph_census %>%
     -census_block_area, -block_percent, -combo_r, -percent_pa, -prcnt__,
     -cbg, -sd_count, -cv_count, -censs_r, -value
   ) %>%
-  distinct()
+  distinct() %>% 
+  group_by(suid_nm) %>% 
+  mutate(mean_sg = mean(sg))
 
 rm(cpad_safgraph_census)
 

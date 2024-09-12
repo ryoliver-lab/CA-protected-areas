@@ -116,7 +116,7 @@ cross.entropy <- function(p, phat) {
   return(-x)
 }
 
-# Human Map ---------------------------------------------------------------
+# Checks ---------------------------------------------------------------
 
 sg_have <- human %>%
   filter(!is.na(sg)) %>%
@@ -152,6 +152,18 @@ missing_sum <- rbind(sg_have, sg_havenot) %>%
     strava_min = min(hx_pp_r, na.rm = TRUE)
   )
 
+cor_check = human %>% 
+  st_drop_geometry() %>% 
+  select(outside_pop, HFP_mean) %>% 
+  drop_na()
+
+cor(cor_check$outside_pop, cor_check$HFP_mean)
+
+
+# Scatter Plot ------------------------------------------------------------
+
+
+
 # Spatial Analysis --------------------------------------------------------
 
 park_models <- spatial_data %>%
@@ -177,14 +189,14 @@ yosemite_spatial <- spatial_data %>%
   distinct() %>%
   full_join(yosemite)
 
-gam1 <- gam(hex_int ~ s(gHM, k = 6) + s(HFP2009, k = 6) + s(y, x, bs = "gp", m = 1, k = 6), data = park_models)
+gam1 <- gamm(hex_int ~ s(HFP2009, k = 6) + s(y, x, bs = "gp", m = 1, k = 6), random = list(suid_nma = ~1 + HFP2009), data = park_models)
 
 summary(gam1)
 AIC(gam1)
 
-ghm_pred <- predictions(gam1, variables = "gHM", by = "gHM")
-hfp_pred <- predictions(gam1, variables = "HFP2009", by = "HFP2009")
-xy_pred <- predictions(gam1, variables = "x", by = c("x", "y"))
+# ghm_pred <- predictions(gam1, variables = "gHM", by = "gHM")
+# hfp_pred <- predictions(gam1, variables = "HFP2009", by = "HFP2009")
+# xy_pred <- predictions(gam1, variables = "x", by = c("x", "y"))
 
 # write_csv(ghm_pred, here::here("data", "processed_data", "ghm_pred.csv"))
 # write_csv(hfp_pred, here::here("data", "processed_data", "hfp_pred.csv"))
@@ -265,547 +277,547 @@ plot <- (p1 + p2) / p3 + plot_annotation(tag_levels = "A")
 
 ggsave(plot, file = paste0("fig2.pdf"), path = here::here("analysis", "figs"), height = 15, width = 15)
 
-### Dispersion and Predictability
-
-# Dispersion
-
-disp <- var(spatial_data$hex_int) / mean(spatial_data$hex_int)
-
-# Constancy: 1 – H(x)/log(n), where H(x) is information entropy or  1/sd
-
-const <- 1 - entropy(spatial_data$hex_int) / log(nrow(spatial_data))
-
-# Consistency: [H(x) + H(y) – H(XY)]/log(n) where y is spatial position
-
-spatial_data <- spatial_data %>%
-  mutate(haversine = single_pt_haversine(y, x))
-
-contin <- (entropy(spatial_data$hex_int) + entropy(spatial_data$haversine) - cross.entropy(spatial_data$hex_int, spatial_data$haversine)) / log(nrow(spatial_data))
-
-pred <- const + contin
-
-mod_entropy <- spatial_data %>%
-  mutate(mod = gHM) %>%
-  filter(!is.na(mod)) %>%
-  group_by(suid_nma) %>%
-  summarise(
-    mod_disp = var(mod) / mean(mod),
-    const_mod = 1 - entropy(mod) / log(n()),
-    contin_mod = (entropy(mod) + entropy(haversine) - cross.entropy(mod, haversine)) / log(n()),
-  ) %>%
-  ungroup() %>%
-  filter(!is.na(const_mod)) %>%
-  filter(!is.na(contin_mod)) %>%
-  mutate(
-    const_mod_scale = normalize(const_mod),
-    contin_mod_scale = normalize(contin_mod)
-  ) %>%
-  mutate(
-    pred_mod = const_mod_scale + contin_mod_scale
-  ) %>%
-  left_join(cpad_super) %>%
-  st_as_sf()
-
-spatial_entropy <- spatial_data %>%
-  group_by(suid_nma) %>%
-  summarize(
-    disp = var(hex_int) / mean(hex_int),
-    entropy = entropy(hex_int),
-    inv_sd = 1 / sd(hex_int),
-    const = 1 - entropy(hex_int) / log(n()),
-    contin = (entropy(hex_int) + entropy(haversine) - cross.entropy(hex_int, haversine)) / log(n())
-  ) %>%
-  ungroup() %>%
-  filter(!is.na(const)) %>%
-  filter(!is.na(contin)) %>%
-  mutate(
-    const_scale = scale(const),
-    contin_scale = scale(contin)
-  ) %>%
-  mutate(
-    const_scale = const_scale[, 1],
-    contin_scale = contin_scale[, 1]
-  ) %>%
-  mutate(
-    pred = const_scale + contin_scale
-  ) %>%
-  left_join(cpad_super) %>%
-  select(-geometry)
-
-park_entropy <- full_join(mod_entropy, spatial_entropy) %>%
-  st_drop_geometry()
-
-ggplot() +
-  geom_point(data = park_entropy, aes(disp, mod_disp)) +
-  theme_bw() +
-  scale_x_log10() +
-  scale_y_log10() +
-  labs(
-    x = "Index of Dispersion for Strava",
-    y = "Index of Dispersion for Modification"
-  )
-
-strava_disp = park_entropy %>% 
-  left_join(human) %>% 
-  st_as_sf() %>% 
-  select(suid_nma, park_name, disp, gHM_mean, HFP_mean, hx_pp_r) %>% 
-  mutate(bin = case_when(
-    disp <= 0.00002 ~ "Low",
-    disp >= 1 ~ "High",
-    TRUE ~ "Med"
-  ))
-
-ggplot() +
-  geom_sf(data = strava_disp, aes(fill = bin), color = "transparent") +
-  scale_fill_viridis_d() +
-  theme_bw()
-
-strava_disp_sum = strava_disp %>%
-  st_drop_geometry() %>%
-  group_by(bin) %>%
-  summarize(
-    ghm_mean = mean(gHM_mean, na.rm = TRUE),
-    ghm_sd = sd(gHM_mean, na.rm = TRUE),
-    ghm_max = max(gHM_mean, na.rm = TRUE),
-    ghm_min = min(gHM_mean, na.rm = TRUE),
-    hfp_mean = mean(HFP_mean, na.rm = TRUE),
-    hfp_sd = sd(HFP_mean, na.rm = TRUE),
-    hfp_max = max(HFP_mean, na.rm = TRUE),
-    hfp_min = min(HFP_mean, na.rm = TRUE),
-    strava_mean = mean(hx_pp_r, na.rm = TRUE),
-    strava_sd = sd(hx_pp_r, na.rm = TRUE),
-    strava_max = max(hx_pp_r, na.rm = TRUE),
-    strava_min = min(hx_pp_r, na.rm = TRUE)
-  )
-
-parks_highlight <- park_entropy %>%
-  filter(suid_nma %in% highlight_parks)
-
-p1 <- ggplot() +
-  geom_sf(data = park_entropy, aes(fill = mod_disp), color = NA, linewidth = 0.1) +
-  geom_sf(data = parks_highlight, color = "red", fill = NA, linewidth = 1) +
-  theme_bw() +
-  scale_fill_viridis_c() +
-  labs(fill = "Index of Dispersion for Modification")
-
-p2 <- ggplot() +
-  geom_sf(data = park_entropy, aes(fill = pred_mod), color = NA, linewidth = 0.1) +
-  geom_sf(data = parks_highlight, color = "red", fill = NA, linewidth = 1) +
-  theme_bw() +
-  scale_fill_viridis_c() +
-  labs(fill = "Predictibility of Modification")
-
-p3 <- ggplot() +
-  geom_sf(data = park_entropy, aes(fill = disp), color = NA, linewidth = 0.1) +
-  geom_sf(data = parks_highlight, color = "red", fill = NA, linewidth = 1) +
-  theme_bw() +
-  scale_fill_viridis_c() +
-  labs(fill = "Index of Dispersion for Strava")
-
-p4 <- ggplot() +
-  geom_sf(data = park_entropy, aes(fill = pred), color = NA, linewidth = 0.1) +
-  geom_sf(data = parks_highlight, color = "red", fill = NA, linewidth = 1) +
-  theme_bw() +
-  scale_fill_viridis_c() +
-  labs(fill = "Predictibility of Strava")
-
-plot <- (p1 + p2) / (p3 + p4) + plot_annotation(tag_levels = "A")
-
-ggsave(plot, file = paste0("fig3.pdf"), path = here::here("analysis", "figs"), height = 15, width = 15)
-
-write_csv(park_entropy, here::here("data", "processed_data", "spatial_predictability.csv"))
-
 # Temporal Analysis -------------------------------------------------------
 
-## Time series for representative park
-
-temp_2019 <- temporal_data %>%
-  filter(year == 2019) %>%
-  group_by(suid_nma) %>%
-  mutate(count = n()) %>%
-  filter(count == 365)
-
-temp_2020 <- temporal_data %>%
-  filter(year == 2020) %>%
-  group_by(suid_nma) %>%
-  mutate(count = n()) %>%
-  filter(count == 366)
-
-decom_period <- function(suid, data_set) {
-  park <- data_set %>%
-    filter(suid_nma == suid) %>%
-    mutate(year = year(date))
-
-  park_ts <- ts(park$sg, freq = 30)
-
-  ### Decomposition
-
-  # decomp <- decompose(park_ts)
-  # plot(decomp)
-
-  ### Periodicity
-
-  freq <- TSA::periodogram(park_ts)[["freq"]]
-  specs <- TSA::periodogram(park_ts)[["spec"]]
-
-  # TSA::periodogram(park_ts, plot = TRUE) # compute and plot periodograms
-  # abline(h = 0)
-
-  df <- data.frame(freq = freq, specs = specs)
-
-  df$p_value <- GeneCycle::fisher.g.test(park_ts)
-
-  df$suid_nma <- suid
-
-  return(df)
-}
-
-period <- data.frame()
-
-unique_ids <- unique(temp_2019$suid_nma)
-
-for (i in 1:length(unique_ids)) {
-  int_data <- decom_period(unique_ids[i], temp_2019)
-
-  period <- rbind(period, int_data)
-}
-
-period_maxs_2019 <- period %>%
-  filter(p_value < 0.05) %>%
-  mutate(period = 1 / freq) %>%
-  filter(period < 365) %>%
-  mutate(mag = floor(log10(specs))) %>%
-  group_by(suid_nma) %>%
-  mutate(max_mag = max(mag)) %>%
-  ungroup() %>%
-  filter(mag == max_mag) %>%
-  select(-mag, -max_mag) %>%
-  mutate(year = 2019)
-
-top_periods1_2019 <- period_maxs_2019 %>%
-  group_by(period) %>%
-  mutate(n = n()) %>%
-  mutate(percent = n / length(unique_ids) * 100) %>%
-  group_by(suid_nma) %>%
-  slice_max(order_by = specs, n = 3) %>%
-  mutate(rank = rank(specs))
-
-period <- data.frame()
-
-unique_ids <- unique(temp_2020$suid_nma)
-
-for (i in 1:length(unique_ids)) {
-  int_data <- decom_period(unique_ids[i], temp_2020)
-
-  period <- rbind(period, int_data)
-}
-
-period_maxs_2020 <- period %>%
-  filter(p_value < 0.05) %>%
-  mutate(period = 1 / freq) %>%
-  filter(period < 366) %>%
-  mutate(mag = floor(log10(specs))) %>%
-  group_by(suid_nma) %>%
-  mutate(max_mag = max(mag)) %>%
-  ungroup() %>%
-  filter(mag == max_mag) %>%
-  select(-mag, -max_mag) %>%
-  mutate(year = 2020)
-
-top_periods1_2020 <- period_maxs_2020 %>%
-  group_by(period) %>%
-  mutate(n = n()) %>%
-  mutate(percent = n / length(unique_ids) * 100) %>%
-  group_by(suid_nma) %>%
-  slice_max(order_by = specs, n = 3) %>%
-  mutate(rank = rank(specs))
-
-period_max_all <- list(period_maxs_2019, period_maxs_2020) %>%
-  reduce(full_join)
-
-top_periods_all <- list(top_periods1_2019, top_periods1_2020) %>%
-  reduce(full_join)
-
-temp_highlight_2019 <- top_periods1_2019 %>%
-  filter(suid_nma %in% c(highlight_parks)) %>%
-  left_join(cpad_super) %>%
-  mutate(label = paste(park_name, "Top Peak")) %>%
-  filter(rank == 1)
-
-temp_highlight_2020 <- top_periods1_2020 %>%
-  filter(suid_nma %in% c(highlight_parks)) %>%
-  left_join(cpad_super) %>%
-  mutate(label = paste(park_name, "Top Peak")) %>%
-  filter(rank == 1)
-
-write_csv(period_max_all, here::here("analysis", "periodicity.csv"))
-
-write_csv(top_periods_all, here::here("analysis", "periodicity_max.csv"))
-
-colors <- c("1" = "black", "2" = "blue", "3" = "darkgreen")
-
-p2 <- ggplot() +
-  geom_vline(aes(xintercept = c(30, 90, 180, 365)), color = "red", alpha = 0.3, linetype = "dashed") +
-  geom_vline(data = temp_highlight_2019, aes(xintercept = period), color = "black", linetype = "dashed") +
-  geom_density(data = top_periods1_2019 %>% filter(rank == 1), aes(period, color = "1"), linewidth = 1) +
-  geom_density(data = top_periods1_2019 %>% filter(rank == 2), aes(period, color = "2"), linetype = "dashed", linewidth = 1) +
-  geom_density(data = top_periods1_2019 %>% filter(rank == 3), aes(period, color = "3"), linetype = "dotdash", linewidth = 1) +
-  theme_bw() +
-  # scale_x_log10() +
-  labs(
-    x = "Period (days)",
-    y = "Density",
-    color = "Peak Rank",
-    title = "2019"
-  ) +
-  scale_color_manual(values = colors) +
-  geom_label_repel(
-    data = temp_highlight_2019, aes(x = period, y = c(0.01, 0.005), label = label),
-    size = 4,
-    alpha = 0.65,
-    min.segment.length = 1,
-    arrow = arrow(length = unit(0.1, "inches")),
-    box.padding = 1,
-    color = "black"
-  )
-
-p3 <- ggplot() +
-  geom_vline(aes(xintercept = c(30, 90, 180, 365)), color = "red", alpha = 0.3, linetype = "dashed") +
-  geom_vline(data = temp_highlight_2020, aes(xintercept = period), color = "black", linetype = "dashed") +
-  geom_density(data = top_periods1_2020 %>% filter(rank == 1), aes(period, color = "1"), linewidth = 1) +
-  geom_density(data = top_periods1_2020 %>% filter(rank == 2), aes(period, color = "2"), linetype = "dashed", linewidth = 1) +
-  geom_density(data = top_periods1_2020 %>% filter(rank == 3), aes(period, color = "3"), linetype = "dotdash", linewidth = 1) +
-  theme_bw() +
-  # scale_x_log10() +
-  labs(
-    x = "Period (days)",
-    y = "Density",
-    color = "Peak Rank",
-    title = "2020"
-  ) +
-  scale_color_manual(values = colors) +
-  geom_label_repel(
-    data = temp_highlight_2020, aes(x = period, y = c(0.015, 0.01), label = label),
-    size = 4,
-    alpha = 0.65,
-    min.segment.length = 1,
-    arrow = arrow(length = unit(0.1, "inches")),
-    box.padding = 1,
-    color = "black"
-  )
-
-ggsave(p2 / p3 + plot_annotation(tag_levels = "A") + plot_layout(guides = "collect"), file = paste0("fig5.pdf"), path = here::here("analysis", "figs"), height = 15, width = 15)
-
-top_periods_rank_2019 <- top_periods_all %>%
-  filter(year == 2019) %>%
-  select(suid_nma, period, rank) %>%
-  pivot_wider(names_from = rank, values_from = period)
-
-names(top_periods_rank_2019) <- c("suid_nma", "rank1", "rank2", "rank3")
-
-top_highlight_2019 <- top_periods_rank_2019 %>%
-  filter(suid_nma %in% highlight_parks) %>%
-  left_join(human)
-
-top_periods_rank_2020 <- top_periods_all %>%
-  filter(year == 2020) %>%
-  select(suid_nma, period, rank) %>%
-  pivot_wider(names_from = rank, values_from = period)
-
-names(top_periods_rank_2020) <- c("suid_nma", "rank1", "rank2", "rank3")
-
-top_highlight_2020 <- top_periods_rank_2020 %>%
-  filter(suid_nma %in% highlight_parks) %>%
-  left_join(human)
-
-p <- ggplot() +
-  geom_point(data = top_periods_rank_2019, aes(rank1, rank2)) +
-  geom_point(data = top_highlight_2019, aes(rank1, rank2), color = "red") +
-  theme_bw() +
-  labs(
-    x = "Highest Peak",
-    y = "Next Highest Peak"
-  ) +
-  geom_label_repel(
-    data = top_highlight_2019, aes(rank1, rank2, label = park_name),
-    size = 4,
-    alpha = 0.65,
-    min.segment.length = 1,
-    arrow = arrow(length = unit(0.1, "inches")),
-    box.padding = 1,
-    color = "black"
-  )
-
-p2 <- ggplot() +
-  geom_point(data = top_periods_rank_2020, aes(rank1, rank2)) +
-  geom_point(data = top_highlight_2020, aes(rank1, rank2), color = "red") +
-  theme_bw() +
-  labs(
-    x = "Highest Peak",
-    y = "Next Highest Peak"
-  ) +
-  geom_label_repel(
-    data = top_highlight_2020, aes(rank1, rank2, label = park_name),
-    size = 4,
-    alpha = 0.65,
-    min.segment.length = 1,
-    arrow = arrow(length = unit(0.1, "inches")),
-    box.padding = 1,
-    color = "black"
-  )
-
-ggsave(p / p2, file = paste0("fig5.2.pdf"), path = here::here("analysis", "figs"), height = 15, width = 10)
-
-### Predictability
-
-# Constancy: 1 – H(x)/log(n), where H(x) is information entropy or  1/sd
-
-const_temp <- 1 - entropy(temporal_data$sg) / log(nrow(temporal_data))
-
-# Consistency: [H(x) + H(y) – H(XY)]/log(n) where y is spatial position
-
-temporal_data <- temporal_data %>%
-  mutate(date_num = as.numeric(date))
-
-# need to fix
-contin_temp <- (entropy(temporal_data$sg) + entropy(temporal_data$date_num) - cross.entropy(temporal_data$sg, temporal_data$date_num)) / log(nrow(temporal_data))
-
-pred_temp <- const_temp + contin_temp
-
-park_entropy_temp <- temporal_data %>%
-  group_by(suid_nma, year) %>%
-  summarise(
-    entropy_temp = entropy(sg),
-    inv_sd_temp = 1 / sd(sg),
-    const_temp = 1 - entropy(sg) / log(n()),
-    contin_temp = (entropy(sg) + entropy(date_num) - cross.entropy(sg, date_num)) / log(n())
-  ) %>%
-  ungroup() %>%
-  filter(!is.na(const_temp)) %>%
-  filter(!is.na(contin_temp)) %>%
-  mutate(
-    const_temp_scale = scale(const_temp),
-    contin_temp_scale = scale(contin_temp)
-  ) %>%
-  mutate(
-    const_temp_scale = const_temp_scale[, 1],
-    contin_temp_scale = contin_temp_scale[, 1]
-  ) %>%
-  mutate(
-    pred_temp = const_temp_scale + contin_temp_scale
-  )
-
-# Combined Plots ----------------------------------------------------------
-
-predictability <- full_join(park_entropy, park_entropy_temp)
-
-pred_highlight <- predictability %>%
-  filter(suid_nma %in% c(highlight_parks))
-
-write_csv(predictability %>% st_drop_geometry(), here::here("data", "processed_data", "predictability.csv"))
-
-p1 <- ggplot() +
-  geom_point(data = predictability %>% filter(year == 2019), aes(pred, pred_mod)) +
-  geom_point(data = pred_highlight %>% filter(year == 2019), aes(pred, pred_mod), color = "red", size = 2) +
-  # scale_x_log10() +
-  # scale_y_log10() +
-  theme_bw() +
-  labs(
-    x = "Predictibility of Strava",
-    y = "Predictibility of Modification"
-  ) +
-  geom_label_repel(
-    data = pred_highlight %>% filter(year == 2019), aes(pred, pred_mod, label = park_name),
-    size = 4,
-    alpha = 0.65,
-    min.segment.length = 1,
-    arrow = arrow(length = unit(0.1, "inches")),
-    box.padding = 1,
-    color = "black", vjust = "outward", hjust = "outward"
-  )
-
-p2 <- ggplot() +
-  geom_point(data = predictability %>% filter(year == 2019), aes(pred, pred_temp)) +
-  geom_point(data = pred_highlight %>% filter(year == 2019), aes(pred, pred_temp), color = "red", size = 2) +
-  theme_bw() +
-  # scale_x_log10() +
-  # scale_y_log10() +
-  labs(
-    x = "Predictibility of Strava",
-    y = "Predictibility of Safegraph"
-  ) +
-  geom_label_repel(
-    data = pred_highlight %>% filter(year == 2019), aes(pred, pred_temp, label = park_name),
-    size = 4,
-    alpha = 0.65,
-    min.segment.length = 1,
-    arrow = arrow(length = unit(0.1, "inches")),
-    box.padding = 1,
-    color = "black", vjust = "outward", hjust = "outward"
-  )
-
-p3 <- ggplot() +
-  geom_point(data = predictability %>% filter(year == 2020), aes(pred, pred_temp)) +
-  geom_point(data = pred_highlight %>% filter(year == 2020), aes(pred, pred_temp), color = "red", size = 2) +
-  theme_bw() +
-  # scale_x_log10() +
-  # scale_y_log10() +
-  labs(
-    x = "Predictibility of Strava",
-    y = "Predictibility of Safegraph"
-  ) +
-  geom_label_repel(
-    data = pred_highlight %>% filter(year == 2020), aes(pred, pred_temp, label = park_name),
-    size = 4,
-    alpha = 0.65,
-    min.segment.length = 1,
-    arrow = arrow(length = unit(0.1, "inches")),
-    box.padding = 1,
-    color = "black", vjust = "outward", hjust = "outward"
-  )
-
-p4 <- ggplot() +
-  geom_point(data = predictability %>% filter(year == 2019), aes(disp, mod_disp)) +
-  geom_point(data = pred_highlight %>% filter(year == 2019), aes(disp, mod_disp), color = "red", size = 2) +
-  theme_bw() +
-  # scale_x_log10() +
-  # scale_y_log10() +
-  labs(
-    x = "Index of Dispersion for Strava",
-    y = "Index of Dispersion for Modification"
-  ) +
-  geom_label_repel(
-    data = pred_highlight %>% filter(year == 2019), aes(disp, mod_disp, label = park_name),
-    size = 4,
-    alpha = 0.65,
-    min.segment.length = 1,
-    arrow = arrow(length = unit(0.1, "inches")),
-    box.padding = 1,
-    color = "black"
-  )
-
-plot <- (p1 + p4) / (p2 + p3) + plot_annotation(tag_levels = "A")
-
-ggsave(plot, file = paste0("fig4.pdf"), path = here::here("analysis", "figs"), height = 6, width = 15)
-
-p <- ggplot(predictability %>% filter(year %in% c(2019, 2020))) +
-  geom_point(aes(as.factor(year), pred_temp)) +
-  geom_line(aes(as.factor(year), pred_temp, group = suid_nma)) +
-  geom_point(data = pred_highlight %>% filter(year %in% c(2019, 2020)), aes(as.factor(year), pred_temp), color = "red") +
-  geom_line(data = pred_highlight %>% filter(year %in% c(2019, 2020)), aes(as.factor(year), pred_temp, group = suid_nma), color = "red") +
-  theme_bw() +
-  labs(
-    x = "Year",
-    y = "Temporal Predictability"
-  ) +
-  geom_label_repel(
-    data = pred_highlight %>% filter(year == 2019), aes(as.factor(year), pred_temp, label = park_name),
-    size = 4,
-    alpha = 0.65,
-    min.segment.length = 1,
-    arrow = arrow(length = unit(0.1, "inches")),
-    box.padding = 1,
-    color = "black"
-  )
-
-ggsave(p, file = paste0("temp_change.pdf"), path = here::here("analysis", "figs"), height = 8, width = 6)
+# OLD ---------------------------------------------------------------------
+
+# ### Dispersion and Predictability
+# 
+# # Dispersion
+# 
+# disp <- var(spatial_data$hex_int) / mean(spatial_data$hex_int)
+# 
+# # Constancy: 1 – H(x)/log(n), where H(x) is information entropy or  1/sd
+# 
+# const <- 1 - entropy(spatial_data$hex_int) / log(nrow(spatial_data))
+# 
+# # Consistency: [H(x) + H(y) – H(XY)]/log(n) where y is spatial position
+# 
+# spatial_data <- spatial_data %>%
+#   mutate(haversine = single_pt_haversine(y, x))
+# 
+# contin <- (entropy(spatial_data$hex_int) + entropy(spatial_data$haversine) - cross.entropy(spatial_data$hex_int, spatial_data$haversine)) / log(nrow(spatial_data))
+# 
+# pred <- const + contin
+# 
+# mod_entropy <- spatial_data %>%
+#   mutate(mod = gHM) %>%
+#   filter(!is.na(mod)) %>%
+#   group_by(suid_nma) %>%
+#   summarise(
+#     mod_disp = var(mod) / mean(mod),
+#     const_mod = 1 - entropy(mod) / log(n()),
+#     contin_mod = (entropy(mod) + entropy(haversine) - cross.entropy(mod, haversine)) / log(n()),
+#   ) %>%
+#   ungroup() %>%
+#   filter(!is.na(const_mod)) %>%
+#   filter(!is.na(contin_mod)) %>%
+#   mutate(
+#     const_mod_scale = normalize(const_mod),
+#     contin_mod_scale = normalize(contin_mod)
+#   ) %>%
+#   mutate(
+#     pred_mod = const_mod_scale + contin_mod_scale
+#   ) %>%
+#   left_join(cpad_super) %>%
+#   st_as_sf()
+# 
+# spatial_entropy <- spatial_data %>%
+#   group_by(suid_nma) %>%
+#   summarize(
+#     disp = var(hex_int) / mean(hex_int),
+#     entropy = entropy(hex_int),
+#     inv_sd = 1 / sd(hex_int),
+#     const = 1 - entropy(hex_int) / log(n()),
+#     contin = (entropy(hex_int) + entropy(haversine) - cross.entropy(hex_int, haversine)) / log(n())
+#   ) %>%
+#   ungroup() %>%
+#   filter(!is.na(const)) %>%
+#   filter(!is.na(contin)) %>%
+#   mutate(
+#     const_scale = scale(const),
+#     contin_scale = scale(contin)
+#   ) %>%
+#   mutate(
+#     const_scale = const_scale[, 1],
+#     contin_scale = contin_scale[, 1]
+#   ) %>%
+#   mutate(
+#     pred = const_scale + contin_scale
+#   ) %>%
+#   left_join(cpad_super) %>%
+#   select(-geometry)
+# 
+# park_entropy <- full_join(mod_entropy, spatial_entropy) %>%
+#   st_drop_geometry()
+# 
+# ggplot() +
+#   geom_point(data = park_entropy, aes(disp, mod_disp)) +
+#   theme_bw() +
+#   scale_x_log10() +
+#   scale_y_log10() +
+#   labs(
+#     x = "Index of Dispersion for Strava",
+#     y = "Index of Dispersion for Modification"
+#   )
+# 
+# strava_disp = park_entropy %>% 
+#   left_join(human) %>% 
+#   st_as_sf() %>% 
+#   select(suid_nma, park_name, disp, gHM_mean, HFP_mean, hx_pp_r) %>% 
+#   mutate(bin = case_when(
+#     disp <= 0.00002 ~ "Low",
+#     disp >= 1 ~ "High",
+#     TRUE ~ "Med"
+#   ))
+# 
+# ggplot() +
+#   geom_sf(data = strava_disp, aes(fill = bin), color = "transparent") +
+#   scale_fill_viridis_d() +
+#   theme_bw()
+# 
+# strava_disp_sum = strava_disp %>%
+#   st_drop_geometry() %>%
+#   group_by(bin) %>%
+#   summarize(
+#     ghm_mean = mean(gHM_mean, na.rm = TRUE),
+#     ghm_sd = sd(gHM_mean, na.rm = TRUE),
+#     ghm_max = max(gHM_mean, na.rm = TRUE),
+#     ghm_min = min(gHM_mean, na.rm = TRUE),
+#     hfp_mean = mean(HFP_mean, na.rm = TRUE),
+#     hfp_sd = sd(HFP_mean, na.rm = TRUE),
+#     hfp_max = max(HFP_mean, na.rm = TRUE),
+#     hfp_min = min(HFP_mean, na.rm = TRUE),
+#     strava_mean = mean(hx_pp_r, na.rm = TRUE),
+#     strava_sd = sd(hx_pp_r, na.rm = TRUE),
+#     strava_max = max(hx_pp_r, na.rm = TRUE),
+#     strava_min = min(hx_pp_r, na.rm = TRUE)
+#   )
+# 
+# parks_highlight <- park_entropy %>%
+#   filter(suid_nma %in% highlight_parks)
+# 
+# p1 <- ggplot() +
+#   geom_sf(data = park_entropy, aes(fill = mod_disp), color = NA, linewidth = 0.1) +
+#   geom_sf(data = parks_highlight, color = "red", fill = NA, linewidth = 1) +
+#   theme_bw() +
+#   scale_fill_viridis_c() +
+#   labs(fill = "Index of Dispersion for Modification")
+# 
+# p2 <- ggplot() +
+#   geom_sf(data = park_entropy, aes(fill = pred_mod), color = NA, linewidth = 0.1) +
+#   geom_sf(data = parks_highlight, color = "red", fill = NA, linewidth = 1) +
+#   theme_bw() +
+#   scale_fill_viridis_c() +
+#   labs(fill = "Predictibility of Modification")
+# 
+# p3 <- ggplot() +
+#   geom_sf(data = park_entropy, aes(fill = disp), color = NA, linewidth = 0.1) +
+#   geom_sf(data = parks_highlight, color = "red", fill = NA, linewidth = 1) +
+#   theme_bw() +
+#   scale_fill_viridis_c() +
+#   labs(fill = "Index of Dispersion for Strava")
+# 
+# p4 <- ggplot() +
+#   geom_sf(data = park_entropy, aes(fill = pred), color = NA, linewidth = 0.1) +
+#   geom_sf(data = parks_highlight, color = "red", fill = NA, linewidth = 1) +
+#   theme_bw() +
+#   scale_fill_viridis_c() +
+#   labs(fill = "Predictibility of Strava")
+# 
+# plot <- (p1 + p2) / (p3 + p4) + plot_annotation(tag_levels = "A")
+# 
+# ggsave(plot, file = paste0("fig3.pdf"), path = here::here("analysis", "figs"), height = 15, width = 15)
+# 
+# write_csv(park_entropy, here::here("data", "processed_data", "spatial_predictability.csv"))
+
+# ## Time series for representative park
+# 
+# temp_2019 <- temporal_data %>%
+#   filter(year == 2019) %>%
+#   group_by(suid_nma) %>%
+#   mutate(count = n()) %>%
+#   filter(count == 365)
+# 
+# temp_2020 <- temporal_data %>%
+#   filter(year == 2020) %>%
+#   group_by(suid_nma) %>%
+#   mutate(count = n()) %>%
+#   filter(count == 366)
+# 
+# decom_period <- function(suid, data_set) {
+#   park <- data_set %>%
+#     filter(suid_nma == suid) %>%
+#     mutate(year = year(date))
+# 
+#   park_ts <- ts(park$sg, freq = 30)
+# 
+#   ### Decomposition
+# 
+#   # decomp <- decompose(park_ts)
+#   # plot(decomp)
+# 
+#   ### Periodicity
+# 
+#   freq <- TSA::periodogram(park_ts)[["freq"]]
+#   specs <- TSA::periodogram(park_ts)[["spec"]]
+# 
+#   # TSA::periodogram(park_ts, plot = TRUE) # compute and plot periodograms
+#   # abline(h = 0)
+# 
+#   df <- data.frame(freq = freq, specs = specs)
+# 
+#   df$p_value <- GeneCycle::fisher.g.test(park_ts)
+# 
+#   df$suid_nma <- suid
+# 
+#   return(df)
+# }
+# 
+# period <- data.frame()
+# 
+# unique_ids <- unique(temp_2019$suid_nma)
+# 
+# for (i in 1:length(unique_ids)) {
+#   int_data <- decom_period(unique_ids[i], temp_2019)
+# 
+#   period <- rbind(period, int_data)
+# }
+# 
+# period_maxs_2019 <- period %>%
+#   filter(p_value < 0.05) %>%
+#   mutate(period = 1 / freq) %>%
+#   filter(period < 365) %>%
+#   mutate(mag = floor(log10(specs))) %>%
+#   group_by(suid_nma) %>%
+#   mutate(max_mag = max(mag)) %>%
+#   ungroup() %>%
+#   filter(mag == max_mag) %>%
+#   select(-mag, -max_mag) %>%
+#   mutate(year = 2019)
+# 
+# top_periods1_2019 <- period_maxs_2019 %>%
+#   group_by(period) %>%
+#   mutate(n = n()) %>%
+#   mutate(percent = n / length(unique_ids) * 100) %>%
+#   group_by(suid_nma) %>%
+#   slice_max(order_by = specs, n = 3) %>%
+#   mutate(rank = rank(specs))
+# 
+# period <- data.frame()
+# 
+# unique_ids <- unique(temp_2020$suid_nma)
+# 
+# for (i in 1:length(unique_ids)) {
+#   int_data <- decom_period(unique_ids[i], temp_2020)
+# 
+#   period <- rbind(period, int_data)
+# }
+# 
+# period_maxs_2020 <- period %>%
+#   filter(p_value < 0.05) %>%
+#   mutate(period = 1 / freq) %>%
+#   filter(period < 366) %>%
+#   mutate(mag = floor(log10(specs))) %>%
+#   group_by(suid_nma) %>%
+#   mutate(max_mag = max(mag)) %>%
+#   ungroup() %>%
+#   filter(mag == max_mag) %>%
+#   select(-mag, -max_mag) %>%
+#   mutate(year = 2020)
+# 
+# top_periods1_2020 <- period_maxs_2020 %>%
+#   group_by(period) %>%
+#   mutate(n = n()) %>%
+#   mutate(percent = n / length(unique_ids) * 100) %>%
+#   group_by(suid_nma) %>%
+#   slice_max(order_by = specs, n = 3) %>%
+#   mutate(rank = rank(specs))
+# 
+# period_max_all <- list(period_maxs_2019, period_maxs_2020) %>%
+#   reduce(full_join)
+# 
+# top_periods_all <- list(top_periods1_2019, top_periods1_2020) %>%
+#   reduce(full_join)
+# 
+# temp_highlight_2019 <- top_periods1_2019 %>%
+#   filter(suid_nma %in% c(highlight_parks)) %>%
+#   left_join(cpad_super) %>%
+#   mutate(label = paste(park_name, "Top Peak")) %>%
+#   filter(rank == 1)
+# 
+# temp_highlight_2020 <- top_periods1_2020 %>%
+#   filter(suid_nma %in% c(highlight_parks)) %>%
+#   left_join(cpad_super) %>%
+#   mutate(label = paste(park_name, "Top Peak")) %>%
+#   filter(rank == 1)
+# 
+# write_csv(period_max_all, here::here("analysis", "periodicity.csv"))
+# 
+# write_csv(top_periods_all, here::here("analysis", "periodicity_max.csv"))
+# 
+# colors <- c("1" = "black", "2" = "blue", "3" = "darkgreen")
+# 
+# p2 <- ggplot() +
+#   geom_vline(aes(xintercept = c(30, 90, 180, 365)), color = "red", alpha = 0.3, linetype = "dashed") +
+#   geom_vline(data = temp_highlight_2019, aes(xintercept = period), color = "black", linetype = "dashed") +
+#   geom_density(data = top_periods1_2019 %>% filter(rank == 1), aes(period, color = "1"), linewidth = 1) +
+#   geom_density(data = top_periods1_2019 %>% filter(rank == 2), aes(period, color = "2"), linetype = "dashed", linewidth = 1) +
+#   geom_density(data = top_periods1_2019 %>% filter(rank == 3), aes(period, color = "3"), linetype = "dotdash", linewidth = 1) +
+#   theme_bw() +
+#   # scale_x_log10() +
+#   labs(
+#     x = "Period (days)",
+#     y = "Density",
+#     color = "Peak Rank",
+#     title = "2019"
+#   ) +
+#   scale_color_manual(values = colors) +
+#   geom_label_repel(
+#     data = temp_highlight_2019, aes(x = period, y = c(0.01, 0.005), label = label),
+#     size = 4,
+#     alpha = 0.65,
+#     min.segment.length = 1,
+#     arrow = arrow(length = unit(0.1, "inches")),
+#     box.padding = 1,
+#     color = "black"
+#   )
+# 
+# p3 <- ggplot() +
+#   geom_vline(aes(xintercept = c(30, 90, 180, 365)), color = "red", alpha = 0.3, linetype = "dashed") +
+#   geom_vline(data = temp_highlight_2020, aes(xintercept = period), color = "black", linetype = "dashed") +
+#   geom_density(data = top_periods1_2020 %>% filter(rank == 1), aes(period, color = "1"), linewidth = 1) +
+#   geom_density(data = top_periods1_2020 %>% filter(rank == 2), aes(period, color = "2"), linetype = "dashed", linewidth = 1) +
+#   geom_density(data = top_periods1_2020 %>% filter(rank == 3), aes(period, color = "3"), linetype = "dotdash", linewidth = 1) +
+#   theme_bw() +
+#   # scale_x_log10() +
+#   labs(
+#     x = "Period (days)",
+#     y = "Density",
+#     color = "Peak Rank",
+#     title = "2020"
+#   ) +
+#   scale_color_manual(values = colors) +
+#   geom_label_repel(
+#     data = temp_highlight_2020, aes(x = period, y = c(0.015, 0.01), label = label),
+#     size = 4,
+#     alpha = 0.65,
+#     min.segment.length = 1,
+#     arrow = arrow(length = unit(0.1, "inches")),
+#     box.padding = 1,
+#     color = "black"
+#   )
+# 
+# ggsave(p2 / p3 + plot_annotation(tag_levels = "A") + plot_layout(guides = "collect"), file = paste0("fig5.pdf"), path = here::here("analysis", "figs"), height = 15, width = 15)
+# 
+# top_periods_rank_2019 <- top_periods_all %>%
+#   filter(year == 2019) %>%
+#   select(suid_nma, period, rank) %>%
+#   pivot_wider(names_from = rank, values_from = period)
+# 
+# names(top_periods_rank_2019) <- c("suid_nma", "rank1", "rank2", "rank3")
+# 
+# top_highlight_2019 <- top_periods_rank_2019 %>%
+#   filter(suid_nma %in% highlight_parks) %>%
+#   left_join(human)
+# 
+# top_periods_rank_2020 <- top_periods_all %>%
+#   filter(year == 2020) %>%
+#   select(suid_nma, period, rank) %>%
+#   pivot_wider(names_from = rank, values_from = period)
+# 
+# names(top_periods_rank_2020) <- c("suid_nma", "rank1", "rank2", "rank3")
+# 
+# top_highlight_2020 <- top_periods_rank_2020 %>%
+#   filter(suid_nma %in% highlight_parks) %>%
+#   left_join(human)
+# 
+# p <- ggplot() +
+#   geom_point(data = top_periods_rank_2019, aes(rank1, rank2)) +
+#   geom_point(data = top_highlight_2019, aes(rank1, rank2), color = "red") +
+#   theme_bw() +
+#   labs(
+#     x = "Highest Peak",
+#     y = "Next Highest Peak"
+#   ) +
+#   geom_label_repel(
+#     data = top_highlight_2019, aes(rank1, rank2, label = park_name),
+#     size = 4,
+#     alpha = 0.65,
+#     min.segment.length = 1,
+#     arrow = arrow(length = unit(0.1, "inches")),
+#     box.padding = 1,
+#     color = "black"
+#   )
+# 
+# p2 <- ggplot() +
+#   geom_point(data = top_periods_rank_2020, aes(rank1, rank2)) +
+#   geom_point(data = top_highlight_2020, aes(rank1, rank2), color = "red") +
+#   theme_bw() +
+#   labs(
+#     x = "Highest Peak",
+#     y = "Next Highest Peak"
+#   ) +
+#   geom_label_repel(
+#     data = top_highlight_2020, aes(rank1, rank2, label = park_name),
+#     size = 4,
+#     alpha = 0.65,
+#     min.segment.length = 1,
+#     arrow = arrow(length = unit(0.1, "inches")),
+#     box.padding = 1,
+#     color = "black"
+#   )
+# 
+# ggsave(p / p2, file = paste0("fig5.2.pdf"), path = here::here("analysis", "figs"), height = 15, width = 10)
+# 
+# ### Predictability
+# 
+# # Constancy: 1 – H(x)/log(n), where H(x) is information entropy or  1/sd
+# 
+# const_temp <- 1 - entropy(temporal_data$sg) / log(nrow(temporal_data))
+# 
+# # Consistency: [H(x) + H(y) – H(XY)]/log(n) where y is spatial position
+# 
+# temporal_data <- temporal_data %>%
+#   mutate(date_num = as.numeric(date))
+# 
+# # need to fix
+# contin_temp <- (entropy(temporal_data$sg) + entropy(temporal_data$date_num) - cross.entropy(temporal_data$sg, temporal_data$date_num)) / log(nrow(temporal_data))
+# 
+# pred_temp <- const_temp + contin_temp
+# 
+# park_entropy_temp <- temporal_data %>%
+#   group_by(suid_nma, year) %>%
+#   summarise(
+#     entropy_temp = entropy(sg),
+#     inv_sd_temp = 1 / sd(sg),
+#     const_temp = 1 - entropy(sg) / log(n()),
+#     contin_temp = (entropy(sg) + entropy(date_num) - cross.entropy(sg, date_num)) / log(n())
+#   ) %>%
+#   ungroup() %>%
+#   filter(!is.na(const_temp)) %>%
+#   filter(!is.na(contin_temp)) %>%
+#   mutate(
+#     const_temp_scale = scale(const_temp),
+#     contin_temp_scale = scale(contin_temp)
+#   ) %>%
+#   mutate(
+#     const_temp_scale = const_temp_scale[, 1],
+#     contin_temp_scale = contin_temp_scale[, 1]
+#   ) %>%
+#   mutate(
+#     pred_temp = const_temp_scale + contin_temp_scale
+#   )
+
+# predictability <- full_join(park_entropy, park_entropy_temp)
+# 
+# pred_highlight <- predictability %>%
+#   filter(suid_nma %in% c(highlight_parks))
+# 
+# write_csv(predictability %>% st_drop_geometry(), here::here("data", "processed_data", "predictability.csv"))
+# 
+# p1 <- ggplot() +
+#   geom_point(data = predictability %>% filter(year == 2019), aes(pred, pred_mod)) +
+#   geom_point(data = pred_highlight %>% filter(year == 2019), aes(pred, pred_mod), color = "red", size = 2) +
+#   # scale_x_log10() +
+#   # scale_y_log10() +
+#   theme_bw() +
+#   labs(
+#     x = "Predictibility of Strava",
+#     y = "Predictibility of Modification"
+#   ) +
+#   geom_label_repel(
+#     data = pred_highlight %>% filter(year == 2019), aes(pred, pred_mod, label = park_name),
+#     size = 4,
+#     alpha = 0.65,
+#     min.segment.length = 1,
+#     arrow = arrow(length = unit(0.1, "inches")),
+#     box.padding = 1,
+#     color = "black", vjust = "outward", hjust = "outward"
+#   )
+# 
+# p2 <- ggplot() +
+#   geom_point(data = predictability %>% filter(year == 2019), aes(pred, pred_temp)) +
+#   geom_point(data = pred_highlight %>% filter(year == 2019), aes(pred, pred_temp), color = "red", size = 2) +
+#   theme_bw() +
+#   # scale_x_log10() +
+#   # scale_y_log10() +
+#   labs(
+#     x = "Predictibility of Strava",
+#     y = "Predictibility of Safegraph"
+#   ) +
+#   geom_label_repel(
+#     data = pred_highlight %>% filter(year == 2019), aes(pred, pred_temp, label = park_name),
+#     size = 4,
+#     alpha = 0.65,
+#     min.segment.length = 1,
+#     arrow = arrow(length = unit(0.1, "inches")),
+#     box.padding = 1,
+#     color = "black", vjust = "outward", hjust = "outward"
+#   )
+# 
+# p3 <- ggplot() +
+#   geom_point(data = predictability %>% filter(year == 2020), aes(pred, pred_temp)) +
+#   geom_point(data = pred_highlight %>% filter(year == 2020), aes(pred, pred_temp), color = "red", size = 2) +
+#   theme_bw() +
+#   # scale_x_log10() +
+#   # scale_y_log10() +
+#   labs(
+#     x = "Predictibility of Strava",
+#     y = "Predictibility of Safegraph"
+#   ) +
+#   geom_label_repel(
+#     data = pred_highlight %>% filter(year == 2020), aes(pred, pred_temp, label = park_name),
+#     size = 4,
+#     alpha = 0.65,
+#     min.segment.length = 1,
+#     arrow = arrow(length = unit(0.1, "inches")),
+#     box.padding = 1,
+#     color = "black", vjust = "outward", hjust = "outward"
+#   )
+# 
+# p4 <- ggplot() +
+#   geom_point(data = predictability %>% filter(year == 2019), aes(disp, mod_disp)) +
+#   geom_point(data = pred_highlight %>% filter(year == 2019), aes(disp, mod_disp), color = "red", size = 2) +
+#   theme_bw() +
+#   # scale_x_log10() +
+#   # scale_y_log10() +
+#   labs(
+#     x = "Index of Dispersion for Strava",
+#     y = "Index of Dispersion for Modification"
+#   ) +
+#   geom_label_repel(
+#     data = pred_highlight %>% filter(year == 2019), aes(disp, mod_disp, label = park_name),
+#     size = 4,
+#     alpha = 0.65,
+#     min.segment.length = 1,
+#     arrow = arrow(length = unit(0.1, "inches")),
+#     box.padding = 1,
+#     color = "black"
+#   )
+# 
+# plot <- (p1 + p4) / (p2 + p3) + plot_annotation(tag_levels = "A")
+# 
+# ggsave(plot, file = paste0("fig4.pdf"), path = here::here("analysis", "figs"), height = 6, width = 15)
+# 
+# p <- ggplot(predictability %>% filter(year %in% c(2019, 2020))) +
+#   geom_point(aes(as.factor(year), pred_temp)) +
+#   geom_line(aes(as.factor(year), pred_temp, group = suid_nma)) +
+#   geom_point(data = pred_highlight %>% filter(year %in% c(2019, 2020)), aes(as.factor(year), pred_temp), color = "red") +
+#   geom_line(data = pred_highlight %>% filter(year %in% c(2019, 2020)), aes(as.factor(year), pred_temp, group = suid_nma), color = "red") +
+#   theme_bw() +
+#   labs(
+#     x = "Year",
+#     y = "Temporal Predictability"
+#   ) +
+#   geom_label_repel(
+#     data = pred_highlight %>% filter(year == 2019), aes(as.factor(year), pred_temp, label = park_name),
+#     size = 4,
+#     alpha = 0.65,
+#     min.segment.length = 1,
+#     arrow = arrow(length = unit(0.1, "inches")),
+#     box.padding = 1,
+#     color = "black"
+#   )
+# 
+# ggsave(p, file = paste0("temp_change.pdf"), path = here::here("analysis", "figs"), height = 8, width = 6)
