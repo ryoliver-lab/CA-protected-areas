@@ -14,9 +14,6 @@ cpad_super <- st_read(here::here("data", "raw_data", "CPAD_2023a_SuperUnits.shp"
   mutate(ID = row_number()) %>% 
   filter(park_name != "BLM")
 
-ca = st_read(here::here("data", "raw_data", "CA_State_TIGER2016.shp")) %>%
-  sf::st_transform("EPSG:4326")
-
 # GHM ---------------------------------------------------------------------
 
 cpad_ghm <- rast(here::here("data", "processed_data", "gHM_masked.tif"))  %>%

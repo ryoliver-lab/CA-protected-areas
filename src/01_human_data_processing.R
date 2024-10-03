@@ -13,6 +13,9 @@ cpad_super <- st_read(here::here("data", "raw_data", "CPAD_2023a_SuperUnits.shp"
   janitor::clean_names() %>%
   mutate(ID = row_number())
 
+ca = st_read(here::here("data", "raw_data", "CA_State_TIGER2016.shp")) %>%
+  sf::st_transform("EPSG:4326")
+
 census_block <- get_decennial(
   state = "CA",
   geography = "block",
@@ -38,7 +41,7 @@ census_blockgroup <- get_decennial(
   year = 2020
 ) %>%
   mutate(census_blockgroup_area = units::drop_units(st_area(geometry))) %>%
-  select(-variable, -NAME, -value) %>%
+  select(-variable, -NAME) %>%
   sf::st_transform("EPSG:4326") %>%
   st_buffer(dist = 0) %>%
   mutate(cbg = GEOID) %>%
@@ -49,16 +52,16 @@ ej_screen <- st_read(here::here("data", "raw_data", "EJSCREEN_2023_BG_StatePct_w
   st_transform(crs = st_crs(cpad_super)) %>%
   filter(state_name == "California") %>%
   rename(cbg = id) %>%
-  select(cbg, peopcolorpct, lowincpct, id)
+  select(cbg, peopcolorpct, lowincpct)
 
 ca_census <- ej_screen %>%
   mutate(census_area = st_area(ca_census))
 
-cpad_census <- st_intersection(ca_census, cpad_super) %>%
-  rename(cbg = id) %>%
-  st_join(ej_screen) %>%
-  select(-cbg.y) %>%
-  rename(cbg = cbg.x)
+cpad_census <- st_intersection(ca_census, cpad_super)
+
+# cpad_census = st_read(here::here("data", "processed_data", "cpad_census.shp")) %>%
+#   sf::st_transform("EPSG:4326") %>%
+#   rename(cbg = id)
 
 rm(ca_census, ej_screen)
 
@@ -107,8 +110,10 @@ hfp <- rast(here::here("data", "raw_data", "HFP2009.tif")) %>%
 
 hfp_cropped <- crop(hfp, cpad_super)
 hfp_masked <- mask(hfp_cropped, cpad_super)
+hfp_masked_inv = mask(hfp_cropped, cpad_super, inverse = TRUE)
 
 hfp_masked <- resample(hfp_masked, cpad_raster, metho = "cubic")
+hfp_masked_inv = resample(hfp_masked_inv, cpad_raster, metho = "cubic")
 
 rm(hfp, hfp_cropped)
 
@@ -137,9 +142,24 @@ cpad_hfp <- full_join(cpad_super, cpad_hfp_summary) %>%
     is.na(HFP_cv) ~ 0
   ))
 
-st_write(cpad_hfp, here::here("data", "processed_data", "cpad_hfp.shp"), append = FALSE)
+inside_hfp = terra::extract(hfp_masked, cpad_super, xy=TRUE) %>% 
+  filter(!is.na(HFP2009)) %>%
+  st_as_sf(coords = c("x", "y")) %>% 
+  mutate(loc = "Inside Protected Areas")
 
-rm(hfp_masked, cpad_hfp_values, cpad_hfp_summary, cpad_hfp)
+outside_hfp = terra::extract(hfp_masked_inv, ca, xy=TRUE) %>% 
+  filter(!is.na(HFP2009)) %>%
+  st_as_sf(coords = c("x", "y")) %>% 
+  mutate(loc = "Outside Protected Areas")
+
+hfp = list(inside_hfp, outside_hfp) %>% 
+  reduce(rbind) %>% 
+  st_set_crs("EPSG:4326")
+
+st_write(cpad_hfp, here::here("data", "processed_data", "cpad_hfp.shp"), append = FALSE)
+st_write(hfp, here::here("data", "processed_data", "in_out_hfp.shp"), append = FALSE)
+
+rm(hfp_masked, hfp_masked_inv, cpad_hfp_values, cpad_hfp_summary, cpad_hfp)
 
 # Strava ------------------------------------------------------------------
 
@@ -323,10 +343,11 @@ rm(list_of_files)
 
 safegraph_sum <- safegraph %>%
   left_join(census_blockgroup) %>%
+  select(-value) %>% 
   select(-date) %>%
   st_as_sf() %>%
   st_drop_geometry() %>%
-  group_by(cbg, census_blockgroup_area) %>%
+  group_by(cbg, census_blockgroup_area, year) %>%
   summarise(
     mean_count = mean(device_count, na.rm = TRUE),
     sd_count = sd(device_count, na.rm = TRUE),
@@ -335,8 +356,6 @@ safegraph_sum <- safegraph %>%
     cv_count = sd_count / mean_count
   ) %>%
   ungroup()
-
-rm(census_blockgroup, safegraph)
 
 safegraph_block <- safegraph_sum %>%
   left_join(census_block) %>%
@@ -378,19 +397,18 @@ rm(safegraph_block)
 cpad_safgraph_census <- full_join(safegraph_block_sum, cpad_census %>%
   st_drop_geometry())
 
-rm(cpad_census, safegraph_block_sum)
+rm(safegraph_block_sum)
 
 safegraph_pa_sum <- cpad_safgraph_census %>%
   mutate(percent_pa = census_block_area / shape_r) %>%
   st_drop_geometry() %>%
+  filter(!is.na(year)) %>% 
   group_by(suid_nm, year) %>%
   mutate(
     sg = weighted.mean(pop_count, percent_pa, na.rm = TRUE),
     max_sg = weighted.mean(max_pop_count, percent_pa, na.rm = TRUE),
     min_sg = weighted.mean(min_pop_count, percent_pa, na.rm = TRUE),
-    outside_pop = weighted.mean(value, percent_pa, na.rm = TRUE),
-    peopcolorpct = weighted.mean(peopcolorpct, percent_pa, na.rm = TRUE),
-    lowincpct = weighted.mean(lowincpct, percent_pa, na.rm = TRUE)
+    outside_pop = weighted.mean(value, percent_pa, na.rm = TRUE)
   ) %>%
   select(
     -GEOID, -pop_count, -min_pop_count, -max_pop_count,
@@ -399,8 +417,32 @@ safegraph_pa_sum <- cpad_safgraph_census %>%
   ) %>%
   distinct() %>% 
   group_by(suid_nm) %>% 
-  mutate(mean_sg = mean(sg))
+  mutate(mean_sg = mean(sg, na.rm = TRUE))
 
 rm(cpad_safgraph_census)
 
 write_csv(safegraph_pa_sum, here::here("data", "processed_data", "cpad_sg.csv"))
+
+rm(safegraph_pa_sum)
+
+# Outside PA --------------------------------------------------------------
+# 
+# non_pa_blocks = census_blockgroup %>% 
+#   filter(!(cbg %in% cpad_census$cbg)) %>% 
+#   right_join(safegraph) %>%
+#   select(-date) %>%
+#   st_as_sf() %>%
+#   st_drop_geometry() %>%
+#   group_by(cbg) %>%
+#   mutate(
+#     mean_count = mean(device_count, na.rm = TRUE)
+#   ) %>%
+#   summarize(
+#     pop_count = mean_count / value
+#   ) %>% 
+#   ungroup() %>% 
+#   mutate(loc = "Outside Protected Areas")
+# 
+# rm(safegraph, census_blockgroup, block, cpad_census)
+# 
+# write_csv(non_pa_blocks, here::here("data", "processed_data", "outside_sg.csv"))
