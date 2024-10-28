@@ -77,7 +77,7 @@ cpad_raster <- rasterize(cpad_super, ghm_masked, field = "suid_nma")
 
 ghm_masked <- resample(ghm_masked, cpad_raster, metho = "cubic")
 
-rm(ghm, ghm_cropped)
+rm(ghm,ghm_cropped)
 
 cpad_ghm_values <- terra::extract(x = ghm_masked, y = cpad_super)
 
@@ -115,7 +115,7 @@ hfp_masked_inv = mask(hfp_cropped, cpad_super, inverse = TRUE)
 hfp_masked <- resample(hfp_masked, cpad_raster, metho = "cubic")
 hfp_masked_inv = resample(hfp_masked_inv, cpad_raster, metho = "cubic")
 
-rm(hfp, hfp_cropped)
+rm(hfp_cropped)
 
 cpad_hfp_values <- terra::extract(x = hfp_masked, y = cpad_super)
 
@@ -160,6 +160,70 @@ st_write(cpad_hfp, here::here("data", "processed_data", "cpad_hfp.shp"), append 
 st_write(hfp, here::here("data", "processed_data", "in_out_hfp.shp"), append = FALSE)
 
 rm(hfp_masked, hfp_masked_inv, cpad_hfp_values, cpad_hfp_summary, cpad_hfp)
+
+# Biodiversity ------------------------------------------------------------
+
+bio = st_read(here::here("data", "raw_data", "ds2739.gdb")) %>% 
+  sf::st_transform("EPSG:4326") %>% 
+  select(NativeCount) %>% 
+  janitor::clean_names()
+
+bio_raster <- rasterize(bio, hfp, field = "native_count")
+
+rm(hfp, bio)
+
+bio_cropped <- crop(bio_raster, cpad_super)
+bio_masked <- mask(bio_cropped, cpad_super)
+bio_masked_inv = mask(bio_cropped, cpad_super, inverse = TRUE)
+
+bio_masked <- resample(bio_masked, cpad_raster, metho = "cubic")
+bio_masked_inv = resample(bio_masked_inv, cpad_raster, metho = "cubic")
+
+rm(bio_cropped, bio_raster)
+
+cpad_bio_values <- terra::extract(x = bio_masked, y = cpad_super, ID=TRUE)
+
+cpad_bio_summary <- cpad_bio_values %>%
+  rename(bio = native_count) %>% ### CHECK
+  group_by(ID) %>%
+  summarize(across(bio, list(min = min, mean = mean, max = max, median = median, sd = sd))) %>%
+  mutate(bio_sd = case_when(
+    !is.na(bio_sd) ~ bio_sd,
+    is.na(bio_sd) ~ 0
+  ))
+
+cpad_bio <- full_join(cpad_super, cpad_bio_summary) %>%
+  mutate(
+    bio_range = bio_max - bio_min,
+    bio_cv = bio_sd / bio_mean
+  ) %>%
+  mutate(bio_sd = case_when(
+    !is.na(bio_sd) ~ bio_sd,
+    is.na(bio_sd) ~ 0
+  )) %>%
+  mutate(bio_cv = case_when(
+    !is.na(bio_cv) ~ bio_cv,
+    is.na(bio_cv) ~ 0
+  ))
+
+inside_bio = terra::extract(bio_masked, cpad_super, xy=TRUE) %>% 
+  filter(!is.na(native_count)) %>%
+  st_as_sf(coords = c("x", "y")) %>% 
+  mutate(loc = "Inside Protected Areas")
+
+outside_bio = terra::extract(bio_masked_inv, ca, xy=TRUE) %>% 
+  filter(!is.na(native_count)) %>% 
+  st_as_sf(coords = c("x", "y")) %>% 
+  mutate(loc = "Outside Protected Areas")
+
+bio = list(inside_bio, outside_bio) %>% 
+  reduce(rbind) %>% 
+  st_set_crs("EPSG:4326")
+
+st_write(cpad_bio, here::here("data", "processed_data", "cpad_bio.shp"), append = FALSE)
+st_write(bio, here::here("data", "processed_data", "in_out_bio.shp"), append = FALSE)
+
+rm(bio_masked, bio_masked_inv, cpad_bio_values, cpad_bio_summary, cpad_bio, inside_bio, outside_bio)
 
 # Strava ------------------------------------------------------------------
 

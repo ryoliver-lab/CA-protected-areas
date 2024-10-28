@@ -4,12 +4,14 @@ library(gtsummary)
 library(broom)
 # To plot predicted values
 library(marginaleffects)
+library(emmeans)
 library(mgcv)
 library(patchwork)
 library(sf)
 library(ggrepel)
 library(ggridges)
 library(ggExtra)
+library(gghalves)
 
 # Data Input --------------------------------------------------------------
 
@@ -58,6 +60,10 @@ human <- human %>%
     HFP_mean = case_when(
       HFP_mean < 0 ~ 0,
       TRUE ~ HFP_mean
+    ),
+    HFP_median = case_when(
+      HFP_median < 0 ~ 0,
+      TRUE ~ HFP_median
     )
   ) %>%
   rowwise() %>%
@@ -68,7 +74,14 @@ human <- human %>%
     gap == gap3_acres ~ "GAP 3",
     gap == gap4_acres ~ "GAP 4"
   )) %>%
-  filter(!is.na(year))
+  filter(!is.na(year)) %>%
+  ungroup() %>%
+  mutate(hfp_quartile = case_when(
+    HFP_median < quantile(HFP_median, probs = 0.25, na.rm = TRUE) ~ "1st Quartile",
+    HFP_median >= quantile(HFP_median, probs = 0.25, na.rm = TRUE) & HFP_median < quantile(HFP_median, probs = 0.5, na.rm = TRUE) ~ "2nd Quartile",
+    HFP_median <= quantile(HFP_median, probs = 0.75, na.rm = TRUE) & HFP_median >= quantile(HFP_median, probs = 0.5, na.rm = TRUE) ~ "3rd Quartile",
+    HFP_median > quantile(HFP_median, probs = 0.75, na.rm = TRUE) ~ "4th Quartile",
+  ))
 
 hfp <- st_read(here::here("data", "processed_data", "in_out_hfp.shp")) %>%
   mutate(loc = fct_relevel(as.factor(loc), c("Outside Protected Areas", "Inside Protected Areas"))) %>%
@@ -82,7 +95,8 @@ highlight_parks <- c(14310, 22386, 33731, 30603)
 
 spatial_data <- read_csv(here::here("data", "processed_data", "spatial_analysis.csv")) %>%
   filter(!is.na(hex_int)) %>%
-  filter(suid_nma %in% human$suid_nma)
+  filter(suid_nma %in% human$suid_nma) %>%
+  full_join(human %>% select(suid_nma, gap_status))
 
 temporal_data <- read_csv(here::here("data", "processed_data", "temporal_analysis.csv")) %>%
   select(suid_nma, date, sg, park_name) %>%
@@ -185,17 +199,17 @@ human_highlight_sum <- human_sum %>%
 
 p <- ggplot(human_sum) +
   geom_hline(aes(yintercept = 1), color = "red", alpha = 0.5) +
-  geom_point(aes(HFP_mean, mean_sg, color = gap_status), alpha = 0.7) +
-  geom_point(data = human_highlight_sum, aes(HFP_mean, mean_sg), color = "red", size = 2) +
+  geom_point(aes(HFP_median, mean_sg, color = gap_status), alpha = 0.7) +
+  geom_point(data = human_highlight_sum, aes(HFP_median, mean_sg), color = "red", size = 2) +
   theme_bw() +
   labs(
-    x = "Human Footprint Index",
+    x = "Median Human Footprint Index",
     y = "Relative Tourism",
     color = "Management"
   ) +
   scale_y_log10() +
   geom_label_repel(
-    data = human_highlight_sum, aes(HFP_mean, mean_sg, label = park_name),
+    data = human_highlight_sum, aes(HFP_median, mean_sg, label = park_name),
     size = 4,
     alpha = 0.8,
     min.segment.length = 1,
@@ -208,7 +222,7 @@ p <- ggplot(human_sum) +
 
 p1 <- ggMarginal(p, type = "density", fill = "grey")
 
-ggsave(p1, file = paste0("fig1A.pdf"), path = here::here("analysis", "figs"), height = 8, width = 10)
+ggsave(p1, file = paste0("fig1.pdf"), path = here::here("analysis", "figs"), height = 8, width = 10)
 
 hfp <- hfp %>%
   filter(!is.na(HFP2009)) %>%
@@ -224,7 +238,7 @@ hfp <- hfp %>%
 
 p2 <- ggplot(hfp %>% filter(!is.na(HFP2009))) +
   geom_density_ridges(aes(x = HFP2009, y = loc, fill = gap_status), alpha = 0.5, scale = 3) +
-  geom_vline(data = human_highlight_sum, aes(xintercept = HFP_mean), color = "red", linetype = "dashed") +
+  geom_vline(data = human_highlight_sum, aes(xintercept = HFP_median), color = "red", linetype = "dashed") +
   theme_bw() +
   labs(
     x = "Human Footprint Index",
@@ -234,7 +248,7 @@ p2 <- ggplot(hfp %>% filter(!is.na(HFP2009))) +
   scale_fill_viridis_d(end = .9, na.value = "#fde725") +
   scale_color_manual(values = c("black", "grey")) +
   geom_label_repel(
-    data = human_highlight_sum, aes(x = HFP_mean, y = 4, label = park_name),
+    data = human_highlight_sum, aes(x = HFP_median, y = 4, label = park_name),
     size = 4,
     alpha = 0.65,
     min.segment.length = 1,
@@ -243,79 +257,34 @@ p2 <- ggplot(hfp %>% filter(!is.na(HFP2009))) +
     color = "black"
   )
 
-ggsave(p2, file = paste0("fig1B.pdf"), path = here::here("analysis", "figs"), height = 8, width = 10)
-
-human_piv <- human %>%
-  pivot_wider(names_from = year, values_from = sg, names_prefix = "sg_") %>%
-  mutate(sg_diff = sg_2020 - sg_2019)
-
-summary(human_piv$sg_diff)
+ggsave(p2, file = paste0("fig2.pdf"), path = here::here("analysis", "figs"), height = 8, width = 10)
 
 # Spatial Analysis --------------------------------------------------------
 
 park_models <- spatial_data %>%
-  select(hex_int, suid_nma, gHM, HFP2009, y, x) %>%
+  select(hex_int, suid_nma, gHM, HFP2009, y, x, gap_status) %>%
   na.omit() %>%
   group_by(suid_nma) %>%
   mutate(count = n()) %>%
   filter(count > 10)
 
-yosemite <- human %>%
-  filter(suid_nma == 14310)
+park_data = human %>% 
+  filter(suid_nma %in% park_models$suid_nma)
 
-yosemite_spatial <- spatial_data %>%
-  filter(suid_nma == 14310) %>%
-  select(suid_nma, x, y) %>%
-  mutate(
-    x = round(x),
-    y = round(y)
-  ) %>%
-  distinct() %>%
-  full_join(yosemite)
+gam1 <- gam(hex_int ~ s(HFP2009, k = 6) + s(y, x, bs = "gp", m = 1, k = 6) + s(suid_nma, bs = "re") + s(suid_nma, HFP2009, bs = "re"), random = list(suid_nma = ~ 1 + HFP2009), data = park_models)
+gam2 <- gam(hex_int ~ s(HFP2009, k = 6) + s(y, x, bs = "gp", m = 1, k = 6) + s(suid_nma, bs = "re") + s(suid_nma, HFP2009, bs = "re"), random = list(suid_nma = ~ 1 + HFP2009), data = park_models %>% filter(gap_status == "GAP 1"))
+gam3 <- gam(hex_int ~ s(HFP2009, k = 6) + s(y, x, bs = "gp", m = 1, k = 6) + s(suid_nma, bs = "re") + s(suid_nma, HFP2009, bs = "re"), random = list(suid_nma = ~ 1 + HFP2009), data = park_models %>% filter(gap_status == "GAP 2"))
+gam4 <- gam(hex_int ~ s(HFP2009, k = 6) + s(y, x, bs = "gp", m = 1, k = 6) + s(suid_nma, bs = "re") + s(suid_nma, HFP2009, bs = "re"), random = list(suid_nma = ~ 1 + HFP2009), data = park_models %>% filter(gap_status == "GAP 3"))
+gam5 <- gam(hex_int ~ s(HFP2009, k = 6) + s(y, x, bs = "gp", m = 1, k = 6) + s(suid_nma, bs = "re") + s(suid_nma, HFP2009, bs = "re"), random = list(suid_nma = ~ 1 + HFP2009), data = park_models %>% filter(gap_status == "GAP 4"))
 
-gam <- gamm(hex_int ~ s(HFP2009, k = 6) + s(y, x, bs = "gp", m = 1, k = 6), random = list(suid_nma = ~ 1 + HFP2009), data = park_models)
+summary(gam1)
+summary(gam2)
+summary(gam3)
+summary(gam4)
+summary(gam5)
 
-gam1 <- readRDS(here::here("data", "processed_data", "gam.rds"))
-gam_sub <- gam1[["gam"]]
-
-summary(gam_sub)
-summary(gam1[["lme"]])
-
-anova(gam_sub)
-
-hfp_pred <- predictions(gam_sub, variables = "HFP2009", by = "HFP2009")
-# xy_pred <- predictions(gam1, variables = "x", by = c("x", "y"))
-
-# write_csv(hfp_pred, here::here("data", "processed_data", "hfp_pred.csv"))
-# write_csv(xy_pred, here::here("data", "processed_data", "xy_pred.csv"))
-
-p1 <- plot_predictions(gam_sub, condition = "HFP2009") +
-  geom_rug(data = park_data, aes(gHM_mean), alpha = 1 / 2, outside = TRUE, sides = "b") +
-  scale_y_log10() +
-  theme_bw() +
-  labs(
-    x = "Global Human Modification",
-    y = "Strava Value"
-  ) +
-  coord_cartesian(clip = "off") +
-  theme(
-    axis.text.x = element_text(margin = margin(t = 10)),
-    axis.ticks.x = element_blank()
-  ) +
-  geom_point(data = yosemite, aes(gHM_mean, hx_pp_r)) +
-  geom_label_repel(
-    data = yosemite, aes(gHM_mean, hx_pp_r, label = park_name),
-    size = 4,
-    alpha = 0.65,
-    min.segment.length = 1,
-    arrow = arrow(length = unit(0.1, "inches")),
-    box.padding = 1,
-    color = "black"
-  )
-
-p2 <- plot_predictions(gam1, condition = "HFP2009") +
-  geom_rug(data = park_data, aes(HFP_mean), alpha = 1 / 2, outside = TRUE, sides = "b") +
-  scale_y_log10() +
+p1 <- plot_predictions(gam1, condition = "HFP2009") +
+  geom_rug(data = park_data, aes(HFP_median), alpha = 1 / 2, outside = TRUE, sides = "b") +
   theme_bw() +
   labs(
     x = "Human Footprint Index",
@@ -323,47 +292,69 @@ p2 <- plot_predictions(gam1, condition = "HFP2009") +
   ) +
   coord_cartesian(clip = "off") +
   theme(
-    axis.text.x = element_text(margin = margin(t = 10)),
+    axis.text.x = element_text(margin = margin(t = 15)),
     axis.ticks.x = element_blank()
-  ) +
-  geom_point(data = yosemite, aes(HFP_mean, hx_pp_r)) +
-  geom_label_repel(
-    data = yosemite, aes(HFP_mean, hx_pp_r, label = park_name),
-    size = 4,
-    alpha = 0.65,
-    min.segment.length = 1,
-    arrow = arrow(length = unit(0.1, "inches")),
-    box.padding = 1,
-    color = "black"
   )
 
-
-p3 <- plot_predictions(gam1, condition = c("x", "y")) +
-  scale_y_log10() +
+p2 <- plot_predictions(gam2, condition = "HFP2009") +
+  geom_rug(data = park_data %>% filter(gap_status == "GAP 1"), aes(HFP_median), alpha = 1 / 2, outside = TRUE, sides = "b") +
   theme_bw() +
   labs(
-    x = "Longitude",
+    x = "Human Footprint Index",
     y = "Strava Value",
-    color = "Latitude",
-    fill = "Latitude"
+    title = "GAP 1"
   ) +
-  scale_color_viridis_d(direction = -1, guide = guide_legend(reverse = TRUE), labels = rev(c("42.00", 39.83, 36.81, 34.91, 32.56))) +
-  scale_fill_viridis_d(direction = -1, guide = guide_legend(reverse = TRUE), labels = rev(c("42.00", 39.83, 36.81, 34.91, 32.56))) +
   coord_cartesian(clip = "off") +
-  geom_point(data = yosemite_spatial, aes(x, hx_pp_r), color = "#addc30") +
-  geom_label_repel(
-    data = yosemite_spatial, aes(x, hx_pp_r, label = park_name),
-    size = 4,
-    alpha = 0.65,
-    min.segment.length = 1,
-    arrow = arrow(length = unit(0.1, "inches")),
-    box.padding = 1,
-    color = "black"
+  theme(
+    axis.text.x = element_text(margin = margin(t = 10)),
+    axis.ticks.x = element_blank()
   )
 
-plot <- (p1 + p2) / p3 + plot_annotation(tag_levels = "A")
+p3 <- plot_predictions(gam3, condition = "HFP2009") +
+  geom_rug(data = park_data %>% filter(gap_status == "GAP 2"), aes(HFP_median), alpha = 1 / 2, outside = TRUE, sides = "b") +
+  theme_bw() +
+  labs(
+    x = "Human Footprint Index",
+    y = "Strava Value",
+    title = "GAP 2"
+  ) +
+  coord_cartesian(clip = "off") +
+  theme(
+    axis.text.x = element_text(margin = margin(t = 10)),
+    axis.ticks.x = element_blank()
+  )
 
-ggsave(plot, file = paste0("fig2.pdf"), path = here::here("analysis", "figs"), height = 15, width = 15)
+p4 <- plot_predictions(gam4, condition = "HFP2009") +
+  geom_rug(data = park_data %>% filter(gap_status == "GAP 3"), aes(HFP_median), alpha = 1 / 2, outside = TRUE, sides = "b") +
+  theme_bw() +
+  labs(
+    x = "Human Footprint Index",
+    y = "Strava Value",
+    title = "GAP 3"
+  ) +
+  coord_cartesian(clip = "off") +
+  theme(
+    axis.text.x = element_text(margin = margin(t = 10)),
+    axis.ticks.x = element_blank()
+  )
+
+p5 <- plot_predictions(gam5, condition = "HFP2009") +
+  geom_rug(data = park_data %>% filter(gap_status == "GAP 4"), aes(HFP_median), alpha = 1 / 2, outside = TRUE, sides = "b") +
+  theme_bw() +
+  labs(
+    x = "Human Footprint Index",
+    y = "Strava Value",
+    title = "GAP 4"
+  ) +
+  coord_cartesian(clip = "off") +
+  theme(
+    axis.text.x = element_text(margin = margin(t = 10)),
+    axis.ticks.x = element_blank()
+  )
+
+plot <- (p1) / ((p2 + p3) / (p4 + p5)) + plot_annotation(tag_levels = "A")
+
+ggsave(plot, file = paste0("fig3.pdf"), path = here::here("analysis", "figs"), height = 15, width = 15)
 
 # Temporal Analysis -------------------------------------------------------
 
@@ -375,8 +366,8 @@ temporal_data <- temporal_data %>%
     year == 2019 ~ date_j
   ))
 
-highlight_temp <- temporal_data
-filter(suid_nma %in% highlight_parks)
+highlight_temp <- temporal_data %>%
+  filter(suid_nma %in% highlight_parks)
 
 temporal_bins <- temporal_data %>%
   group_by(suid_nma) %>%
@@ -400,34 +391,60 @@ temp_date <- temporal_bins %>%
   mutate(date_count = n())
 
 p1 <- ggplot(temp_date) +
-  geom_vline(aes(xintercept = 21), color = "red", alpha = 0.2) +
-  geom_vline(aes(xintercept = 49), color = "red", alpha = 0.2) +
-  geom_vline(aes(xintercept = 111), color = "red", alpha = 0.2) +
-  geom_vline(aes(xintercept = 147), color = "red", alpha = 0.2) +
-  geom_vline(aes(xintercept = 185), color = "red", alpha = 0.2) +
-  geom_vline(aes(xintercept = 245), color = "red", alpha = 0.2) +
-  geom_vline(aes(xintercept = 332), color = "red", alpha = 0.2) +
-  geom_vline(aes(xintercept = 359), color = "red", alpha = 0.2) +
-  geom_vline(aes(xintercept = 365), color = "red", alpha = 0.2) +
-  geom_vline(aes(xintercept = 385), color = "red", alpha = 0.2) +
-  geom_vline(aes(xintercept = 413), color = "red", alpha = 0.2) +
-  geom_vline(aes(xintercept = 468), color = "red", alpha = 0.2) +
-  geom_vline(aes(xintercept = 511), color = "red", alpha = 0.2) +
-  geom_vline(aes(xintercept = 551), color = "red", alpha = 0.2) +
-  geom_vline(aes(xintercept = 616), color = "red", alpha = 0.2) +
-  geom_vline(aes(xintercept = 696), color = "red", alpha = 0.2) +
-  geom_vline(aes(xintercept = 725), color = "red", alpha = 0.2) +
-  geom_vline(aes(xintercept = 731), color = "red", alpha = 0.2) +
-  geom_vline(aes(xintercept = 749), color = "red", alpha = 0.2) +
-  geom_vline(aes(xintercept = 777), color = "red", alpha = 0.2) +
-  geom_vline(aes(xintercept = 825), color = "red", alpha = 0.2) +
-  geom_vline(aes(xintercept = 440), color = "blue", alpha = 0.2) + #covid lockdown
-  geom_vline(aes(xintercept = 480), color = "blue", alpha = 0.2) + #earliest reopen
-  geom_tile(aes(date_j, bin, color = date_count, fill = date_count)) +
-  scale_color_viridis_c()+
-  scale_fill_viridis_c()
+  geom_tile(aes(date, bin, fill = date_count)) +
+  geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
+  geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
+  scale_fill_viridis_c() +
+  theme_bw() +
+  labs(
+    x = "Date",
+    y = "Safegraph Quartiles",
+    fill = "Count"
+  ) +
+  scale_x_date()
 
-ggsave(p1, file = paste0("fig3.pdf"), path = here::here("analysis", "figs"), height = 25, width = 10)
+p2 <- ggplot(temp_date) +
+  geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
+  geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
+  geom_line(data = highlight_temp, aes(date, sg, color = as.factor(park_name)), linewidth = 1) +
+  scale_color_viridis_d() +
+  theme_bw() +
+  labs(
+    x = "Date",
+    y = "Relative Tourism",
+    color = ""
+  ) +
+  scale_x_date()
+
+plot <- p1 / p2 + plot_annotation(tag_levels = "A")
+
+ggsave(plot, file = paste0("fig4.pdf"), path = here::here("analysis", "figs"), height = 15, width = 15)
+
+
+# Change in SG ------------------------------------------------------------
+
+human_w_hfp <- human %>%
+  filter(!is.na(hfp_quartile))
+
+p1 <- ggplot(human_w_hfp %>% filter(year != 2021)) +
+  geom_line(aes(as.factor(year), sg, group = suid_nma), alpha = 0.8) +
+  geom_line(data = human_highlight %>% filter(year != 2021), aes(as.factor(year), sg, group = suid_nma), color = "red") +
+  geom_half_violin(data = human_w_hfp %>% filter(year == 2019), aes(as.factor(year), sg), fill = "grey") +
+  geom_half_violin(data = human_w_hfp %>% filter(year == 2020), aes(as.factor(year), sg), side = "r", fill = "grey") +
+  facet_wrap(~hfp_quartile) +
+  theme_bw() +
+  scale_y_log10() +
+  labs(
+    x = "Year",
+    y = "Relative Tourism"
+  ) +
+  theme(
+    strip.background = element_rect(fill = "white"),
+    strip.text = element_text(face = "bold")
+  )
+p1
+
+ggsave(p1, file = paste0("fig5.pdf"), path = here::here("analysis", "figs"), height = 8, width = 10)
 
 # OLD ---------------------------------------------------------------------
 
@@ -1009,3 +1026,138 @@ ggsave(p1, file = paste0("fig3.pdf"), path = here::here("analysis", "figs"), hei
 #   )
 #
 # ggsave(p, file = paste0("temp_change.pdf"), path = here::here("analysis", "figs"), height = 8, width = 6)
+
+# temporal_bins2 <- temporal_data %>%
+#   mutate(
+#     max = max(sg, na.rm = TRUE),
+#     min = min(sg, na.rm = TRUE),
+#     quartile_1 = quantile(sg, probs = 0.25),
+#     quartile_2 = quantile(sg, probs = 0.5),
+#     quartile_3 = quantile(sg, probs = 0.75)
+#   ) %>%
+#   ungroup() %>%
+#   mutate(bin = case_when(
+#     sg < quartile_1 ~ 1,
+#     sg > quartile_3 ~ 4,
+#     sg >= quartile_1 & sg < quartile_2 ~ 2,
+#     sg >= quartile_2 & sg <= quartile_3 ~ 3
+#   ))
+#
+# temp_date2 <- temporal_bins2 %>%
+#   group_by(date_j, bin) %>%
+#   mutate(date_count = n())
+#
+# p2 <- ggplot(temp_date2) +
+#   geom_tile(aes(date_j, bin, color = date_count, fill = date_count)) +
+#   geom_vline(aes(xintercept = 21), color = "red") +
+#   geom_vline(aes(xintercept = 49), color = "red") +
+#   geom_vline(aes(xintercept = 111), color = "red") +
+#   geom_vline(aes(xintercept = 147), color = "red") +
+#   geom_vline(aes(xintercept = 185), color = "red") +
+#   geom_vline(aes(xintercept = 245), color = "red") +
+#   geom_vline(aes(xintercept = 332), color = "red") +
+#   geom_vline(aes(xintercept = 359), color = "red") +
+#   geom_vline(aes(xintercept = 365), color = "red") +
+#   geom_vline(aes(xintercept = 385), color = "red") +
+#   geom_vline(aes(xintercept = 413), color = "red") +
+#   geom_vline(aes(xintercept = 468), color = "red") +
+#   geom_vline(aes(xintercept = 511), color = "red") +
+#   geom_vline(aes(xintercept = 551), color = "red") +
+#   geom_vline(aes(xintercept = 616), color = "red") +
+#   geom_vline(aes(xintercept = 696), color = "red") +
+#   geom_vline(aes(xintercept = 725), color = "red") +
+#   geom_vline(aes(xintercept = 731), color = "red") +
+#   geom_vline(aes(xintercept = 749), color = "red") +
+#   geom_vline(aes(xintercept = 777), color = "red") +
+#   geom_vline(aes(xintercept = 825), color = "red") +
+#   geom_vline(aes(xintercept = 440), color = "blue") + #covid lockdown
+#   geom_vline(aes(xintercept = 480), color = "blue") + #earliest reopen
+#   geom_line(data = highlight_temp, aes(date_j, sg, group = as.factor(park_name))) +
+#   scale_color_viridis_c()+
+#   scale_fill_viridis_c() +
+#   theme_bw() +
+#   labs(x = "Julian Date",
+#        y = "Safegraph",
+#        color = "Count",
+#        fill = "Count") +
+#   scale_x_reverse()
+#
+# ggsave(p2, file = paste0("fig3.2.pdf"), path = here::here("analysis", "figs"), height = 8, width = 15)
+
+# hfp_pred <- predictions(gam_sub1, variables = "HFP2009", by = "HFP2009")
+# xy_pred <- predictions(gam1, variables = "x", by = c("x", "y"))
+
+# write_csv(hfp_pred, here::here("data", "processed_data", "hfp_pred.csv"))
+# write_csv(xy_pred, here::here("data", "processed_data", "xy_pred.csv"))
+
+# p1 <- plot_predictions(gam_sub, condition = "HFP2009") +
+#   geom_rug(data = park_data, aes(gHM_mean), alpha = 1 / 2, outside = TRUE, sides = "b") +
+#   scale_y_log10() +
+#   theme_bw() +
+#   labs(
+#     x = "Global Human Modification",
+#     y = "Strava Value"
+#   ) +
+#   coord_cartesian(clip = "off") +
+#   theme(
+#     axis.text.x = element_text(margin = margin(t = 10)),
+#     axis.ticks.x = element_blank()
+#   ) +
+#   geom_point(data = yosemite, aes(gHM_mean, hx_pp_r)) +
+#   geom_label_repel(
+#     data = yosemite, aes(gHM_mean, hx_pp_r, label = park_name),
+#     size = 4,
+#     alpha = 0.65,
+#     min.segment.length = 1,
+#     arrow = arrow(length = unit(0.1, "inches")),
+#     box.padding = 1,
+#     color = "black"
+#   )
+#
+# p2 <- plot_predictions(gam1, condition = "HFP2009") +
+#   geom_rug(data = park_data, aes(HFP_median), alpha = 1 / 2, outside = TRUE, sides = "b") +
+#   scale_y_log10() +
+#   theme_bw() +
+#   labs(
+#     x = "Human Footprint Index",
+#     y = "Strava Value"
+#   ) +
+#   coord_cartesian(clip = "off") +
+#   theme(
+#     axis.text.x = element_text(margin = margin(t = 10)),
+#     axis.ticks.x = element_blank()
+#   ) +
+#   geom_point(data = yosemite, aes(HFP_median, hx_pp_r)) +
+#   geom_label_repel(
+#     data = yosemite, aes(HFP_median, hx_pp_r, label = park_name),
+#     size = 4,
+#     alpha = 0.65,
+#     min.segment.length = 1,
+#     arrow = arrow(length = unit(0.1, "inches")),
+#     box.padding = 1,
+#     color = "black"
+#   )
+#
+#
+# p3 <- plot_predictions(gam1, condition = c("x", "y")) +
+#   scale_y_log10() +
+#   theme_bw() +
+#   labs(
+#     x = "Longitude",
+#     y = "Strava Value",
+#     color = "Latitude",
+#     fill = "Latitude"
+#   ) +
+#   scale_color_viridis_d(direction = -1, guide = guide_legend(reverse = TRUE), labels = rev(c("42.00", 39.83, 36.81, 34.91, 32.56))) +
+#   scale_fill_viridis_d(direction = -1, guide = guide_legend(reverse = TRUE), labels = rev(c("42.00", 39.83, 36.81, 34.91, 32.56))) +
+#   coord_cartesian(clip = "off") +
+#   geom_point(data = yosemite_spatial, aes(x, hx_pp_r), color = "#addc30") +
+#   geom_label_repel(
+#     data = yosemite_spatial, aes(x, hx_pp_r, label = park_name),
+#     size = 4,
+#     alpha = 0.65,
+#     min.segment.length = 1,
+#     arrow = arrow(length = unit(0.1, "inches")),
+#     box.padding = 1,
+#     color = "black"
+#   )
