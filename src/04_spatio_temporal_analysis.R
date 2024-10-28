@@ -24,12 +24,13 @@ sg <- read_csv(here::here("data", "processed_data", "cpad_sg.csv"))
 strava <- st_read(here::here("data", "processed_data", "cpad_strava.shp"))
 ghm <- st_read(here::here("data", "processed_data", "cpad_ghm.shp"))
 hfp <- st_read(here::here("data", "processed_data", "cpad_hfp.shp"))
+bio <- st_read(here::here("data", "processed_data", "cpad_bio.shp"))
 
-human <- list(sg, strava, ghm, hfp) %>%
+human <- list(sg, strava, ghm, hfp, bio) %>%
   reduce(full_join) %>%
   st_as_sf()
 
-rm(sg, strava, ghm, hfp)
+rm(sg, strava, ghm, hfp, bio)
 
 # take out hoas
 
@@ -53,7 +54,8 @@ human <- human %>%
     access_typ, park_name, park_url, mng_ag_id, mng_agncy, mng_ag_lev, mng_ag_typ, agncy_web,
     label_name, gap1_acres, gap2_acres, gap3_acres, gap4_acres, gap_tot_ac, shape_leng, shape_area,
     gHM_min, gHM_mean, gHM_max, gHM_median, gHM_sd, gHM_range, gHM_cv, HFP_min,
-    HFP_mean, HFP_max, HFP_median, HFP_sd, HFP_range, HFP_cv, year
+    HFP_mean, HFP_max, HFP_median, HFP_sd, HFP_range, HFP_cv, year, bio_mean, bio_median, bio_max, bio_min, bio_sd,
+    bio_range
   ) %>%
   mutate(
     hex_range = mx_hx__ - mn_hx__,
@@ -81,9 +83,23 @@ human <- human %>%
     HFP_median >= quantile(HFP_median, probs = 0.25, na.rm = TRUE) & HFP_median < quantile(HFP_median, probs = 0.5, na.rm = TRUE) ~ "2nd Quartile",
     HFP_median <= quantile(HFP_median, probs = 0.75, na.rm = TRUE) & HFP_median >= quantile(HFP_median, probs = 0.5, na.rm = TRUE) ~ "3rd Quartile",
     HFP_median > quantile(HFP_median, probs = 0.75, na.rm = TRUE) ~ "4th Quartile",
+  )) %>%
+  mutate(bio_quartile = case_when(
+    bio_median < quantile(bio_median, probs = 0.25, na.rm = TRUE) ~ "1st Quartile",
+    bio_median >= quantile(bio_median, probs = 0.25, na.rm = TRUE) & bio_median < quantile(bio_median, probs = 0.5, na.rm = TRUE) ~ "2nd Quartile",
+    bio_median <= quantile(bio_median, probs = 0.75, na.rm = TRUE) & bio_median >= quantile(bio_median, probs = 0.5, na.rm = TRUE) ~ "3rd Quartile",
+    bio_median > quantile(bio_median, probs = 0.75, na.rm = TRUE) ~ "4th Quartile",
   ))
 
 hfp <- st_read(here::here("data", "processed_data", "in_out_hfp.shp")) %>%
+  mutate(loc = fct_relevel(as.factor(loc), c("Outside Protected Areas", "Inside Protected Areas"))) %>%
+  st_drop_geometry() %>%
+  full_join(cpad_super) %>%
+  st_drop_geometry() %>%
+  select(-geometry) %>%
+  full_join(human %>% select(suid_nma, gap_status))
+
+bio <- st_read(here::here("data", "processed_data", "in_out_bio.shp")) %>%
   mutate(loc = fct_relevel(as.factor(loc), c("Outside Protected Areas", "Inside Protected Areas"))) %>%
   st_drop_geometry() %>%
   full_join(cpad_super) %>%
@@ -105,84 +121,6 @@ temporal_data <- read_csv(here::here("data", "processed_data", "temporal_analysi
   mutate(count = n()) %>%
   filter(suid_nma %in% human$suid_nma) %>%
   mutate(year = year(date))
-
-# Functions ---------------------------------------------------------------
-
-normalize <- function(x) {
-  (x - min(x)) / (max(x) - min(x))
-}
-
-single_pt_haversine <- function(lat, lng) {
-  r <- 6371 # Earth's radius (km). Have r = 3956 if you want miles
-
-  # 'Single-point' Haversine formula
-  a <- sin(lat / 2)**2 + cos(lat) * sin(lng / 2)**2
-  d <- 2 * r * asin(sqrt(a))
-
-  return(d)
-}
-
-entropy <- function(target) {
-  freq <- table(target) / length(target)
-  # vectorize
-  vec <- as.data.frame(freq)[, 2]
-  # drop 0 to avoid NaN resulting from log2
-  vec <- vec[vec > 0]
-  # compute entropy
-  -sum(vec * log2(vec))
-}
-
-cross.entropy <- function(p, phat) {
-  x <- 0
-  for (i in 1:length(p)) {
-    x <- x + (p[i] * log(phat[i]))
-  }
-  return(-x)
-}
-
-# Checks ---------------------------------------------------------------
-
-sg_have <- human %>%
-  filter(!is.na(sg)) %>%
-  mutate(sg_present = "Yes")
-
-sg_havenot <- human %>%
-  filter(is.na(sg)) %>%
-  mutate(sg_present = "No")
-
-p1 <- ggplot() +
-  geom_sf(data = sg_have, fill = "blue", color = "transparent") +
-  geom_sf(data = sg_havenot, fill = "red", color = "red") +
-  theme_bw()
-p1
-
-ggsave(p1, file = paste0("missing_parks.pdf"), path = here::here("analysis", "figs"), height = 15, width = 15)
-
-missing_sum <- rbind(sg_have, sg_havenot) %>%
-  st_drop_geometry() %>%
-  group_by(sg_present) %>%
-  summarize(
-    ghm_mean = mean(gHM_mean, na.rm = TRUE),
-    ghm_sd = sd(gHM_mean, na.rm = TRUE),
-    ghm_max = max(gHM_mean, na.rm = TRUE),
-    ghm_min = min(gHM_mean, na.rm = TRUE),
-    hfp_mean = mean(HFP_mean, na.rm = TRUE),
-    hfp_sd = sd(HFP_mean, na.rm = TRUE),
-    hfp_max = max(HFP_mean, na.rm = TRUE),
-    hfp_min = min(HFP_mean, na.rm = TRUE),
-    strava_mean = mean(hx_pp_r, na.rm = TRUE),
-    strava_sd = sd(hx_pp_r, na.rm = TRUE),
-    strava_max = max(hx_pp_r, na.rm = TRUE),
-    strava_min = min(hx_pp_r, na.rm = TRUE)
-  )
-
-cor_check <- human %>%
-  st_drop_geometry() %>%
-  select(outside_pop, HFP_mean) %>%
-  drop_na()
-
-cor(cor_check$outside_pop, cor_check$HFP_mean)
-
 
 # Scatter Plot ------------------------------------------------------------
 
@@ -218,14 +156,83 @@ p <- ggplot(human_sum) +
     color = "black"
   ) +
   scale_color_viridis_d(end = 0.9) +
-  theme(legend.position = "bottom")
+  theme(legend.position = "none") +
+  title("A")
 
 p1 <- ggMarginal(p, type = "density", fill = "grey")
 
-ggsave(p1, file = paste0("fig1.pdf"), path = here::here("analysis", "figs"), height = 8, width = 10)
+ggsave(p1, file = paste0("fig1A.pdf"), path = here::here("analysis", "figs"), height = 8, width = 10)
+
+p <- ggplot(human_sum) +
+  geom_hline(aes(yintercept = 1), color = "red", alpha = 0.5) +
+  geom_point(aes(bio_median, mean_sg, color = gap_status), alpha = 0.7) +
+  geom_point(data = human_highlight_sum, aes(bio_median, mean_sg), color = "red", size = 2) +
+  theme_bw() +
+  labs(
+    x = "Median Terrestrial Species Count",
+    y = "Relative Tourism",
+    color = "Management"
+  ) +
+  scale_y_log10() +
+  geom_label_repel(
+    data = human_highlight_sum, aes(bio_median, bio_sg, label = park_name),
+    size = 4,
+    alpha = 0.8,
+    min.segment.length = 1,
+    arrow = arrow(length = unit(0.1, "inches")),
+    box.padding = 1,
+    color = "black"
+  ) +
+  scale_color_viridis_d(end = 0.9) +
+  theme(legend.position = "bottom") +
+  title("B")
+
+p1 <- ggMarginal(p, type = "density", fill = "grey")
+
+ggsave(p1, file = paste0("fig1B.pdf"), path = here::here("analysis", "figs"), height = 8, width = 10)
+
+p <- ggplot(human_sum) +
+  geom_hline(aes(yintercept = 1), color = "red", alpha = 0.5) +
+  geom_point(aes(HFP_median, bio_median, color = gap_status), alpha = 0.7) +
+  geom_point(data = human_highlight_sum, aes(HFP_median, bio_median), color = "red", size = 2) +
+  theme_bw() +
+  labs(
+    x = "Median Human Footprint Index",
+    y = "Median Terrestrial Species Count",
+    color = "Management"
+  ) +
+  scale_y_log10() +
+  geom_label_repel(
+    data = human_highlight_sum, aes(HFP_median, bio_median, label = park_name),
+    size = 4,
+    alpha = 0.8,
+    min.segment.length = 1,
+    arrow = arrow(length = unit(0.1, "inches")),
+    box.padding = 1,
+    color = "black"
+  ) +
+  scale_color_viridis_d(end = 0.9) +
+  theme(legend.position = "none") +
+  title("C")
+
+p1 <- ggMarginal(p, type = "density", fill = "grey")
+
+ggsave(p1, file = paste0("fig1C.pdf"), path = here::here("analysis", "figs"), height = 8, width = 10)
 
 hfp <- hfp %>%
   filter(!is.na(HFP2009)) %>%
+  rowwise() %>%
+  mutate(gap = max(gap1_acres, gap2_acres, gap3_acres, gap4_acres)) %>%
+  mutate(gap_status = case_when(
+    gap == gap1_acres ~ "GAP 1",
+    gap == gap2_acres ~ "GAP 2",
+    gap == gap3_acres ~ "GAP 3",
+    gap == gap4_acres ~ "GAP 4",
+    loc == "Outside Protected Areas" ~ "NA"
+  ))
+
+bio <- bio %>%
+  filter(!is.na(ntv_cnt)) %>%
   rowwise() %>%
   mutate(gap = max(gap1_acres, gap2_acres, gap3_acres, gap4_acres)) %>%
   mutate(gap_status = case_when(
@@ -255,9 +262,32 @@ p2 <- ggplot(hfp %>% filter(!is.na(HFP2009))) +
     arrow = arrow(length = unit(0.1, "inches")),
     box.padding = 1,
     color = "black"
-  )
+  ) +
+  theme(legend.position = "bottom")
 
-ggsave(p2, file = paste0("fig2.pdf"), path = here::here("analysis", "figs"), height = 8, width = 10)
+p3 <- ggplot(bio %>% filter(!is.na(ntv_cnt))) +
+  geom_density_ridges(aes(x = ntv_cnt, y = loc, fill = gap_status), alpha = 0.5, scale = 3) +
+  geom_vline(data = human_highlight_sum, aes(xintercept = bio_median), color = "red", linetype = "dashed") +
+  theme_bw() +
+  labs(
+    x = "Human Footprint Index",
+    y = "",
+    fill = "GAP Status"
+  ) +
+  scale_fill_viridis_d(end = .9, na.value = "#fde725") +
+  scale_color_manual(values = c("black", "grey")) +
+  geom_label_repel(
+    data = human_highlight_sum, aes(x = bio_median, y = 4, label = park_name),
+    size = 4,
+    alpha = 0.65,
+    min.segment.length = 1,
+    arrow = arrow(length = unit(0.1, "inches")),
+    box.padding = 1,
+    color = "black"
+  ) +
+  theme(legend.position = "bottom")
+
+ggsave(p2 / p3 + plot_annotation(tag_levels = "A") + plot_layout(guides = "collect"), file = paste0("fig2.pdf"), path = here::here("analysis", "figs"), height = 8, width = 10)
 
 # Spatial Analysis --------------------------------------------------------
 
@@ -424,10 +454,13 @@ ggsave(plot, file = paste0("fig4.pdf"), path = here::here("analysis", "figs"), h
 # Change in SG ------------------------------------------------------------
 
 human_w_hfp <- human %>%
-  filter(!is.na(hfp_quartile))
+  filter(!is.na(hfp_quartile)) 
+
+human_w_bio <- human %>% 
+  filter(!is.na(bio_quartile))
 
 p1 <- ggplot(human_w_hfp %>% filter(year != 2021)) +
-  geom_line(aes(as.factor(year), sg, group = suid_nma), alpha = 0.8) +
+  geom_line(aes(as.factor(year), sg, group = suid_nma), alpha = 0.5) +
   geom_line(data = human_highlight %>% filter(year != 2021), aes(as.factor(year), sg, group = suid_nma), color = "red") +
   geom_half_violin(data = human_w_hfp %>% filter(year == 2019), aes(as.factor(year), sg), fill = "grey") +
   geom_half_violin(data = human_w_hfp %>% filter(year == 2020), aes(as.factor(year), sg), side = "r", fill = "grey") +
@@ -444,7 +477,25 @@ p1 <- ggplot(human_w_hfp %>% filter(year != 2021)) +
   )
 p1
 
-ggsave(p1, file = paste0("fig5.pdf"), path = here::here("analysis", "figs"), height = 8, width = 10)
+p2 <- ggplot(human_w_bio %>% filter(year != 2021)) +
+  geom_line(aes(as.factor(year), sg, group = suid_nma), alpha = 0.5) +
+  geom_line(data = human_highlight %>% filter(year != 2021), aes(as.factor(year), sg, group = suid_nma), color = "red") +
+  geom_half_violin(data = human_w_bio %>% filter(year == 2019), aes(as.factor(year), sg), fill = "grey") +
+  geom_half_violin(data = human_w_bio %>% filter(year == 2020), aes(as.factor(year), sg), side = "r", fill = "grey") +
+  facet_wrap(~bio_quartile) +
+  theme_bw() +
+  scale_y_log10() +
+  labs(
+    x = "Year",
+    y = "Relative Tourism"
+  ) +
+  theme(
+    strip.background = element_rect(fill = "white"),
+    strip.text = element_text(face = "bold")
+  )
+p2
+
+ggsave(p1 + p2 + plot_annotation(tag_levels = "A") + plot_layout(guides = "collect"), file = paste0("fig5.pdf"), path = here::here("analysis", "figs"), height = 8, width = 10)
 
 # OLD ---------------------------------------------------------------------
 
@@ -1161,3 +1212,82 @@ ggsave(p1, file = paste0("fig5.pdf"), path = here::here("analysis", "figs"), hei
 #     box.padding = 1,
 #     color = "black"
 #   )
+
+# # Functions ---------------------------------------------------------------
+# 
+# normalize <- function(x) {
+#   (x - min(x)) / (max(x) - min(x))
+# }
+# 
+# single_pt_haversine <- function(lat, lng) {
+#   r <- 6371 # Earth's radius (km). Have r = 3956 if you want miles
+#   
+#   # 'Single-point' Haversine formula
+#   a <- sin(lat / 2)**2 + cos(lat) * sin(lng / 2)**2
+#   d <- 2 * r * asin(sqrt(a))
+#   
+#   return(d)
+# }
+# 
+# entropy <- function(target) {
+#   freq <- table(target) / length(target)
+#   # vectorize
+#   vec <- as.data.frame(freq)[, 2]
+#   # drop 0 to avoid NaN resulting from log2
+#   vec <- vec[vec > 0]
+#   # compute entropy
+#   -sum(vec * log2(vec))
+# }
+# 
+# cross.entropy <- function(p, phat) {
+#   x <- 0
+#   for (i in 1:length(p)) {
+#     x <- x + (p[i] * log(phat[i]))
+#   }
+#   return(-x)
+# }
+
+# # Checks ---------------------------------------------------------------
+# 
+# sg_have <- human %>%
+#   filter(!is.na(sg)) %>%
+#   mutate(sg_present = "Yes")
+# 
+# sg_havenot <- human %>%
+#   filter(is.na(sg)) %>%
+#   mutate(sg_present = "No")
+# 
+# p1 <- ggplot() +
+#   geom_sf(data = sg_have, fill = "blue", color = "transparent") +
+#   geom_sf(data = sg_havenot, fill = "red", color = "red") +
+#   theme_bw()
+# p1
+# 
+# ggsave(p1, file = paste0("missing_parks.pdf"), path = here::here("analysis", "figs"), height = 15, width = 15)
+# 
+# missing_sum <- rbind(sg_have, sg_havenot) %>%
+#   st_drop_geometry() %>%
+#   group_by(sg_present) %>%
+#   summarize(
+#     ghm_mean = mean(gHM_mean, na.rm = TRUE),
+#     ghm_sd = sd(gHM_mean, na.rm = TRUE),
+#     ghm_max = max(gHM_mean, na.rm = TRUE),
+#     ghm_min = min(gHM_mean, na.rm = TRUE),
+#     hfp_mean = mean(HFP_mean, na.rm = TRUE),
+#     hfp_sd = sd(HFP_mean, na.rm = TRUE),
+#     hfp_max = max(HFP_mean, na.rm = TRUE),
+#     hfp_min = min(HFP_mean, na.rm = TRUE),
+#     strava_mean = mean(hx_pp_r, na.rm = TRUE),
+#     strava_sd = sd(hx_pp_r, na.rm = TRUE),
+#     strava_max = max(hx_pp_r, na.rm = TRUE),
+#     strava_min = min(hx_pp_r, na.rm = TRUE)
+#   )
+# 
+# cor_check <- human %>%
+#   st_drop_geometry() %>%
+#   select(outside_pop, HFP_mean) %>%
+#   drop_na()
+# 
+# cor(cor_check$outside_pop, cor_check$HFP_mean)
+
+
