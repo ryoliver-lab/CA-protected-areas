@@ -91,20 +91,19 @@ human <- human %>%
     bio_median > quantile(bio_median, probs = 0.75, na.rm = TRUE) ~ "4th Quartile",
   ))
 
+cpad_no_geom = cpad_super %>%
+  st_drop_geometry()
+
 hfp <- st_read(here::here("data", "processed_data", "in_out_hfp.shp")) %>%
   mutate(loc = fct_relevel(as.factor(loc), c("Outside Protected Areas", "Inside Protected Areas"))) %>%
   st_drop_geometry() %>%
-  full_join(cpad_super) %>%
-  st_drop_geometry() %>%
-  select(-geometry) %>%
+  full_join(cpad_no_geom) %>%
   full_join(human %>% select(suid_nma, gap_status))
 
 bio <- st_read(here::here("data", "processed_data", "in_out_bio.shp")) %>%
   mutate(loc = fct_relevel(as.factor(loc), c("Outside Protected Areas", "Inside Protected Areas"))) %>%
   st_drop_geometry() %>%
-  full_join(cpad_super) %>%
-  st_drop_geometry() %>%
-  select(-geometry) %>%
+  full_join(cpad_no_geom) %>%
   full_join(human %>% select(suid_nma, gap_status))
 
 highlight_parks <- c(14310, 22386, 33731, 30603)
@@ -136,14 +135,15 @@ human_highlight_sum <- human_sum %>%
   filter(suid_nma %in% highlight_parks)
 
 p <- ggplot(human_sum) +
-  geom_hline(aes(yintercept = 1), color = "red", alpha = 0.5) +
+  # geom_hline(aes(yintercept = 1), color = "red", alpha = 0.5) +
   geom_point(aes(HFP_median, mean_sg, color = gap_status), alpha = 0.7) +
   geom_point(data = human_highlight_sum, aes(HFP_median, mean_sg), color = "red", size = 2) +
   theme_bw() +
   labs(
     x = "Median Human Footprint Index",
-    y = "Relative Tourism",
-    color = "Management"
+    y = "Tourism",
+    color = "Management",
+    title = "A"
   ) +
   scale_y_log10() +
   geom_label_repel(
@@ -156,26 +156,27 @@ p <- ggplot(human_sum) +
     color = "black"
   ) +
   scale_color_viridis_d(end = 0.9) +
-  theme(legend.position = "none") +
-  title("A")
+  theme(legend.position = "bottom",
+        plot.title = element_text(size= 20, vjust = -0.5))
 
 p1 <- ggMarginal(p, type = "density", fill = "grey")
 
-ggsave(p1, file = paste0("fig1A.pdf"), path = here::here("analysis", "figs"), height = 8, width = 10)
+ggsave(p1, file = paste0("fig2A.pdf"), path = here::here("analysis", "figs"), height = 8, width = 10)
 
 p <- ggplot(human_sum) +
-  geom_hline(aes(yintercept = 1), color = "red", alpha = 0.5) +
-  geom_point(aes(bio_median, mean_sg, color = gap_status), alpha = 0.7) +
-  geom_point(data = human_highlight_sum, aes(bio_median, mean_sg), color = "red", size = 2) +
+  # geom_hline(aes(yintercept = 1), color = "red", alpha = 0.5) +
+  geom_point(aes(bio_mean, mean_sg, color = gap_status), alpha = 0.7) +
+  geom_point(data = human_highlight_sum, aes(bio_mean, mean_sg), color = "red", size = 2) +
   theme_bw() +
   labs(
-    x = "Median Terrestrial Species Count",
-    y = "Relative Tourism",
-    color = "Management"
+    x = "Mean Terrestrial Species Count",
+    y = "Tourism",
+    color = "Management",
+    title = "B"
   ) +
   scale_y_log10() +
   geom_label_repel(
-    data = human_highlight_sum, aes(bio_median, bio_sg, label = park_name),
+    data = human_highlight_sum, aes(bio_mean, mean_sg, label = park_name),
     size = 4,
     alpha = 0.8,
     min.segment.length = 1,
@@ -184,26 +185,25 @@ p <- ggplot(human_sum) +
     color = "black"
   ) +
   scale_color_viridis_d(end = 0.9) +
-  theme(legend.position = "bottom") +
-  title("B")
+  theme(legend.position = "bottom",
+        plot.title = element_text(size= 20, vjust = -0.5))
 
 p1 <- ggMarginal(p, type = "density", fill = "grey")
 
-ggsave(p1, file = paste0("fig1B.pdf"), path = here::here("analysis", "figs"), height = 8, width = 10)
+ggsave(p1, file = paste0("fig2B.pdf"), path = here::here("analysis", "figs"), height = 8, width = 10)
 
 p <- ggplot(human_sum) +
-  geom_hline(aes(yintercept = 1), color = "red", alpha = 0.5) +
-  geom_point(aes(HFP_median, bio_median, color = gap_status), alpha = 0.7) +
-  geom_point(data = human_highlight_sum, aes(HFP_median, bio_median), color = "red", size = 2) +
+  geom_point(aes(HFP_median, bio_mean, color = gap_status), alpha = 0.7) +
+  geom_point(data = human_highlight_sum, aes(HFP_median, bio_mean), color = "red", size = 2) +
   theme_bw() +
   labs(
     x = "Median Human Footprint Index",
-    y = "Median Terrestrial Species Count",
-    color = "Management"
+    y = "Mean Terrestrial Species Count",
+    color = "Management",
+    title = "C"
   ) +
-  scale_y_log10() +
   geom_label_repel(
-    data = human_highlight_sum, aes(HFP_median, bio_median, label = park_name),
+    data = human_highlight_sum, aes(HFP_median, bio_mean, label = park_name),
     size = 4,
     alpha = 0.8,
     min.segment.length = 1,
@@ -212,12 +212,12 @@ p <- ggplot(human_sum) +
     color = "black"
   ) +
   scale_color_viridis_d(end = 0.9) +
-  theme(legend.position = "none") +
-  title("C")
+  theme(legend.position = "bottom",
+        plot.title = element_text(size= 20, vjust = -0.5))
 
 p1 <- ggMarginal(p, type = "density", fill = "grey")
 
-ggsave(p1, file = paste0("fig1C.pdf"), path = here::here("analysis", "figs"), height = 8, width = 10)
+ggsave(p1, file = paste0("fig2C.pdf"), path = here::here("analysis", "figs"), height = 8, width = 10)
 
 hfp <- hfp %>%
   filter(!is.na(HFP2009)) %>%
@@ -262,32 +262,30 @@ p2 <- ggplot(hfp %>% filter(!is.na(HFP2009))) +
     arrow = arrow(length = unit(0.1, "inches")),
     box.padding = 1,
     color = "black"
-  ) +
-  theme(legend.position = "bottom")
+  ) 
 
 p3 <- ggplot(bio %>% filter(!is.na(ntv_cnt))) +
   geom_density_ridges(aes(x = ntv_cnt, y = loc, fill = gap_status), alpha = 0.5, scale = 3) +
-  geom_vline(data = human_highlight_sum, aes(xintercept = bio_median), color = "red", linetype = "dashed") +
+  geom_vline(data = human_highlight_sum, aes(xintercept = bio_mean), color = "red", linetype = "dashed") +
   theme_bw() +
   labs(
-    x = "Human Footprint Index",
+    x = "Native Species Count",
     y = "",
     fill = "GAP Status"
   ) +
   scale_fill_viridis_d(end = .9, na.value = "#fde725") +
   scale_color_manual(values = c("black", "grey")) +
   geom_label_repel(
-    data = human_highlight_sum, aes(x = bio_median, y = 4, label = park_name),
+    data = human_highlight_sum, aes(x = bio_mean, y = 4, label = park_name),
     size = 4,
     alpha = 0.65,
     min.segment.length = 1,
     arrow = arrow(length = unit(0.1, "inches")),
     box.padding = 1,
     color = "black"
-  ) +
-  theme(legend.position = "bottom")
+  )
 
-ggsave(p2 / p3 + plot_annotation(tag_levels = "A") + plot_layout(guides = "collect"), file = paste0("fig2.pdf"), path = here::here("analysis", "figs"), height = 8, width = 10)
+ggsave(p2 / p3 + plot_annotation(tag_levels = "A") + plot_layout(guides = "collect"), file = paste0("fig3.pdf"), path = here::here("analysis", "figs"), height = 8, width = 10)
 
 # Spatial Analysis --------------------------------------------------------
 
@@ -298,11 +296,11 @@ park_models <- spatial_data %>%
   mutate(count = n()) %>%
   filter(count > 10)
 
-park_data = human %>% 
+park_data <- human %>%
   filter(suid_nma %in% park_models$suid_nma)
 
 gam1 <- gam(hex_int ~ s(HFP2009, k = 6) + s(y, x, bs = "gp", m = 1, k = 6) + s(suid_nma, bs = "re") + s(suid_nma, HFP2009, bs = "re"), random = list(suid_nma = ~ 1 + HFP2009), data = park_models)
-gam2 <- gam(hex_int ~ s(HFP2009, k = 6) + s(y, x, bs = "gp", m = 1, k = 6) + s(suid_nma, bs = "re") + s(suid_nma, HFP2009, bs = "re"), random = list(suid_nma = ~ 1 + HFP2009), data = park_models %>% filter(gap_status == "GAP 1"))
+gam2 <- gam(hex_int ~ s(HFP2009, k = 3) + s(y, x, bs = "gp", m = 1, k = 6) + s(suid_nma, bs = "re") + s(suid_nma, HFP2009, bs = "re"), random = list(suid_nma = ~ 1 + HFP2009), data = park_models %>% filter(gap_status == "GAP 1") %>% filter(HFP2009 < 10))
 gam3 <- gam(hex_int ~ s(HFP2009, k = 6) + s(y, x, bs = "gp", m = 1, k = 6) + s(suid_nma, bs = "re") + s(suid_nma, HFP2009, bs = "re"), random = list(suid_nma = ~ 1 + HFP2009), data = park_models %>% filter(gap_status == "GAP 2"))
 gam4 <- gam(hex_int ~ s(HFP2009, k = 6) + s(y, x, bs = "gp", m = 1, k = 6) + s(suid_nma, bs = "re") + s(suid_nma, HFP2009, bs = "re"), random = list(suid_nma = ~ 1 + HFP2009), data = park_models %>% filter(gap_status == "GAP 3"))
 gam5 <- gam(hex_int ~ s(HFP2009, k = 6) + s(y, x, bs = "gp", m = 1, k = 6) + s(suid_nma, bs = "re") + s(suid_nma, HFP2009, bs = "re"), random = list(suid_nma = ~ 1 + HFP2009), data = park_models %>% filter(gap_status == "GAP 4"))
@@ -384,7 +382,7 @@ p5 <- plot_predictions(gam5, condition = "HFP2009") +
 
 plot <- (p1) / ((p2 + p3) / (p4 + p5)) + plot_annotation(tag_levels = "A")
 
-ggsave(plot, file = paste0("fig3.pdf"), path = here::here("analysis", "figs"), height = 15, width = 15)
+ggsave(plot, file = paste0("fig4.pdf"), path = here::here("analysis", "figs"), height = 15, width = 15)
 
 # Temporal Analysis -------------------------------------------------------
 
@@ -420,6 +418,20 @@ temp_date <- temporal_bins %>%
   group_by(date_j, bin) %>%
   mutate(date_count = n())
 
+ggplot(temp_date) +
+  geom_tile(aes(date, bin, fill = date_count)) +
+  geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
+  geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
+  scale_fill_viridis_c() +
+  # facet_wrap(~) + 
+  theme_bw() +
+  labs(
+    x = "Date",
+    y = "Safegraph Quartiles",
+    fill = "Count"
+  ) +
+  scale_x_date()
+
 p1 <- ggplot(temp_date) +
   geom_tile(aes(date, bin, fill = date_count)) +
   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
@@ -448,54 +460,62 @@ p2 <- ggplot(temp_date) +
 
 plot <- p1 / p2 + plot_annotation(tag_levels = "A")
 
-ggsave(plot, file = paste0("fig4.pdf"), path = here::here("analysis", "figs"), height = 15, width = 15)
+ggsave(plot, file = paste0("fig1.pdf"), path = here::here("analysis", "figs"), height = 15, width = 15)
 
 
 # Change in SG ------------------------------------------------------------
 
 human_w_hfp <- human %>%
-  filter(!is.na(hfp_quartile)) 
+  filter(!is.na(hfp_quartile))
 
-human_w_bio <- human %>% 
+human_w_bio <- human %>%
   filter(!is.na(bio_quartile))
 
 p1 <- ggplot(human_w_hfp %>% filter(year != 2021)) +
-  geom_line(aes(as.factor(year), sg, group = suid_nma), alpha = 0.5) +
+  geom_line(aes(as.factor(year), sg, group = suid_nma), alpha = 0.3) +
   geom_line(data = human_highlight %>% filter(year != 2021), aes(as.factor(year), sg, group = suid_nma), color = "red") +
-  geom_half_violin(data = human_w_hfp %>% filter(year == 2019), aes(as.factor(year), sg), fill = "grey") +
-  geom_half_violin(data = human_w_hfp %>% filter(year == 2020), aes(as.factor(year), sg), side = "r", fill = "grey") +
+  geom_half_violin(data = human_w_hfp %>% filter(year == 2019), aes(as.factor(year), sg, fill = gap_status), position = "identity", alpha = 0.5) +
+  geom_half_violin(data = human_w_hfp %>% filter(year == 2020), aes(as.factor(year), sg, fill = gap_status), side = "r", position = "identity", alpha = 0.5) +
   facet_wrap(~hfp_quartile) +
   theme_bw() +
   scale_y_log10() +
   labs(
     x = "Year",
-    y = "Relative Tourism"
+    y = "Relative Tourism",
+    color = "GAP Status",
+    fill = "GAP Status"
   ) +
   theme(
     strip.background = element_rect(fill = "white"),
     strip.text = element_text(face = "bold")
-  )
+  ) +
+  scale_fill_viridis_d(end = 0.9) +
+  scale_color_viridis_d(end = 0.9)
 p1
 
 p2 <- ggplot(human_w_bio %>% filter(year != 2021)) +
-  geom_line(aes(as.factor(year), sg, group = suid_nma), alpha = 0.5) +
+  geom_line(aes(as.factor(year), sg, group = suid_nma), alpha = 0.3) +
   geom_line(data = human_highlight %>% filter(year != 2021), aes(as.factor(year), sg, group = suid_nma), color = "red") +
-  geom_half_violin(data = human_w_bio %>% filter(year == 2019), aes(as.factor(year), sg), fill = "grey") +
-  geom_half_violin(data = human_w_bio %>% filter(year == 2020), aes(as.factor(year), sg), side = "r", fill = "grey") +
+  geom_half_violin(data = human_w_bio %>% filter(year == 2019), aes(as.factor(year), sg, fill = gap_status), position = "identity", alpha = 0.5) +
+  geom_half_violin(data = human_w_bio %>% filter(year == 2020), aes(as.factor(year), sg, fill = gap_status), side = "r", position = "identity", alpha = 0.5) +
   facet_wrap(~bio_quartile) +
   theme_bw() +
   scale_y_log10() +
   labs(
     x = "Year",
-    y = "Relative Tourism"
+    y = "Relative Tourism",
+    color = "GAP Status",
+    fill = "GAP Status"
   ) +
   theme(
     strip.background = element_rect(fill = "white"),
     strip.text = element_text(face = "bold")
-  )
+  ) +
+  scale_fill_viridis_d(end = 0.9) +
+  scale_color_viridis_d(end = 0.9)
 p2
 
-ggsave(p1 + p2 + plot_annotation(tag_levels = "A") + plot_layout(guides = "collect"), file = paste0("fig5.pdf"), path = here::here("analysis", "figs"), height = 8, width = 10)
+ggsave(p1 + p2 + plot_annotation(tag_levels = "A") + plot_layout(guides = "collect"), file = paste0("fig5.pdf"), path = here::here("analysis", "figs"), height = 8, width = 20)
 
 # OLD ---------------------------------------------------------------------
 
@@ -1214,21 +1234,21 @@ ggsave(p1 + p2 + plot_annotation(tag_levels = "A") + plot_layout(guides = "colle
 #   )
 
 # # Functions ---------------------------------------------------------------
-# 
+#
 # normalize <- function(x) {
 #   (x - min(x)) / (max(x) - min(x))
 # }
-# 
+#
 # single_pt_haversine <- function(lat, lng) {
 #   r <- 6371 # Earth's radius (km). Have r = 3956 if you want miles
-#   
+#
 #   # 'Single-point' Haversine formula
 #   a <- sin(lat / 2)**2 + cos(lat) * sin(lng / 2)**2
 #   d <- 2 * r * asin(sqrt(a))
-#   
+#
 #   return(d)
 # }
-# 
+#
 # entropy <- function(target) {
 #   freq <- table(target) / length(target)
 #   # vectorize
@@ -1238,7 +1258,7 @@ ggsave(p1 + p2 + plot_annotation(tag_levels = "A") + plot_layout(guides = "colle
 #   # compute entropy
 #   -sum(vec * log2(vec))
 # }
-# 
+#
 # cross.entropy <- function(p, phat) {
 #   x <- 0
 #   for (i in 1:length(p)) {
@@ -1248,23 +1268,23 @@ ggsave(p1 + p2 + plot_annotation(tag_levels = "A") + plot_layout(guides = "colle
 # }
 
 # # Checks ---------------------------------------------------------------
-# 
+#
 # sg_have <- human %>%
 #   filter(!is.na(sg)) %>%
 #   mutate(sg_present = "Yes")
-# 
+#
 # sg_havenot <- human %>%
 #   filter(is.na(sg)) %>%
 #   mutate(sg_present = "No")
-# 
+#
 # p1 <- ggplot() +
 #   geom_sf(data = sg_have, fill = "blue", color = "transparent") +
 #   geom_sf(data = sg_havenot, fill = "red", color = "red") +
 #   theme_bw()
 # p1
-# 
+#
 # ggsave(p1, file = paste0("missing_parks.pdf"), path = here::here("analysis", "figs"), height = 15, width = 15)
-# 
+#
 # missing_sum <- rbind(sg_have, sg_havenot) %>%
 #   st_drop_geometry() %>%
 #   group_by(sg_present) %>%
@@ -1282,12 +1302,10 @@ ggsave(p1 + p2 + plot_annotation(tag_levels = "A") + plot_layout(guides = "colle
 #     strava_max = max(hx_pp_r, na.rm = TRUE),
 #     strava_min = min(hx_pp_r, na.rm = TRUE)
 #   )
-# 
+#
 # cor_check <- human %>%
 #   st_drop_geometry() %>%
 #   select(outside_pop, HFP_mean) %>%
 #   drop_na()
-# 
+#
 # cor(cor_check$outside_pop, cor_check$HFP_mean)
-
-

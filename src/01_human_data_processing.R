@@ -447,9 +447,12 @@ safegraph_block_sum <- safegraph_block %>%
     TRUE ~ value,
   )) %>%
   mutate(
-    pop_count = mean_count / value,
-    max_pop_count = max_count / value,
-    min_pop_count = min_count / value
+    pop_count = mean_count,
+    max_pop_count = max_count,
+    min_pop_count = min_count
+    # pop_count = mean_count / value,
+    # max_pop_count = max_count / value,
+    # min_pop_count = min_count / value
   ) %>%
   select(-mean_count, -max_count, -min_count) %>%
   distinct() %>%
