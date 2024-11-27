@@ -23,13 +23,13 @@ cpad_super <- st_read(here::here("data", "raw_data", "CPAD_2023a_SuperUnits.shp"
   filter(!grepl("community center", park_name, ignore.case = TRUE)) %>%
   filter(!grepl("school", park_name, ignore.case = TRUE))
 
-ghm <- rast(here::here("data", "raw_data", "gHM.tif")) %>%
-  project("EPSG:4326")
-
-ghm_cropped <- crop(ghm, cpad_super)
-ghm_masked <- mask(ghm_cropped, cpad_super)
-
-rm(ghm, ghm_cropped)
+# ghm <- rast(here::here("data", "raw_data", "gHM.tif")) %>%
+#   project("EPSG:4326")
+# 
+# ghm_cropped <- crop(ghm, cpad_super)
+# ghm_masked <- mask(ghm_cropped, cpad_super)
+# 
+# rm(ghm, ghm_cropped)
 
 hfp <- rast(here::here("data", "raw_data", "HFP2009.tif")) %>%
   project("EPSG:4326")
@@ -37,7 +37,7 @@ hfp <- rast(here::here("data", "raw_data", "HFP2009.tif")) %>%
 hfp_cropped <- crop(hfp, cpad_super)
 hfp_masked <- mask(hfp_cropped, cpad_super)
 
-rm(hfp, hfp_cropped)
+rm(hfp_cropped)
 
 strava_coarse <- rast(here::here("data", "raw_data", "strava_coarse.tif")) %>%
   project("EPSG:4326")
@@ -45,15 +45,30 @@ strava_coarse <- rast(here::here("data", "raw_data", "strava_coarse.tif")) %>%
 strava_coarse_cropped <- crop(strava_coarse, cpad_super)
 strava_coarse_masked <- mask(strava_coarse_cropped, cpad_super)
 
-cpad_raster <- rasterize(cpad_super, ghm_masked, field = "suid_nma")
+cpad_raster <- rasterize(cpad_super, hfp_masked, field = "suid_nma")
 
-ghm_masked <- resample(ghm_masked, cpad_raster, metho = "cubic")
+bio = st_read(here::here("data", "raw_data", "ds2739.gdb")) %>% 
+  sf::st_transform("EPSG:4326") %>% 
+  select(NativeCount, RareCount) %>% 
+  janitor::clean_names()
+
+bio_raster <- rasterize(bio, hfp, field = "native_count")
+rare_raster <- rasterize(bio, hfp, field = "rare_count")
+
+bio_cropped <- crop(bio_raster, cpad_super)
+bio_masked <- mask(bio_cropped, cpad_super)
+
+rare_cropped <- crop(rare_raster, cpad_super)
+rare_masked <- mask(rare_cropped, cpad_super)
+
+# ghm_masked <- resample(ghm_masked, cpad_raster, metho = "cubic")
 hfp_masked <- resample(hfp_masked, cpad_raster, metho = "cubic")
 strava_coarse_masked <- resample(strava_coarse_masked, cpad_raster, metho = "cubic")
+bio_masked <- resample(bio_masked, cpad_raster, metho = "cubic")
+rare_masked <- resample(rare_masked, cpad_raster, metho = "cubic")
 
-ghm <- extract(ghm_masked, cpad_super)
-hfp <- extract(hfp_masked, cpad_super) %>% 
-  select(-ID)
+# ghm <- extract(ghm_masked, cpad_super)
+hfp <- extract(hfp_masked, cpad_super)
 strava <- extract(strava_coarse_masked, cpad_super, xy=TRUE) %>% 
   mutate(strava_coarse_1 = case_when(
     strava_coarse_1 < 0 ~ 0,
@@ -71,11 +86,15 @@ strava <- extract(strava_coarse_masked, cpad_super, xy=TRUE) %>%
     TRUE ~ strava_coarse_3
   )) %>% 
   select(-ID)
+bio <- extract(bio_masked, cpad_super) %>% 
+  select(-ID)
+rare <- extract(rare_masked, cpad_super) %>% 
+  select(-ID)
 
 
 # Combine Data ------------------------------------------------------------
 
-spatial_data <- list(ghm, hfp, strava) %>%
+spatial_data <- list(hfp, strava, bio, rare) %>%
   reduce(cbind) %>% 
   full_join(cpad_super) %>%
   st_drop_geometry() %>% 

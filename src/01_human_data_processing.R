@@ -165,10 +165,11 @@ rm(hfp_masked, hfp_masked_inv, cpad_hfp_values, cpad_hfp_summary, cpad_hfp)
 
 bio = st_read(here::here("data", "raw_data", "ds2739.gdb")) %>% 
   sf::st_transform("EPSG:4326") %>% 
-  select(NativeCount) %>% 
+  select(NativeCount, RareCount) %>% 
   janitor::clean_names()
 
 bio_raster <- rasterize(bio, hfp, field = "native_count")
+rare_raster <- rasterize(bio, hfp, field = "rare_count")
 
 rm(hfp, bio)
 
@@ -176,12 +177,20 @@ bio_cropped <- crop(bio_raster, cpad_super)
 bio_masked <- mask(bio_cropped, cpad_super)
 bio_masked_inv = mask(bio_cropped, cpad_super, inverse = TRUE)
 
+rare_cropped <- crop(rare_raster, cpad_super)
+rare_masked <- mask(rare_cropped, cpad_super)
+rare_masked_inv = mask(rare_cropped, cpad_super, inverse = TRUE)
+
 bio_masked <- resample(bio_masked, cpad_raster, metho = "cubic")
 bio_masked_inv = resample(bio_masked_inv, cpad_raster, metho = "cubic")
 
-rm(bio_cropped, bio_raster)
+rare_masked <- resample(rare_masked, cpad_raster, metho = "cubic")
+rare_masked_inv = resample(rare_masked_inv, cpad_raster, metho = "cubic")
+
+rm(bio_cropped, bio_raster, rare_cropped, rare_raster)
 
 cpad_bio_values <- terra::extract(x = bio_masked, y = cpad_super, ID=TRUE)
+cpad_rare_values <- terra::extract(x = rare_masked, y = cpad_super, ID=TRUE)
 
 cpad_bio_summary <- cpad_bio_values %>%
   rename(bio = native_count) %>% ### CHECK
@@ -190,9 +199,19 @@ cpad_bio_summary <- cpad_bio_values %>%
   mutate(bio_sd = case_when(
     !is.na(bio_sd) ~ bio_sd,
     is.na(bio_sd) ~ 0
-  ))
+  )) 
 
-cpad_bio <- full_join(cpad_super, cpad_bio_summary) %>%
+cpad_rare_summary <- cpad_rare_values%>%
+  rename(rare = rare_count) %>% 
+  group_by(ID) %>%
+  summarize(across(rare, list(min = min, mean = mean, max = max, median = median, sd = sd))) %>%
+  mutate(rare_sd = case_when(
+    !is.na(rare_sd) ~ rare_sd,
+    is.na(rare_sd) ~ 0
+  )) %>% 
+  full_join(cpad_bio_summary)
+
+cpad_bio <- full_join(cpad_super, cpad_rare_summary) %>%
   mutate(
     bio_range = bio_max - bio_min,
     bio_cv = bio_sd / bio_mean
@@ -204,6 +223,18 @@ cpad_bio <- full_join(cpad_super, cpad_bio_summary) %>%
   mutate(bio_cv = case_when(
     !is.na(bio_cv) ~ bio_cv,
     is.na(bio_cv) ~ 0
+  )) %>%
+  mutate(
+    rare_range = rare_max - rare_min,
+    rare_cv = rare_sd / rare_mean
+  ) %>%
+  mutate(rare_sd = case_when(
+    !is.na(rare_sd) ~ rare_sd,
+    is.na(rare_sd) ~ 0
+  )) %>%
+  mutate(rare_cv = case_when(
+    !is.na(rare_cv) ~ rare_cv,
+    is.na(rare_cv) ~ 0
   ))
 
 inside_bio = terra::extract(bio_masked, cpad_super, xy=TRUE) %>% 
@@ -216,14 +247,29 @@ outside_bio = terra::extract(bio_masked_inv, ca, xy=TRUE) %>%
   st_as_sf(coords = c("x", "y")) %>% 
   mutate(loc = "Outside Protected Areas")
 
+inside_rare = terra::extract(rare_masked, cpad_super, xy=TRUE) %>% 
+  filter(!is.na(rare_count)) %>%
+  st_as_sf(coords = c("x", "y")) %>% 
+  mutate(loc = "Inside Protected Areas")
+
+outside_rare = terra::extract(rare_masked_inv, ca, xy=TRUE) %>% 
+  filter(!is.na(rare_count)) %>% 
+  st_as_sf(coords = c("x", "y")) %>% 
+  mutate(loc = "Outside Protected Areas")
+
 bio = list(inside_bio, outside_bio) %>% 
+  reduce(rbind) %>% 
+  st_set_crs("EPSG:4326")
+
+rare = list(inside_rare, outside_rare) %>% 
   reduce(rbind) %>% 
   st_set_crs("EPSG:4326")
 
 st_write(cpad_bio, here::here("data", "processed_data", "cpad_bio.shp"), append = FALSE)
 st_write(bio, here::here("data", "processed_data", "in_out_bio.shp"), append = FALSE)
+st_write(rare, here::here("data", "processed_data", "in_out_rare.shp"), append = FALSE)
 
-rm(bio_masked, bio_masked_inv, cpad_bio_values, cpad_bio_summary, cpad_bio, inside_bio, outside_bio)
+rm(bio_masked, bio_masked_inv, cpad_bio_values, cpad_bio_summary, cpad_bio, inside_bio, outside_bio, inside_rare, outside_rare)
 
 # Strava ------------------------------------------------------------------
 
