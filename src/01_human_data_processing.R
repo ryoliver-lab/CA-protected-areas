@@ -6,8 +6,6 @@ library(tidycensus)
 # census_api_key("440a21138779ca663e2d17789486ad0389a85339")
 options(tigris_use_cache = TRUE)
 
-sf_use_s2(FALSE)
-
 cpad_super <- st_read(here::here("data", "raw_data", "CPAD_2023a_SuperUnits.shp")) %>%
   sf::st_transform("EPSG:4326") %>%
   janitor::clean_names() %>%
@@ -47,77 +45,39 @@ census_blockgroup <- get_decennial(
   mutate(cbg = GEOID) %>%
   mutate(cbg = as.factor(cbg))
 
-ej_screen <- st_read(here::here("data", "raw_data", "EJSCREEN_2023_BG_StatePct_with_AS_CNMI_GU_VI.gdb/")) %>%
-  janitor::clean_names() %>%
-  st_transform(crs = st_crs(cpad_super)) %>%
-  filter(state_name == "California") %>%
-  rename(cbg = id) %>%
-  select(cbg, peopcolorpct, lowincpct)
-
-ca_census <- ej_screen %>%
-  mutate(census_area = st_area(ca_census))
-
-cpad_census <- st_intersection(ca_census, cpad_super)
-
-# cpad_census = st_read(here::here("data", "processed_data", "cpad_census.shp")) %>%
-#   sf::st_transform("EPSG:4326") %>%
-#   rename(cbg = id)
-
-rm(ca_census, ej_screen)
-
-# Global Human Modification ----------------------------------------------
-
-ghm <- rast(here::here("data", "raw_data", "gHM.tif")) %>%
-  project("EPSG:4326")
-
-ghm_cropped <- crop(ghm, cpad_super)
-ghm_masked <- mask(ghm_cropped, cpad_super)
-
-cpad_raster <- rasterize(cpad_super, ghm_masked, field = "suid_nma")
-
-ghm_masked <- resample(ghm_masked, cpad_raster, metho = "cubic")
-
-rm(ghm,ghm_cropped)
-
-cpad_ghm_values <- terra::extract(x = ghm_masked, y = cpad_super)
-
-cpad_ghm_summary <- cpad_ghm_values %>%
-  group_by(ID) %>%
-  summarize(across(gHM, list(min = min, mean = mean, max = max, median = median, sd = sd)))
-
-cpad_ghm <- full_join(cpad_super, cpad_ghm_summary) %>%
-  mutate(
-    gHM_range = gHM_max - gHM_min,
-    gHM_cv = gHM_sd / gHM_mean
-  ) %>%
-  mutate(gHM_sd = case_when(
-    !is.na(gHM_sd) ~ gHM_sd,
-    is.na(gHM_sd) ~ 0
-  )) %>%
-  mutate(gHM_cv = case_when(
-    !is.na(gHM_cv) ~ gHM_cv,
-    is.na(gHM_cv) ~ 0
-  ))
-
-st_write(cpad_ghm, here::here("data", "processed_data", "cpad_ghm.shp"), append = FALSE)
-
-rm(ghm_masked, cpad_ghm_values, cpad_ghm_summary, cpad_ghm)
-
 # Human Footprint Index ---------------------------------------------------
 
 hfp <- rast(here::here("data", "raw_data", "HFP2009.tif")) %>%
-  project("EPSG:4326")
+  project(crs(cpad_super))
 
 hfp_cropped <- crop(hfp, cpad_super)
 hfp_masked <- mask(hfp_cropped, cpad_super)
 hfp_masked_inv = mask(hfp_cropped, cpad_super, inverse = TRUE)
 
-hfp_masked <- resample(hfp_masked, cpad_raster, metho = "cubic")
-hfp_masked_inv = resample(hfp_masked_inv, cpad_raster, metho = "cubic")
-
 rm(hfp_cropped)
 
-cpad_hfp_values <- terra::extract(x = hfp_masked, y = cpad_super)
+cpad_hfp_values <- terra::extract(x = hfp, y = cpad_super)
+
+missing_hfp = cpad_hfp_values %>% 
+  group_by(ID) %>% 
+  mutate(mean_hfp = mean(HFP2009, na.rm=TRUE)) %>% 
+  filter(is.na(mean_hfp)) %>% 
+  distinct()
+
+cpad_super_sub = cpad_super %>% 
+  filter(ID %in% missing_hfp$ID) %>% 
+  mutate(ID2 = row_number())
+
+hfp_sub = crop(hfp, cpad_super_sub)
+
+ggplot() +
+  geom_raster(data = hfp_sub %>% as.data.frame(xy=TRUE), aes(x, y, fill=HFP2009), alpha = 0.3) +
+  geom_sf(data = cpad_super_sub, fill = "transparent",color = "red") +
+  theme_bw()+
+  scale_color_viridis_c()
+ 
+cpad_hfp_values2 <- terra::extract(x = hfp, y = cpad_super_sub) %>% 
+  rename(ID2 = ID)
 
 cpad_hfp_summary <- cpad_hfp_values %>%
   rename(HFP = HFP2009) %>%
@@ -164,7 +124,7 @@ rm(hfp_masked, hfp_masked_inv, cpad_hfp_values, cpad_hfp_summary, cpad_hfp)
 # Biodiversity ------------------------------------------------------------
 
 bio = st_read(here::here("data", "raw_data", "ds2739.gdb")) %>% 
-  sf::st_transform("EPSG:4326") %>% 
+  sf::st_transform(crs = st_crs(cpad_super)) %>% 
   select(NativeCount, RareCount) %>% 
   janitor::clean_names()
 
@@ -180,12 +140,6 @@ bio_masked_inv = mask(bio_cropped, cpad_super, inverse = TRUE)
 rare_cropped <- crop(rare_raster, cpad_super)
 rare_masked <- mask(rare_cropped, cpad_super)
 rare_masked_inv = mask(rare_cropped, cpad_super, inverse = TRUE)
-
-bio_masked <- resample(bio_masked, cpad_raster, metho = "cubic")
-bio_masked_inv = resample(bio_masked_inv, cpad_raster, metho = "cubic")
-
-rare_masked <- resample(rare_masked, cpad_raster, metho = "cubic")
-rare_masked_inv = resample(rare_masked_inv, cpad_raster, metho = "cubic")
 
 rm(bio_cropped, bio_raster, rare_cropped, rare_raster)
 
@@ -274,7 +228,7 @@ rm(bio_masked, bio_masked_inv, cpad_bio_values, cpad_bio_summary, cpad_bio, insi
 # Strava ------------------------------------------------------------------
 
 strava_coarse <- rast(here::here("data", "raw_data", "strava_coarse.tif")) %>%
-  project("EPSG:4326")
+  project(crs(cpad_super))
 
 strava_coarse_cropped <- crop(strava_coarse, cpad_super)
 strava_coarse_masked <- mask(strava_coarse_cropped, cpad_super)
@@ -426,6 +380,26 @@ rm(strava_block_sum)
 st_write(cpad_strava, here::here("data", "processed_data", "cpad_strava.shp"), append = FALSE)
 
 # Safegraph ---------------------------------------------------------------
+
+sf_use_s2(FALSE)
+
+ej_screen <- st_read(here::here("data", "raw_data", "EJSCREEN_2023_BG_StatePct_with_AS_CNMI_GU_VI.gdb/")) %>%
+  janitor::clean_names() %>%
+  st_transform(crs = st_crs(cpad_super)) %>%
+  filter(state_name == "California") %>%
+  rename(cbg = id) %>%
+  select(cbg, peopcolorpct, lowincpct)
+
+ca_census <- ej_screen %>%
+  mutate(census_area = st_area(Shape))
+
+cpad_census <- st_intersection(ca_census, cpad_super)
+
+# cpad_census = st_read(here::here("data", "processed_data", "cpad_census.shp")) %>%
+#   sf::st_transform("EPSG:4326") %>%
+#   rename(cbg = id)
+
+rm(ca_census, ej_screen)
 
 census_blockgroup <- census_blockgroup %>%
   select(-GEOID)
