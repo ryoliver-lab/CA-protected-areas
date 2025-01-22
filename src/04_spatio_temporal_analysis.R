@@ -596,7 +596,7 @@ p1 <- plot_predictions(gam1, condition = "HFP2009") +
   theme_bw() +
   labs(
     x = "Human Footprint Index",
-    y = "Strava Value"
+    y = "Strava Gray Scale"
   ) +
   coord_cartesian(clip = "off") +
   theme(
@@ -609,7 +609,7 @@ p2 <- plot_predictions(gam2, condition = "HFP2009") +
   theme_bw() +
   labs(
     x = "Human Footprint Index",
-    y = "Strava Value",
+    y = "Strava Gray Scale",
     title = "GAP 1"
   ) +
   coord_cartesian(clip = "off") +
@@ -623,7 +623,7 @@ p3 <- plot_predictions(gam3, condition = "HFP2009") +
   theme_bw() +
   labs(
     x = "Human Footprint Index",
-    y = "Strava Value",
+    y = "Strava Gray Scale",
     title = "GAP 2"
   ) +
   coord_cartesian(clip = "off") +
@@ -637,7 +637,7 @@ p4 <- plot_predictions(gam4, condition = "HFP2009") +
   theme_bw() +
   labs(
     x = "Human Footprint Index",
-    y = "Strava Value",
+    y = "Strava Gray Scale",
     title = "GAP 3"
   ) +
   coord_cartesian(clip = "off") +
@@ -651,7 +651,7 @@ p5 <- plot_predictions(gam5, condition = "HFP2009") +
   theme_bw() +
   labs(
     x = "Human Footprint Index",
-    y = "Strava Value",
+    y = "Strava Gray Scale",
     title = "GAP 4"
   ) +
   coord_cartesian(clip = "off") +
@@ -677,7 +677,7 @@ p6 <- plot_predictions(gam1, condition = "native_count") +
   theme_bw() +
   labs(
     x = "Native Species Count",
-    y = "Strava Value"
+    y = "Strava Gray Scale"
   ) +
   coord_cartesian(clip = "off") +
   theme(
@@ -690,7 +690,7 @@ p7 <- plot_predictions(gam2, condition = "native_count") +
   theme_bw() +
   labs(
     x = "Native Species Count",
-    y = "Strava Value",
+    y = "Strava Gray Scale",
     title = "GAP 1"
   ) +
   coord_cartesian(clip = "off") +
@@ -704,7 +704,7 @@ p8 <- plot_predictions(gam3, condition = "native_count") +
   theme_bw() +
   labs(
     x = "Native Species Count",
-    y = "Strava Value",
+    y = "Strava Gray Scale",
     title = "GAP 2"
   ) +
   coord_cartesian(clip = "off") +
@@ -718,7 +718,7 @@ p9 <- plot_predictions(gam4, condition = "native_count") +
   theme_bw() +
   labs(
     x = "Native Species Count",
-    y = "Strava Value",
+    y = "Strava Gray Scale",
     title = "GAP 3"
   ) +
   coord_cartesian(clip = "off") +
@@ -732,7 +732,7 @@ p10 <- plot_predictions(gam5, condition = "native_count") +
   theme_bw() +
   labs(
     x = "Native Species Count",
-    y = "Strava Value",
+    y = "Strava Gray Scale",
     title = "GAP 4"
   ) +
   coord_cartesian(clip = "off") +
