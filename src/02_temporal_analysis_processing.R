@@ -19,10 +19,10 @@ ca_census <- st_read(here::here("data", "raw_data", "EJSCREEN_2023_BG_StatePct_w
   filter(state_name == "California") %>%
   select(id)
 
-ca_census = ca_census %>%
+ca_census <- ca_census %>%
   mutate(census_area = st_area(ca_census))
 
-cpad_census = st_intersection(ca_census, cpad_super) %>%
+cpad_census <- st_intersection(ca_census, cpad_super) %>%
   rename(cbg = id)
 
 rm(ca_census)
@@ -38,12 +38,12 @@ list_of_files <- list.files(
 )
 
 safegraph <- read_csv(list_of_files, id = "file_name") %>%
-  mutate(file_name = str_replace(file_name, "C:/Users/acaug/Documents/School/PhD/CA-protected-areas/data/raw_data/safegraph/", ""))%>% 
-  mutate(file_name = str_replace(file_name, "_cbg_daily.txt", "")) %>% 
-  mutate(date = as.Date(file_name)) %>% 
-  select(-file_name) %>% 
-  rename(cbg = cpad_cbg) %>% 
-  mutate(cbg = as.factor(cbg))%>% 
+  mutate(file_name = str_replace(file_name, "C:/Users/acaug/Documents/School/PhD/CA-protected-areas/data/raw_data/safegraph/", "")) %>%
+  mutate(file_name = str_replace(file_name, "_cbg_daily.txt", "")) %>%
+  mutate(date = as.Date(file_name)) %>%
+  select(-file_name) %>%
+  rename(cbg = cpad_cbg) %>%
+  mutate(cbg = as.factor(cbg)) %>%
   full_join(cpad_census) %>%
   distinct() %>%
   filter(!is.na(device_count)) %>%
@@ -56,7 +56,7 @@ rm(list_of_files, cpad_census)
 
 safegraph_pa_sum <- safegraph %>%
   mutate(percent_pa = combo_r / shape_r) %>%
-  select(-combo_r, -shape_r) %>% 
+  select(-combo_r, -shape_r) %>%
   group_by(suid_nma, date) %>%
   summarize(
     sg = weighted.mean(device_count, percent_pa, na.rm = TRUE)

@@ -35,18 +35,18 @@ ocean = st_read(here::here("data", "raw_data", "3853-s3_2002_s3_reg_pacific_ocea
   sf::st_transform(crs = st_crs(cpad_super))
 
 sg <- read_csv(here::here("data", "processed_data", "cpad_sg.csv"))
-strava <- st_read(here::here("data", "processed_data", "cpad_strava.shp")) %>%
-  sf::st_transform(crs = st_crs(cpad_super))
+# strava <- st_read(here::here("data", "processed_data", "cpad_strava.shp")) %>%
+#   sf::st_transform(crs = st_crs(cpad_super))
 hfp <- st_read(here::here("data", "processed_data", "cpad_hfp.shp")) %>%
   sf::st_transform(crs = st_crs(cpad_super))
 bio <- st_read(here::here("data", "processed_data", "cpad_bio.shp")) %>%
   sf::st_transform(crs = st_crs(cpad_super))
 
-human <- list(sg, strava, hfp, bio) %>%
+human <- list(sg, hfp, bio) %>%
   reduce(full_join) %>%
   st_as_sf()
 
-rm(sg, strava, hfp, bio)
+rm(sg, hfp, bio)
 
 # take out hoas
 
@@ -66,21 +66,10 @@ human <- human %>%
   filter(!grepl("community center", park_name, ignore.case = TRUE)) %>%
   filter(!grepl("school", park_name, ignore.case = TRUE)) %>%
   select(
-    sg, mean_sg, hx_pp_r, mx_hx__, mn_hx__, suid_nma,
+    sg, mean_sg, suid_nma,
     access_typ, park_name, park_url, mng_ag_id, mng_agncy, mng_ag_lev, mng_ag_typ, agncy_web,
     label_name, gap1_acres, gap2_acres, gap3_acres, gap4_acres, gap_tot_ac, shape_leng, shape_area,
     HFP_min, HFP_mean, HFP_max, HFP_median, HFP_sd, HFP_range, HFP_cv, year, bio_men, bio_mdn,rare_men, rar_mdn
-  ) %>%
-  mutate(
-    hex_range = mx_hx__ - mn_hx__,
-    HFP_mean = case_when(
-      HFP_mean < 0 ~ 0,
-      TRUE ~ HFP_mean
-    ),
-    HFP_median = case_when(
-      HFP_median < 0 ~ 0,
-      TRUE ~ HFP_median
-    )
   ) %>%
   rowwise() %>%
   mutate(gap = max(gap1_acres, gap2_acres, gap3_acres, gap4_acres)) %>%
@@ -140,7 +129,8 @@ highlight_parks <- c(14310, 30603, 31388, 19448)
 spatial_data <- read_csv(here::here("data", "processed_data", "spatial_analysis.csv")) %>%
   filter(!is.na(hex_int)) %>%
   filter(suid_nma %in% human$suid_nma) %>%
-  full_join(human %>% select(suid_nma, gap_status))
+  full_join(human %>% select(suid_nma, gap_status)) %>% 
+  filter(!is.na(HFP2009))
 
 temporal_data <- read_csv(here::here("data", "processed_data", "temporal_analysis.csv")) %>%
   select(suid_nma, date, sg, park_name, mng_ag_lev, mng_agncy) %>%
@@ -186,6 +176,7 @@ cor_check = human_sum %>%
 
 cor(cor_check$HFP_median, cor_check$mean_sg)
 #0.02607408
+cor(cor_check$HFP_median, cor_check$mean_sg)
 
 colors = c("United States National Park Service" = "#440154",
            "The Nature Conservancy" = "#21918c", 
@@ -1890,165 +1881,3 @@ season_count = temporal_bins %>%
 #   }
 #   return(-x)
 # }
-
-# # Checks ---------------------------------------------------------------
-#
-# sg_have <- human %>%
-#   filter(!is.na(sg)) %>%
-#   mutate(sg_present = "Yes")
-#
-# sg_havenot <- human %>%
-#   filter(is.na(sg)) %>%
-#   mutate(sg_present = "No")
-#
-# p1 <- ggplot() +
-#   geom_sf(data = sg_have, fill = "blue", color = "transparent") +
-#   geom_sf(data = sg_havenot, fill = "red", color = "red") +
-#   theme_bw()
-# p1
-#
-# ggsave(p1, file = paste0("missing_parks.pdf"), path = here::here("analysis", "figs"), height = 15, width = 15)
-#
-# missing_sum <- rbind(sg_have, sg_havenot) %>%
-#   st_drop_geometry() %>%
-#   group_by(sg_present) %>%
-#   summarize(
-#     ghm_mean = mean(gHM_mean, na.rm = TRUE),
-#     ghm_sd = sd(gHM_mean, na.rm = TRUE),
-#     ghm_max = max(gHM_mean, na.rm = TRUE),
-#     ghm_min = min(gHM_mean, na.rm = TRUE),
-#     hfp_mean = mean(HFP_mean, na.rm = TRUE),
-#     hfp_sd = sd(HFP_mean, na.rm = TRUE),
-#     hfp_max = max(HFP_mean, na.rm = TRUE),
-#     hfp_min = min(HFP_mean, na.rm = TRUE),
-#     strava_mean = mean(hx_pp_r, na.rm = TRUE),
-#     strava_sd = sd(hx_pp_r, na.rm = TRUE),
-#     strava_max = max(hx_pp_r, na.rm = TRUE),
-#     strava_min = min(hx_pp_r, na.rm = TRUE)
-#   )
-#
-# cor_check <- human %>%
-#   st_drop_geometry() %>%
-#   select(outside_pop, HFP_mean) %>%
-#   drop_na()
-#
-# cor(cor_check$outside_pop, cor_check$HFP_mean)
-
-# # Change in SG ------------------------------------------------------------
-# 
-# human_w_hfp <- human %>%
-#   filter(!is.na(hfp_quartile))
-# 
-# human_w_bio <- human %>%
-#   filter(!is.na(bio_quartile))
-# 
-# p1 <- ggplot(human_w_hfp %>% filter(year != 2021)) +
-#   geom_line(aes(as.factor(year), sg, group = suid_nma), alpha = 0.3) +
-#   geom_line(data = human_highlight %>% filter(year != 2021), aes(as.factor(year), sg, group = suid_nma), color = "red") +
-#   geom_half_violin(data = human_w_hfp %>% filter(year == 2019), aes(as.factor(year), sg, fill = gap_status), position = "identity", alpha = 0.5) +
-#   geom_half_violin(data = human_w_hfp %>% filter(year == 2020), aes(as.factor(year), sg, fill = gap_status), side = "r", position = "identity", alpha = 0.5) +
-#   facet_wrap(~hfp_quartile) +
-#   theme_bw() +
-#   scale_y_log10() +
-#   labs(
-#     x = "Year",
-#     y = "Relative Tourism",
-#     color = "GAP Status",
-#     fill = "GAP Status"
-#   ) +
-#   theme(
-#     strip.background = element_rect(fill = "white"),
-#     strip.text = element_text(face = "bold")
-#   ) +
-#   scale_fill_viridis_d(end = 0.9) +
-#   scale_color_viridis_d(end = 0.9)
-# p1
-# 
-# p2 <- ggplot(human_w_bio %>% filter(year != 2021)) +
-#   geom_line(aes(as.factor(year), sg, group = suid_nma), alpha = 0.3) +
-#   geom_line(data = human_highlight %>% filter(year != 2021), aes(as.factor(year), sg, group = suid_nma), color = "red") +
-#   geom_half_violin(data = human_w_bio %>% filter(year == 2019), aes(as.factor(year), sg, fill = gap_status), position = "identity", alpha = 0.5) +
-#   geom_half_violin(data = human_w_bio %>% filter(year == 2020), aes(as.factor(year), sg, fill = gap_status), side = "r", position = "identity", alpha = 0.5) +
-#   facet_wrap(~bio_quartile) +
-#   theme_bw() +
-#   scale_y_log10() +
-#   labs(
-#     x = "Year",
-#     y = "Relative Tourism",
-#     color = "GAP Status",
-#     fill = "GAP Status"
-#   ) +
-#   theme(
-#     strip.background = element_rect(fill = "white"),
-#     strip.text = element_text(face = "bold")
-#   ) +
-#   scale_fill_viridis_d(end = 0.9) +
-#   scale_color_viridis_d(end = 0.9)
-# p2
-# 
-# ggsave(p1 + p2 + plot_annotation(tag_levels = "A") + plot_layout(guides = "collect"), file = paste0("fig5.pdf"), path = here::here("analysis", "figs"), height = 8, width = 20)
-# 
-# p2 <- ggplot(hfp %>% filter(!is.na(HFP2009))) +
-#   geom_density_ridges(aes(x = HFP2009, y = loc, fill = gap_status), alpha = 0.5, scale = 3) +
-#   geom_vline(data = human_highlight_sum, aes(xintercept = HFP_median), color = "red", linetype = "dashed") +
-#   theme_bw() +
-#   labs(
-#     x = "Human Footprint Index",
-#     y = "",
-#     fill = "GAP Status"
-#   ) +
-#   scale_fill_viridis_d(end = .9, na.value = "#fde725") +
-#   scale_color_manual(values = c("black", "grey")) +
-#   geom_label_repel(
-#     data = human_highlight_sum, aes(x = HFP_median, y = 4, label = park_name),
-#     size = 4,
-#     alpha = 0.65,
-#     min.segment.length = 1,
-#     arrow = arrow(length = unit(0.1, "inches")),
-#     box.padding = 1,
-#     color = "black"
-#   ) 
-# 
-# p3 <- ggplot(bio %>% filter(!is.na(ntv_cnt))) +
-#   geom_density_ridges(aes(x = ntv_cnt, y = loc, fill = gap_status), alpha = 0.5, scale = 3) +
-#   geom_vline(data = human_highlight_sum, aes(xintercept = bio_men), color = "red", linetype = "dashed") +
-#   theme_bw() +
-#   labs(
-#     x = "Native Species Count",
-#     y = "",
-#     fill = "GAP Status"
-#   ) +
-#   scale_fill_viridis_d(end = .9, na.value = "#fde725") +
-#   scale_color_manual(values = c("black", "grey")) +
-#   geom_label_repel(
-#     data = human_highlight_sum, aes(x = bio_men, y = 4, label = park_name),
-#     size = 4,
-#     alpha = 0.65,
-#     min.segment.length = 1,
-#     arrow = arrow(length = unit(0.1, "inches")),
-#     box.padding = 1,
-#     color = "black"
-#   )
-# 
-# p4 <- ggplot(rare %>% filter(!is.na(rare_count))) +
-#   geom_density_ridges(aes(x = rare_count, y = loc, fill = gap_status), alpha = 0.5, scale = 3) +
-#   geom_vline(data = human_highlight_sum, aes(xintercept = rare_men), color = "red", linetype = "dashed") +
-#   theme_bw() +
-#   labs(
-#     x = "Rare Species Count",
-#     y = "",
-#     fill = "GAP Status"
-#   ) +
-#   scale_fill_viridis_d(end = .9, na.value = "#fde725") +
-#   scale_color_manual(values = c("black", "grey")) +
-#   geom_label_repel(
-#     data = human_highlight_sum, aes(x = rare_men, y = 4, label = park_name),
-#     size = 4,
-#     alpha = 0.65,
-#     min.segment.length = 1,
-#     arrow = arrow(length = unit(0.1, "inches")),
-#     box.padding = 1,
-#     color = "black"
-#   )
-# 
-# ggsave(p2 / p3 / p4 + plot_annotation(tag_levels = "A") + plot_layout(guides = "collect"), file = paste0("fig3_old.pdf"), path = here::here("analysis", "figs"), height = 8, width = 10)
