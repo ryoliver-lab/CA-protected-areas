@@ -150,8 +150,6 @@ temporal_data <- read_csv(here::here("data", "processed_data", "temporal_analysi
   filter(suid_nma %in% human$suid_nma) %>%
   mutate(year = year(date))
 
-# Scatter Plot ------------------------------------------------------------
-
 human_highlight <- human %>%
   filter(suid_nma %in% highlight_parks)
 
@@ -162,13 +160,6 @@ human_sum <- human %>%
 
 human_highlight_sum <- human_sum %>%
   filter(suid_nma %in% highlight_parks)
-
-cor_check = human_sum %>% 
-  select(HFP_median, mean_sg) %>% 
-  drop_na()
-
-cor(cor_check$HFP_median, cor_check$mean_sg)
-#0.02607408
 
 NPS = human_sum %>% 
   filter(mng_agncy == "United States National Park Service")
@@ -181,6 +172,20 @@ UC = human_sum %>%
 
 CDFW = human_sum %>% 
   filter(mng_agncy == "California Department of Fish and Wildlife")
+
+colors = c("United States National Park Service" = "#440154",
+           "The Nature Conservancy" = "#21918c", 
+           "University of California" = "#3b528b",
+           "California Department of Fish and Wildlife" = "#5ec962")
+
+# Scatter Plot ------------------------------------------------------------
+
+cor_check = human_sum %>% 
+  select(HFP_median, mean_sg) %>% 
+  drop_na()
+
+cor(cor_check$HFP_median, cor_check$mean_sg)
+#0.02607408
 
 colors = c("United States National Park Service" = "#440154",
            "The Nature Conservancy" = "#21918c", 
@@ -324,10 +329,11 @@ rare <- rare %>%
 hfp_out = hfp %>% 
   filter(loc == "Outside Protected Areas") %>% 
   mutate(gap_status = "None") %>% 
-  select(HFP2009, gap_status, loc)
+  mutate(mng_agncy = "None") %>% 
+  select(HFP2009, gap_status, loc, mng_agncy)
 
 human_in = human %>% 
-  select(gap_status, HFP_median) %>% 
+  select(gap_status, HFP_median, mng_agncy) %>% 
   mutate(loc = "Inside Protected Area") %>% 
   rename(HFP2009 = HFP_median)  %>% 
   st_drop_geometry()
@@ -339,10 +345,11 @@ hfp_combine = rbind(hfp_out, human_in) %>%
 bio_out = bio %>% 
   filter(loc == "Outside Protected Areas") %>% 
   mutate(gap_status = "None") %>% 
-  select(ntv_cnt, gap_status, loc)
+  mutate(mng_agncy = "None") %>% 
+  select(ntv_cnt, gap_status, loc, mng_agncy)
 
 human_in = human %>% 
-  select(gap_status, bio_mdn) %>% 
+  select(gap_status, bio_mdn, mng_agncy) %>% 
   mutate(loc = "Inside Protected Area") %>% 
   rename(ntv_cnt = bio_mdn)  %>% 
   st_drop_geometry()
@@ -353,11 +360,12 @@ bio_combine = rbind(bio_out, human_in) %>%
 
 rare_out = rare %>% 
   filter(loc == "Outside Protected Areas") %>% 
-  mutate(gap_status = "None") %>% 
-  select(rare_count, gap_status, loc)
+  mutate(gap_status = "None") %>%  
+  mutate(mng_agncy = "None") %>% 
+  select(rare_count, gap_status, loc, mng_agncy)
 
 human_in = human %>% 
-  select(gap_status, rar_mdn) %>% 
+  select(gap_status, rar_mdn, mng_agncy) %>% 
   mutate(loc = "Inside Protected Area") %>% 
   rename(rare_count = rar_mdn)  %>% 
   st_drop_geometry()
@@ -373,7 +381,7 @@ manager_sum = list(CDFW, UC, TNC, NPS) %>%
             bio_mdn = median(bio_mdn, na.rm=TRUE),
             rare_mdn = median(rar_mdn, na.rm=TRUE))
 
-p2 <- ggplot(hfp_combine) +
+p1 <- ggplot(hfp_combine) +
   geom_density_ridges(aes(x = HFP2009, y = loc, fill = gap_status), alpha = 0.5, scale = 3)+
   geom_vline(data = manager_sum, aes(xintercept = HFP_median), color = "red", linetype = "dashed") +
   theme_bw() +
@@ -394,7 +402,7 @@ p2 <- ggplot(hfp_combine) +
     color = "black"
   ) 
 
-p3 <- ggplot(bio_combine) +
+p2 <- ggplot(bio_combine) +
   geom_density_ridges(aes(x = ntv_cnt, y = loc, fill = gap_status), alpha = 0.5, scale = 3) +
   geom_vline(data = manager_sum, aes(xintercept = bio_mdn), color = "red", linetype = "dashed") +
   theme_bw() +
@@ -415,7 +423,7 @@ p3 <- ggplot(bio_combine) +
     color = "black"
   )
 
-p4 <- ggplot(rare_combine) +
+p3 <- ggplot(rare_combine) +
   geom_density_ridges(aes(x = rare_count, y = loc, fill = gap_status), alpha = 0.5, scale = 3) +
   geom_vline(data = manager_sum, aes(xintercept = rare_mdn), color = "red", linetype = "dashed") +
   theme_bw() +
@@ -436,7 +444,64 @@ p4 <- ggplot(rare_combine) +
     color = "black"
   )
 
-ggsave(p2 / p3 / p4 + plot_annotation(tag_levels = "A") + plot_layout(guides = "collect"), file = paste0("fig2.pdf"), path = here::here("analysis", "figs"), height = 8, width = 10)
+ggsave(p1 / p2 / p3 + plot_annotation(tag_levels = "A") + plot_layout(guides = "collect"), file = paste0("fig2.pdf"), path = here::here("analysis", "figs"), height = 8, width = 10)
+
+hfp_combine_sub = hfp_combine %>% 
+  filter(mng_agncy %in% c("United States National Park Service",
+                            "The Nature Conservancy", 
+                            "University of California", 
+                            "California Department of Fish and Wildlife",
+                            "None"))
+
+bio_combine_sub = bio_combine %>% 
+  filter(mng_agncy %in% c("United States National Park Service",
+                           "The Nature Conservancy", 
+                           "University of California", 
+                           "California Department of Fish and Wildlife",
+                           "None"))
+
+
+rare_combine_sub = rare_combine %>% 
+  filter(mng_agncy %in% c("United States National Park Service",
+                           "The Nature Conservancy", 
+                           "University of California", 
+                           "California Department of Fish and Wildlife",
+                           "None"))
+
+p1 <- ggplot(hfp_combine_sub) +
+  geom_density_ridges(aes(x = HFP2009, y = loc, fill = mng_agncy), alpha = 0.5, scale = 3) +
+  theme_bw() +
+  labs(
+    x = "Human Footprint Index",
+    y = "",
+    fill = "GAP Status"
+  ) +
+  scale_fill_manual(values = colors) +
+  scale_color_manual(values = c("black", "grey"))
+
+p2 <- ggplot(bio_combine_sub) +
+  geom_density_ridges(aes(x = ntv_cnt, y = loc, fill = mng_agncy), alpha = 0.5, scale = 3) +
+  theme_bw() +
+  labs(
+    x = "Native Species Count",
+    y = "",
+    fill = "GAP Status"
+  ) + 
+  scale_fill_manual(values = colors) +
+  scale_color_manual(values = c("black", "grey"))
+
+p3 <- ggplot(rare_combine_sub) +
+  geom_density_ridges(aes(x = rare_count, y = loc, fill = mng_agncy), alpha = 0.5, scale = 3) +
+  theme_bw() +
+  labs(
+    x = "Rare Species Count",
+    y = "",
+    fill = "GAP Status"
+  ) +
+  scale_fill_manual(values = colors) +
+  scale_color_manual(values = c("black", "grey"))
+
+ggsave(p1 / p2 / p3 + plot_annotation(tag_levels = "A") + plot_layout(guides = "collect"), file = paste0("figS3.pdf"), path = here::here("analysis", "figs"), height = 8, width = 10)
 
 # Quartile Analysis -------------------------------------------------------
 

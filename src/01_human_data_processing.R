@@ -283,9 +283,9 @@ strava_block_sum <- strava_block %>%
   )) %>%
   group_by(ID, GEOID, value, area) %>%
   summarize(
-    mean_1 = mean(strava_coarse_1, na.rm = TRUE),
-    mean_2 = mean(strava_coarse_2, na.rm = TRUE),
-    mean_3 = mean(strava_coarse_3, na.rm = TRUE),
+    mean_1 = median(strava_coarse_1, na.rm = TRUE),
+    mean_2 = median(strava_coarse_2, na.rm = TRUE),
+    mean_3 = median(strava_coarse_3, na.rm = TRUE),
     max_1 = max(strava_coarse_1, na.rm = TRUE),
     max_2 = max(strava_coarse_2, na.rm = TRUE),
     max_3 = max(strava_coarse_3, na.rm = TRUE),
@@ -383,24 +383,6 @@ st_write(cpad_strava, here::here("data", "processed_data", "cpad_strava.shp"), a
 
 sf_use_s2(FALSE)
 
-ej_screen <- st_read(here::here("data", "raw_data", "EJSCREEN_2023_BG_StatePct_with_AS_CNMI_GU_VI.gdb/")) %>%
-  janitor::clean_names() %>%
-  st_transform(crs = st_crs(cpad_super)) %>%
-  filter(state_name == "California") %>%
-  rename(cbg = id) %>%
-  select(cbg, peopcolorpct, lowincpct)
-
-ca_census <- ej_screen %>%
-  mutate(census_area = st_area(Shape))
-
-cpad_census <- st_intersection(ca_census, cpad_super)
-
-# cpad_census = st_read(here::here("data", "processed_data", "cpad_census.shp")) %>%
-#   sf::st_transform("EPSG:4326") %>%
-#   rename(cbg = id)
-
-rm(ca_census, ej_screen)
-
 census_blockgroup <- census_blockgroup %>%
   select(-GEOID)
 
@@ -437,16 +419,14 @@ safegraph_sum <- safegraph %>%
     sd_count = sd(device_count, na.rm = TRUE),
     max_count = max(device_count, na.rm = TRUE),
     min_count = min(device_count, na.rm = TRUE),
-    cv_count = sd_count / mean_count
+    cv_count = sd_count / mean_count,
+    median_count = median(device_count, na.rm = TRUE)
   ) %>%
   ungroup()
 
 safegraph_block <- safegraph_sum %>%
   left_join(census_block) %>%
   st_as_sf()
-
-# %>%
-#   select(-cbg)
 
 rm(safegraph_sum, census_block)
 

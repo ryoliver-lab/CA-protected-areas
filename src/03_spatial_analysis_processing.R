@@ -41,6 +41,7 @@ rm(hfp_cropped)
 
 strava_coarse <- rast(here::here("data", "raw_data", "strava_coarse.tif")) %>%
   project("EPSG:4326")
+res(strava_coarse)
 
 strava_coarse_cropped <- crop(strava_coarse, cpad_super)
 strava_coarse_masked <- mask(strava_coarse_cropped, cpad_super)
