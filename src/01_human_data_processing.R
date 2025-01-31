@@ -3,6 +3,8 @@ library(sf)
 library(terra)
 library(tidycensus)
 
+sf_use_s2(FALSE)
+
 # census_api_key("440a21138779ca663e2d17789486ad0389a85339")
 options(tigris_use_cache = TRUE)
 
@@ -12,7 +14,7 @@ cpad_super <- st_read(here::here("data", "raw_data", "CPAD_2023a_SuperUnits.shp"
   mutate(ID = row_number())
 
 ca <- st_read(here::here("data", "raw_data", "CA_State_TIGER2016.shp")) %>%
-  sf::st_transform("EPSG:4326")
+  sf::st_transform(st_crs(cpad_super))
 
 census_block <- get_decennial(
   state = "CA",
@@ -23,7 +25,7 @@ census_block <- get_decennial(
 ) %>%
   mutate(census_block_area = units::drop_units(st_area(geometry))) %>%
   select(-variable, -NAME) %>%
-  sf::st_transform("EPSG:4326") %>%
+  sf::st_transform(st_crs(cpad_super)) %>%
   st_buffer(dist = 0) %>%
   mutate(cbg = substring(GEOID, 1, 12)) %>%
   mutate(cbg = as.factor(cbg))
@@ -40,10 +42,11 @@ census_blockgroup <- get_decennial(
 ) %>%
   mutate(census_blockgroup_area = units::drop_units(st_area(geometry))) %>%
   select(-variable, -NAME) %>%
-  sf::st_transform("EPSG:4326") %>%
+  sf::st_transform(st_crs(cpad_super)) %>%
   st_buffer(dist = 0) %>%
   mutate(cbg = GEOID) %>%
-  mutate(cbg = as.factor(cbg))
+  mutate(cbg = as.factor(cbg)) %>%
+  select(-GEOID)
 
 # Human Footprint Index ---------------------------------------------------
 
@@ -54,7 +57,7 @@ hfp_cropped <- crop(hfp, cpad_super)
 hfp_masked <- mask(hfp_cropped, cpad_super)
 hfp_masked_inv <- mask(hfp_cropped, cpad_super, inverse = TRUE)
 
-rm(hfp_cropped)
+rm(hfp_cropped, hfp)
 
 cpad_hfp_values <- terra::extract(x = hfp, y = cpad_super)
 
@@ -121,6 +124,62 @@ st_write(hfp, here::here("data", "processed_data", "in_out_hfp.shp"), append = F
 
 rm(hfp_masked, hfp_masked_inv, cpad_hfp_values, cpad_hfp_summary, cpad_hfp)
 
+
+
+# Strava ------------------------------------------------------------------
+
+strava_coarse <- rast(here::here("data", "raw_data", "strava_coarse.tif")) %>%
+  project(crs(cpad_super))
+
+strava_coarse_cropped <- crop(strava_coarse, cpad_super)
+strava_coarse_masked <- mask(strava_coarse_cropped, cpad_super)
+
+rm(strava_coarse_cropped)
+
+cpad_strava_coarse_values <- terra::extract(x = strava_coarse_masked, y = cpad_super)
+
+strava_sum <- cpad_strava_coarse_values %>%
+  group_by(ID) %>%
+  summarize(
+    mean_1 = median(strava_coarse_1, na.rm = TRUE),
+    mean_2 = median(strava_coarse_2, na.rm = TRUE),
+    mean_3 = median(strava_coarse_3, na.rm = TRUE),
+    max_1 = max(strava_coarse_1, na.rm = TRUE),
+    max_2 = max(strava_coarse_2, na.rm = TRUE),
+    max_3 = max(strava_coarse_3, na.rm = TRUE),
+    min_1 = min(strava_coarse_1, na.rm = TRUE),
+    min_2 = min(strava_coarse_2, na.rm = TRUE),
+    min_3 = min(strava_coarse_3, na.rm = TRUE)
+  ) %>%
+  distinct() %>%
+  filter(!is.na(mean_1))
+
+strava_sum <- strava_sum %>%
+  mutate(gray_scale = (0.299 * mean_1) + (0.587 * mean_2) + (0.114 * mean_3)) %>%
+  mutate(
+    hex_mean = rgb(mean_1, mean_2, mean_3, maxColorValue = 255),
+    hex_max = rgb(max_1, max_2, max_3, maxColorValue = 255),
+    hex_min = rgb(min_1, min_2, min_3, maxColorValue = 255)
+  ) %>%
+  mutate(
+    hex_mean_int = strtoi(str_remove(hex_mean, "#"), 16L),
+    hex_max_int = strtoi(str_remove(hex_max, "#"), 16L),
+    hex_min_int = strtoi(str_remove(hex_min, "#"), 16L)
+  ) %>%
+  select(ID, hex_mean_int, hex_max_int, hex_min_int, gray_scale)
+
+cpad_strava <- full_join(cpad_super, strava_sum) %>%
+  select(-ID) %>%
+  st_drop_geometry() %>%
+  distinct() %>%
+  full_join(cpad_super)
+
+rm(strava_sum)
+
+st_write(cpad_strava, here::here("data", "processed_data", "cpad_strava.shp"), append = FALSE)
+
+rm(cpad_strava, cpad_strava_coarse_values, strava_coarse_masked)
+
 # Biodiversity ------------------------------------------------------------
 
 bio <- st_read(here::here("data", "raw_data", "ds2739.gdb")) %>%
@@ -128,10 +187,10 @@ bio <- st_read(here::here("data", "raw_data", "ds2739.gdb")) %>%
   select(NativeCount, RareCount) %>%
   janitor::clean_names()
 
-bio_raster <- rasterize(bio, hfp, field = "native_count")
-rare_raster <- rasterize(bio, hfp, field = "rare_count")
+bio_raster <- rasterize(bio, strava_coarse, field = "native_count")
+rare_raster <- rasterize(bio, strava_coarse, field = "rare_count")
 
-rm(hfp, bio)
+rm(strava_coarse, bio)
 
 bio_cropped <- crop(bio_raster, cpad_super)
 bio_masked <- mask(bio_cropped, cpad_super)
@@ -147,7 +206,7 @@ cpad_bio_values <- terra::extract(x = bio_masked, y = cpad_super, ID = TRUE)
 cpad_rare_values <- terra::extract(x = rare_masked, y = cpad_super, ID = TRUE)
 
 cpad_bio_summary <- cpad_bio_values %>%
-  rename(bio = native_count) %>% ### CHECK
+  rename(bio = native_count) %>%
   group_by(ID) %>%
   summarize(across(bio, list(min = min, mean = mean, max = max, median = median, sd = sd))) %>%
   mutate(bio_sd = case_when(
@@ -197,6 +256,7 @@ inside_bio <- terra::extract(bio_masked, cpad_super, xy = TRUE) %>%
   mutate(loc = "Inside Protected Areas")
 
 outside_bio <- terra::extract(bio_masked_inv, ca, xy = TRUE) %>%
+  rename(native_count = layer) %>%
   filter(!is.na(native_count)) %>%
   st_as_sf(coords = c("x", "y")) %>%
   mutate(loc = "Outside Protected Areas")
@@ -207,6 +267,7 @@ inside_rare <- terra::extract(rare_masked, cpad_super, xy = TRUE) %>%
   mutate(loc = "Inside Protected Areas")
 
 outside_rare <- terra::extract(rare_masked_inv, ca, xy = TRUE) %>%
+  rename(rare_count = layer) %>%
   filter(!is.na(rare_count)) %>%
   st_as_sf(coords = c("x", "y")) %>%
   mutate(loc = "Outside Protected Areas")
@@ -223,68 +284,18 @@ st_write(cpad_bio, here::here("data", "processed_data", "cpad_bio.shp"), append 
 st_write(bio, here::here("data", "processed_data", "in_out_bio.shp"), append = FALSE)
 st_write(rare, here::here("data", "processed_data", "in_out_rare.shp"), append = FALSE)
 
-rm(bio_masked, bio_masked_inv, cpad_bio_values, cpad_bio_summary, cpad_bio, inside_bio, outside_bio, inside_rare, outside_rare)
-
-# Strava ------------------------------------------------------------------
-
-strava_coarse <- rast(here::here("data", "raw_data", "strava_coarse.tif")) %>%
-  project(crs(cpad_super))
-
-strava_coarse_cropped <- crop(strava_coarse, cpad_super)
-strava_coarse_masked <- mask(strava_coarse_cropped, cpad_super)
-
-rm(strava_coarse, strava_coarse_cropped)
-
-cpad_strava_coarse_values <- terra::extract(x = strava_coarse_masked, y = cpad_super)
-
-rm(strava_coarse)
-
-strava_sum <- cpad_strava_coarse_values %>%
-  group_by(ID) %>%
-  summarize(
-    mean_1 = median(strava_coarse_1, na.rm = TRUE),
-    mean_2 = median(strava_coarse_2, na.rm = TRUE),
-    mean_3 = median(strava_coarse_3, na.rm = TRUE),
-    max_1 = max(strava_coarse_1, na.rm = TRUE),
-    max_2 = max(strava_coarse_2, na.rm = TRUE),
-    max_3 = max(strava_coarse_3, na.rm = TRUE),
-    min_1 = min(strava_coarse_1, na.rm = TRUE),
-    min_2 = min(strava_coarse_2, na.rm = TRUE),
-    min_3 = min(strava_coarse_3, na.rm = TRUE)
-  ) %>%
-  distinct() %>%
-  filter(!is.na(mean_1))
-
-strava_sum <- strava_sum %>%
-  mutate(gray_scale = (0.299 * mean_1) + (0.587 * mean_2) + (0.114 * mean_3)) %>%
-  mutate(
-    hex_mean = rgb(mean_1, mean_2, mean_3, maxColorValue = 255),
-    hex_max = rgb(max_1, max_2, max_3, maxColorValue = 255),
-    hex_min = rgb(min_1, min_2, min_3, maxColorValue = 255)
-  ) %>%
-  mutate(
-    hex_mean_int = strtoi(str_remove(hex_mean, "#"), 16L),
-    hex_max_int = strtoi(str_remove(hex_max, "#"), 16L),
-    hex_min_int = strtoi(str_remove(hex_min, "#"), 16L)
-  ) %>%
-  select(ID, hex_mean_int, hex_max_int, hex_min_int, gray_scale)
-
-cpad_strava <- full_join(cpad_super, strava_sum) %>%
-  select(-ID) %>%
-  st_drop_geometry() %>%
-  distinct() %>%
-  full_join(cpad_super)
-
-rm(strava_sum)
-
-st_write(cpad_strava, here::here("data", "processed_data", "cpad_strava.shp"), append = FALSE)
+rm(
+  bio_masked, bio_masked_inv, cpad_bio_values, cpad_bio_summary,
+  cpad_bio, inside_bio, outside_bio, inside_rare, outside_rare,
+  cpad_rare_values, cpad_rare_summary, rare_masked, rare_masked_inv, rare, bio
+)
 
 # Safegraph ---------------------------------------------------------------
 
-sf_use_s2(FALSE)
+# cpad_census = st_intersection(census_blockgroup, cpad_super)
 
-census_blockgroup <- census_blockgroup %>%
-  select(-GEOID)
+cpad_census = st_read(here::here("data", "processed_data", "cpad_census.shp")) %>% 
+  mutate(cbg = id)
 
 list_of_files <- list.files(
   path = here::here("data", "raw_data", "safegraph"),
@@ -324,6 +335,8 @@ safegraph_sum <- safegraph %>%
   ) %>%
   ungroup()
 
+rm(census_blockgroup, safegraph)
+
 safegraph_block <- safegraph_sum %>%
   left_join(census_block) %>%
   st_as_sf()
@@ -337,37 +350,27 @@ safegraph_block_sum <- safegraph_block %>%
     TRUE ~ block_percent
   )) %>%
   mutate(
-    mean_count = mean_count * block_percent,
-    value = value * block_percent
+    pop_count = mean_count * block_percent,
+    median_count = median_count * block_percent
   ) %>%
   select(-census_blockgroup_area) %>%
-  mutate(value = case_when(
-    value == 0 ~ 1,
-    is.na(value) ~ 1,
-    TRUE ~ value,
-  )) %>%
   mutate(
-    pop_count = mean_count,
     max_pop_count = max_count,
     min_pop_count = min_count
-    # pop_count = mean_count / value,
-    # max_pop_count = max_count / value,
-    # min_pop_count = min_count / value
   ) %>%
   select(-mean_count, -max_count, -min_count) %>%
   distinct() %>%
-  # filter(!is.na(pop_count)) %>%
   mutate(cbg = substring(GEOID, 1, 12))
 
-rm(safegraph_block)
+rm(safegraph_block, block)
 
-cpad_safgraph_census <- full_join(safegraph_block_sum, cpad_census %>%
-  st_drop_geometry())
+cpad_safgraph <- full_join(safegraph_block_sum, cpad_census %>%
+                             st_drop_geometry())
 
-rm(safegraph_block_sum)
+rm(safegraph_block_sum, cpad_census)
 
-safegraph_pa_sum <- cpad_safgraph_census %>%
-  mutate(percent_pa = census_block_area / shape_r) %>%
+safegraph_pa_sum <- cpad_safgraph %>%
+  mutate(percent_pa = census_block_area / shape_r)%>%
   st_drop_geometry() %>%
   filter(!is.na(year)) %>%
   group_by(suid_nm, year) %>%
@@ -375,24 +378,26 @@ safegraph_pa_sum <- cpad_safgraph_census %>%
     sg = weighted.mean(pop_count, percent_pa, na.rm = TRUE),
     max_sg = weighted.mean(max_pop_count, percent_pa, na.rm = TRUE),
     min_sg = weighted.mean(min_pop_count, percent_pa, na.rm = TRUE),
-    outside_pop = weighted.mean(value, percent_pa, na.rm = TRUE)
+    outside_pop = weighted.mean(value, percent_pa, na.rm = TRUE),
+    med_sg = spatstat.geom::weighted.median(median_count, percent_pa, na.rm = TRUE)
   ) %>%
   select(
     -GEOID, -pop_count, -min_pop_count, -max_pop_count,
     -census_block_area, -block_percent, -combo_r, -percent_pa, -prcnt__,
-    -cbg, -sd_count, -cv_count, -censs_r, -value
+    -cbg, -sd_count, -cv_count, -censs_r, -value, -id, -median_count
   ) %>%
   distinct() %>%
   group_by(suid_nm) %>%
-  mutate(mean_sg = mean(sg, na.rm = TRUE))
+  mutate(mean_sg = mean(sg, na.rm = TRUE),
+         median_sg = median(med_sg, na.rm=TRUE))
 
-rm(cpad_safgraph_census)
+rm(cpad_safgraph)
 
 write_csv(safegraph_pa_sum, here::here("data", "processed_data", "cpad_sg.csv"))
 
 rm(safegraph_pa_sum)
 
-# Outside PA --------------------------------------------------------------
+# Outside PA
 #
 # non_pa_blocks = census_blockgroup %>%
 #   filter(!(cbg %in% cpad_census$cbg)) %>%

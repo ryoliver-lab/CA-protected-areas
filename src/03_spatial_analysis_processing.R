@@ -39,7 +39,7 @@ hfp <- resample(hfp, strava_coarse, method = "cubic")
 hfp_cropped <- crop(hfp, cpad_super)
 hfp_masked <- mask(hfp_cropped, cpad_super)
 
-rm(hfp, hfp_cropped)
+rm(hfp_cropped, hfp)
 
 bio <- st_read(here::here("data", "raw_data", "ds2739.gdb")) %>%
   sf::st_transform(crs(cpad_super)) %>%
@@ -69,7 +69,7 @@ bio <- extract(bio_masked, cpad_super) %>%
 rare <- extract(rare_masked, cpad_super) %>%
   select(-ID)
 
-rm(hfp_masked, strava_coarse_masked,bio_masked, rare_masked)
+rm(hfp_masked, strava_coarse_masked, bio_masked, rare_masked)
 
 # Combine Data ------------------------------------------------------------
 
