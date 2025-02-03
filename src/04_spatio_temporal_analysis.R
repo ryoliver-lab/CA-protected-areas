@@ -186,9 +186,9 @@ p <- ggplot() +
   theme_bw() +
   labs(
     x = "Median Human Footprint Index",
-    y = "Tourism",
-    color = "Management",
-    title = "A"
+    y = "Median Tourism",
+    color = "",
+    title = "C"
   ) +
   scale_y_log10() +
   scale_color_manual(values = colors) +
@@ -218,9 +218,9 @@ p <- ggplot(human_sum) +
   # geom_point(data = human_highlight_sum, aes(bio_men, median_sg), color = "red", size = 2) +
   theme_bw() +
   labs(
-    x = "Mean Terrestrial Species Count",
-    y = "Tourism",
-    color = "Management",
+    x = "Median Terrestrial Species Count",
+    y = "Median Tourism",
+    color = "",
     title = "B"
   ) +
   scale_color_manual(values = colors) +
@@ -251,9 +251,9 @@ p <- ggplot(human_sum) +
   theme_bw() +
   labs(
     x = "Median Human Footprint Index",
-    y = "Mean Terrestrial Species Count",
-    color = "Management",
-    title = "C"
+    y = "Median Terrestrial Species Count",
+    color = "",
+    title = "A"
   ) +
   geom_label_repel(
     data = human_highlight_sum, aes(HFP_median, bio_men, label = park_name),
@@ -330,8 +330,8 @@ quartile_data = list(sg_quartiles, hfi_quartiles, bio_quartile) %>%
   mutate(type = fct_relevel(as.factor(type), c("Native Species Count", "Human Footprint Index", "Safegraph Counts")))
 
 p4 = ggplot(quartile_data) +
-  geom_bar(aes(area %>% units::drop_units() / 1000, y = type, fill = quartile), position = "stack", stat = "identity") +
-  geom_vline(aes(xintercept = total$thirty_goal / 1000), color = "red", linetype = "dashed", linewidth = 1) +
+  geom_bar(aes(area %>% units::drop_units() / 1000000, y = type, fill = quartile), position = "stack", stat = "identity") +
+  geom_vline(aes(xintercept = total$thirty_goal / 1000000), color = "red", linetype = "dashed", linewidth = 1) +
   theme_bw() +
   scale_fill_viridis_d(end = 0.9, na.value = "grey") +
   labs(x = "Area", y = "", fill = "Quartile")
@@ -571,20 +571,20 @@ park_models <- spatial_data %>%
   na.omit() %>%
   group_by(suid_nma) %>%
   mutate(count = n()) %>%
-  filter(count > 10)
+  filter(count >= 3)
 
 park_data <- human %>%
   filter(suid_nma %in% park_models$suid_nma)
 
-gam1 <- gam(gray_scale ~ s(HFP2009, k = 6) + s(y, x, bs = "gp", m = 1, k = 6) + s(suid_nma, bs = "re") + s(suid_nma, HFP2009, bs = "re"), random = list(suid_nma = ~ 1 + HFP2009), data = park_models)
-gam2 <- gam(gray_scale ~ s(HFP2009, k = 6) + s(y, x, bs = "gp", m = 1, k = 6) + s(suid_nma, bs = "re") + s(suid_nma, HFP2009, bs = "re"), random = list(suid_nma = ~ 1 + HFP2009), data = park_models %>% filter(mng_agncy == "United States National Park Service"))
-# gam3 <- gam(gray_scale ~ s(HFP2009, k = 6) + s(y, x, bs = "gp", m = 1, k = 6) + s(suid_nma, bs = "re") + s(suid_nma, HFP2009, bs = "re"), random = list(suid_nma = ~ 1 + HFP2009), data = park_models %>% filter(mng_agncy == "The Nature Conservancy"))
-gam4 <- gam(gray_scale ~ s(HFP2009, k = 6) + s(y, x, bs = "gp", m = 1, k = 6) + s(suid_nma, bs = "re") + s(suid_nma, HFP2009, bs = "re"), random = list(suid_nma = ~ 1 + HFP2009), data = park_models %>% filter(mng_agncy == "University of California"))
-gam5 <- gam(gray_scale ~ s(HFP2009, k = 6) + s(y, x, bs = "gp", m = 1, k = 6) + s(suid_nma, bs = "re") + s(suid_nma, HFP2009, bs = "re"), random = list(suid_nma = ~ 1 + HFP2009), data = park_models %>% filter(mng_agncy == "California Department of Fish and Wildlife"))
+gam1 <- gam(gray_scale ~ s(HFP2009, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) + s(suid_nma, bs = "re") + s(suid_nma, HFP2009, bs = "re"), random = list(suid_nma = ~ 1 + HFP2009), data = park_models)
+gam2 <- gam(gray_scale ~ s(HFP2009, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) + s(suid_nma, bs = "re") + s(suid_nma, HFP2009, bs = "re"), random = list(suid_nma = ~ 1 + HFP2009), data = park_models %>% filter(mng_agncy == "United States National Park Service"))
+gam3 <- gam(gray_scale ~ s(HFP2009, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) + s(suid_nma, bs = "re") + s(suid_nma, HFP2009, bs = "re"), random = list(suid_nma = ~ 1 + HFP2009), data = park_models %>% filter(mng_agncy == "The Nature Conservancy"))
+gam4 <- gam(gray_scale ~ s(HFP2009, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) + s(suid_nma, bs = "re") + s(suid_nma, HFP2009, bs = "re"), random = list(suid_nma = ~ 1 + HFP2009), data = park_models %>% filter(mng_agncy == "University of California"))
+gam5 <- gam(gray_scale ~ s(HFP2009, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) + s(suid_nma, bs = "re") + s(suid_nma, HFP2009, bs = "re"), random = list(suid_nma = ~ 1 + HFP2009), data = park_models %>% filter(mng_agncy == "California Department of Fish and Wildlife"))
 
 summary(gam1)
 summary(gam2)
-# summary(gam3)
+summary(gam3)
 summary(gam4)
 summary(gam5)
 
@@ -602,7 +602,7 @@ p1 <- plot_predictions(gam1, condition = "HFP2009") +
   )
 
 p2 <- plot_predictions(gam2, condition = "HFP2009") +
-  geom_rug(data = park_data %>% filter(mng_agncy == "United States National Park Service"), aes(HFP_median, color = "#440154"), alpha = 1 / 2, outside = TRUE, sides = "b") +
+  geom_rug(data = park_data %>% filter(mng_agncy == "United States National Park Service"), aes(HFP_median), alpha = 1 / 2, outside = TRUE, sides = "b") +
   theme_bw() +
   labs(
     x = "Human Footprint Index",
@@ -613,23 +613,22 @@ p2 <- plot_predictions(gam2, condition = "HFP2009") +
     axis.text.x = element_text(margin = margin(t = 10)),
     axis.ticks.x = element_blank()
   )
-# 
-# p3 <- plot_predictions(gam3, condition = "HFP2009") +
-#   geom_rug(data = park_data %>% filter(mng_agncy == "The Nature Conservancy"), aes(HFP_median, color = "#21918c"), alpha = 1 / 2, outside = TRUE, sides = "b") +
-#   theme_bw() +
-#   labs(
-#     x = "Human Footprint Index",
-#     y = "Strava Gray Scale",
-#     title = "GAP 2"
-#   ) +
-#   coord_cartesian(clip = "off") +
-#   theme(
-#     axis.text.x = element_text(margin = margin(t = 10)),
-#     axis.ticks.x = element_blank()
-#   )
+
+p3 <- plot_predictions(gam3, condition = "HFP2009") +
+  geom_rug(data = park_data %>% filter(mng_agncy == "The Nature Conservancy"), aes(HFP_median), alpha = 1 / 2, outside = TRUE, sides = "b") +
+  theme_bw() +
+  labs(
+    x = "Human Footprint Index",
+    y = "Strava Gray Scale"
+  ) +
+  coord_cartesian(clip = "off") +
+  theme(
+    axis.text.x = element_text(margin = margin(t = 10)),
+    axis.ticks.x = element_blank()
+  )
 
 p4 <- plot_predictions(gam4, condition = "HFP2009") +
-  geom_rug(data = park_data %>% filter(mng_agncy == "University of California"), aes(HFP_median, color = "#3b528b"), alpha = 1 / 2, outside = TRUE, sides = "b") +
+  geom_rug(data = park_data %>% filter(mng_agncy == "University of California"), aes(HFP_median), alpha = 1 / 2, outside = TRUE, sides = "b") +
   theme_bw() +
   labs(
     x = "Human Footprint Index",
@@ -642,7 +641,7 @@ p4 <- plot_predictions(gam4, condition = "HFP2009") +
   )
 
 p5 <- plot_predictions(gam5, condition = "HFP2009") +
-  geom_rug(data = park_data %>% filter(mng_agncy == "California Department of Fish and Wildlife"), aes(HFP_median, color = "#5ec962"), alpha = 1 / 2, outside = TRUE, sides = "b") +
+  geom_rug(data = park_data %>% filter(mng_agncy == "California Department of Fish and Wildlife"), aes(HFP_median), alpha = 1 / 2, outside = TRUE, sides = "b") +
   theme_bw() +
   labs(
     x = "Human Footprint Index",
@@ -654,15 +653,15 @@ p5 <- plot_predictions(gam5, condition = "HFP2009") +
     axis.ticks.x = element_blank()
   )
 
-gam1 <- gam(gray_scale ~ s(native_count, k = 6) + s(y, x, bs = "gp", m = 1, k = 6) + s(suid_nma, bs = "re") + s(suid_nma, native_count, bs = "re"), random = list(suid_nma = ~ 1 + native_count), data = park_models)
-gam2 <- gam(gray_scale ~ s(native_count, k = 6) + s(y, x, bs = "gp", m = 1, k = 6) + s(suid_nma, bs = "re") + s(suid_nma, native_count, bs = "re"), random = list(suid_nma = ~ 1 + native_count), data = park_models %>% filter(mng_agncy == "United States National Park Service"))
-# gam3 <- gam(gray_scale ~ s(native_count, k = 6) + s(y, x, bs = "gp", m = 1, k = 6) + s(suid_nma, bs = "re") + s(suid_nma, native_count, bs = "re"), random = list(suid_nma = ~ 1 + native_count), data = park_models %>% filter(mng_agncy == "The Nature Conservancy"))
-gam4 <- gam(gray_scale ~ s(native_count, k = 6) + s(y, x, bs = "gp", m = 1, k = 6) + s(suid_nma, bs = "re") + s(suid_nma, native_count, bs = "re"), random = list(suid_nma = ~ 1 + native_count), data = park_models %>% filter(mng_agncy == "University of California"))
-gam5 <- gam(gray_scale ~ s(native_count, k = 6) + s(y, x, bs = "gp", m = 1, k = 6) + s(suid_nma, bs = "re") + s(suid_nma, native_count, bs = "re"), random = list(suid_nma = ~ 1 + native_count), data = park_models %>% filter(mng_agncy == "California Department of Fish and Wildlife"))
+gam1 <- gam(gray_scale ~ s(native_count, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) + s(suid_nma, bs = "re") + s(suid_nma, native_count, bs = "re"), random = list(suid_nma = ~ 1 + native_count), data = park_models)
+gam2 <- gam(gray_scale ~ s(native_count, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) + s(suid_nma, bs = "re") + s(suid_nma, native_count, bs = "re"), random = list(suid_nma = ~ 1 + native_count), data = park_models %>% filter(mng_agncy == "United States National Park Service"))
+gam3 <- gam(gray_scale ~ s(native_count, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) + s(suid_nma, bs = "re") + s(suid_nma, native_count, bs = "re"), random = list(suid_nma = ~ 1 + native_count), data = park_models %>% filter(mng_agncy == "The Nature Conservancy"))
+gam4 <- gam(gray_scale ~ s(native_count, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) + s(suid_nma, bs = "re") + s(suid_nma, native_count, bs = "re"), random = list(suid_nma = ~ 1 + native_count), data = park_models %>% filter(mng_agncy == "University of California"))
+gam5 <- gam(gray_scale ~ s(native_count, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) + s(suid_nma, bs = "re") + s(suid_nma, native_count, bs = "re"), random = list(suid_nma = ~ 1 + native_count), data = park_models %>% filter(mng_agncy == "California Department of Fish and Wildlife"))
 
 summary(gam1)
 summary(gam2)
-# summary(gam3)
+summary(gam3)
 summary(gam4)
 summary(gam5)
 
@@ -680,7 +679,7 @@ p6 <- plot_predictions(gam1, condition = "native_count") +
   )
 
 p7 <- plot_predictions(gam2, condition = "native_count") +
-  geom_rug(data = park_data %>% filter(mng_agncy == "United States National Park Service"), aes(bio_mdn, color = "#440154"), alpha = 1 / 2, outside = TRUE, sides = "b") +
+  geom_rug(data = park_data %>% filter(mng_agncy == "United States National Park Service"), aes(bio_mdn), alpha = 1 / 2, outside = TRUE, sides = "b") +
   theme_bw() +
   labs(
     x = "Native Species Count",
@@ -692,22 +691,21 @@ p7 <- plot_predictions(gam2, condition = "native_count") +
     axis.ticks.x = element_blank()
   )
 
-# p8 <- plot_predictions(gam3, condition = "native_count") +
-#   geom_rug(data = park_data %>% filter(mng_agncy == "The Nature Conservancy"), aes(bio_mdn, color = "#21918c"), alpha = 1 / 2, outside = TRUE, sides = "b") +
-#   theme_bw() +
-#   labs(
-#     x = "Native Species Count",
-#     y = "Strava Gray Scale",
-#     title = "GAP 2"
-#   ) +
-#   coord_cartesian(clip = "off") +
-#   theme(
-#     axis.text.x = element_text(margin = margin(t = 10)),
-#     axis.ticks.x = element_blank()
-  # )
+p8 <- plot_predictions(gam3, condition = "native_count") +
+  geom_rug(data = park_data %>% filter(mng_agncy == "The Nature Conservancy"), aes(bio_mdn), alpha = 1 / 2, outside = TRUE, sides = "b") +
+  theme_bw() +
+  labs(
+    x = "Native Species Count",
+    y = "Strava Gray Scale"
+  ) +
+  coord_cartesian(clip = "off") +
+  theme(
+    axis.text.x = element_text(margin = margin(t = 10)),
+    axis.ticks.x = element_blank()
+)
 
 p9 <- plot_predictions(gam4, condition = "native_count") +
-  geom_rug(data = park_data %>% filter(mng_agncy == "University of California"), aes(bio_mdn, color = "#3b528b"), alpha = 1 / 2, outside = TRUE, sides = "b") +
+  geom_rug(data = park_data %>% filter(mng_agncy == "University of California"), aes(bio_mdn), alpha = 1 / 2, outside = TRUE, sides = "b") +
   theme_bw() +
   labs(
     x = "Native Species Count",
@@ -720,7 +718,7 @@ p9 <- plot_predictions(gam4, condition = "native_count") +
   )
 
 p10 <- plot_predictions(gam5, condition = "native_count") +
-  geom_rug(data = park_data %>% filter(mng_agncy == "California Department of Fish and Wildlife"), aes(bio_mdn, color = "#5ec962"), alpha = 1 / 2, outside = TRUE, sides = "b") +
+  geom_rug(data = park_data %>% filter(mng_agncy == "California Department of Fish and Wildlife"), aes(bio_mdn), alpha = 1 / 2, outside = TRUE, sides = "b") +
   theme_bw() +
   labs(
     x = "Native Species Count",
@@ -732,15 +730,15 @@ p10 <- plot_predictions(gam5, condition = "native_count") +
     axis.ticks.x = element_blank()
   )
 
-gam1 <- gam(HFP2009 ~ s(native_count, k = 6) + s(y, x, bs = "gp", m = 1, k = 6) + s(suid_nma, bs = "re") + s(suid_nma, native_count, bs = "re"), random = list(suid_nma = ~ 1 + native_count), data = park_models)
-gam2 <- gam(HFP2009 ~ s(native_count, k = 6) + s(y, x, bs = "gp", m = 1, k = 6) + s(suid_nma, bs = "re") + s(suid_nma, native_count, bs = "re"), random = list(suid_nma = ~ 1 + native_count), data = park_models %>% filter(mng_agncy == "United States National Park Service"))
-# gam3 <- gam(HFP2009 ~ s(native_count, k = 6) + s(y, x, bs = "gp", m = 1, k = 6) + s(suid_nma, bs = "re") + s(suid_nma, native_count, bs = "re"), random = list(suid_nma = ~ 1 + native_count), data = park_models %>% filter(mng_agncy == "The Nature Conservancy"))
-gam4 <- gam(HFP2009 ~ s(native_count, k = 6) + s(y, x, bs = "gp", m = 1, k = 6) + s(suid_nma, bs = "re") + s(suid_nma, native_count, bs = "re"), random = list(suid_nma = ~ 1 + native_count), data = park_models %>% filter(mng_agncy == "University of California"))
-gam5 <- gam(HFP2009 ~ s(native_count, k = 6) + s(y, x, bs = "gp", m = 1, k = 6) + s(suid_nma, bs = "re") + s(suid_nma, native_count, bs = "re"), random = list(suid_nma = ~ 1 + native_count), data = park_models %>% filter(mng_agncy == "California Department of Fish and Wildlife"))
+gam1 <- gam(HFP2009 ~ s(native_count, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) + s(suid_nma, bs = "re") + s(suid_nma, native_count, bs = "re"), random = list(suid_nma = ~ 1 + native_count), data = park_models)
+gam2 <- gam(HFP2009 ~ s(native_count, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) + s(suid_nma, bs = "re") + s(suid_nma, native_count, bs = "re"), random = list(suid_nma = ~ 1 + native_count), data = park_models %>% filter(mng_agncy == "United States National Park Service"))
+gam3 <- gam(HFP2009 ~ s(native_count, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) + s(suid_nma, bs = "re") + s(suid_nma, native_count, bs = "re"), random = list(suid_nma = ~ 1 + native_count), data = park_models %>% filter(mng_agncy == "The Nature Conservancy"))
+gam4 <- gam(HFP2009 ~ s(native_count, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) + s(suid_nma, bs = "re") + s(suid_nma, native_count, bs = "re"), random = list(suid_nma = ~ 1 + native_count), data = park_models %>% filter(mng_agncy == "University of California"))
+gam5 <- gam(HFP2009 ~ s(native_count, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) + s(suid_nma, bs = "re") + s(suid_nma, native_count, bs = "re"), random = list(suid_nma = ~ 1 + native_count), data = park_models %>% filter(mng_agncy == "California Department of Fish and Wildlife"))
 
 summary(gam1)
 summary(gam2)
-# summary(gam3)
+summary(gam3)
 summary(gam4)
 summary(gam5)
 
@@ -758,7 +756,7 @@ p11 <- plot_predictions(gam1, condition = "native_count") +
   )
 
 p12 <- plot_predictions(gam2, condition = "native_count") +
-  geom_rug(data = park_data %>% filter(gap_status == "GAP 1"), aes(bio_mdn, color = "#440154"), alpha = 1 / 2, outside = TRUE, sides = "b") +
+  geom_rug(data = park_data %>% filter(gap_status == "GAP 1"), aes(bio_mdn), alpha = 1 / 2, outside = TRUE, sides = "b") +
   theme_bw() +
   labs(
     x = "Native Species Count",
@@ -770,22 +768,21 @@ p12 <- plot_predictions(gam2, condition = "native_count") +
     axis.ticks.x = element_blank()
   )
 
-# p13 <- plot_predictions(gam3, condition = "native_count") +
-#   geom_rug(data = park_data %>% filter(mng_agncy == "The Nature Conservancy"), aes(bio_mdn, color = "#21918c"), alpha = 1 / 2, outside = TRUE, sides = "b") +
-#   theme_bw() +
-#   labs(
-#     x = "Native Species Count",
-#     y = "Human Footprint Index",
-#     title = "GAP 2"
-#   ) +
-#   coord_cartesian(clip = "off") +
-#   theme(
-#     axis.text.x = element_text(margin = margin(t = 10)),
-#     axis.ticks.x = element_blank()
-#   )
+p13 <- plot_predictions(gam3, condition = "native_count") +
+  geom_rug(data = park_data %>% filter(mng_agncy == "The Nature Conservancy"), aes(bio_mdn), alpha = 1 / 2, outside = TRUE, sides = "b") +
+  theme_bw() +
+  labs(
+    x = "Native Species Count",
+    y = "Human Footprint Index"
+  ) +
+  coord_cartesian(clip = "off") +
+  theme(
+    axis.text.x = element_text(margin = margin(t = 10)),
+    axis.ticks.x = element_blank()
+  )
 
 p14 <- plot_predictions(gam4, condition = "native_count") +
-  geom_rug(data = park_data %>% filter(mng_agncy == "University of California"), aes(bio_mdn, color = "#3b528b"), alpha = 1 / 2, outside = TRUE, sides = "b") +
+  geom_rug(data = park_data %>% filter(mng_agncy == "University of California"), aes(bio_mdn), alpha = 1 / 2, outside = TRUE, sides = "b") +
   theme_bw() +
   labs(
     x = "Native Species Count",
@@ -798,7 +795,7 @@ p14 <- plot_predictions(gam4, condition = "native_count") +
   )
 
 p15 <- plot_predictions(gam5, condition = "native_count") +
-  geom_rug(data = park_data %>% filter(mng_agncy == "California Department of Fish and Wildlife"), aes(bio_mdn, color = "#5ec962"), alpha = 1 / 2, outside = TRUE, sides = "b") +
+  geom_rug(data = park_data %>% filter(mng_agncy == "California Department of Fish and Wildlife"), aes(bio_mdn), alpha = 1 / 2, outside = TRUE, sides = "b") +
   theme_bw() +
   labs(
     x = "Native Species Count",
