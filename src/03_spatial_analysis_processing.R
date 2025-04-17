@@ -8,20 +8,7 @@ cpad_super <- st_read(here::here("data", "raw_data", "CPAD_2023a_SuperUnits.shp"
   sf::st_transform("EPSG:4326") %>%
   janitor::clean_names() %>%
   mutate(ID = row_number()) %>%
-  filter(shape_area >= 10000) %>%
-  filter(!grepl("cemet", park_name, ignore.case = TRUE)) %>%
-  filter(!grepl("sport", park_name, ignore.case = TRUE)) %>%
-  filter(!grepl("farm", park_name, ignore.case = TRUE)) %>%
-  filter(!grepl("playground", park_name, ignore.case = TRUE)) %>%
-  filter(!grepl("golf", park_name, ignore.case = TRUE)) %>%
-  filter(!grepl("dog park", park_name, ignore.case = TRUE)) %>%
-  filter(!grepl("zoo", park_name, ignore.case = TRUE)) %>%
-  filter(!grepl("baseball", park_name, ignore.case = TRUE)) %>%
-  filter(!grepl("soccer", park_name, ignore.case = TRUE)) %>%
-  filter(!grepl("softball", park_name, ignore.case = TRUE)) %>%
-  filter(!grepl("athel", park_name, ignore.case = TRUE)) %>%
-  filter(!grepl("community center", park_name, ignore.case = TRUE)) %>%
-  filter(!grepl("school", park_name, ignore.case = TRUE))
+  filter(shape_area >= 10000)
 
 strava_coarse <- rast(here::here("data", "raw_data", "strava_coarse.tif")) %>%
   project(crs(cpad_super))
@@ -43,23 +30,43 @@ rm(hfp_cropped, hfp)
 
 bio <- st_read(here::here("data", "raw_data", "ds2739.gdb")) %>%
   sf::st_transform(crs(cpad_super)) %>%
-  select(NativeCount, RareCount) %>%
-  janitor::clean_names()
+  select(NativeCount, RareCount, NtvPlnt, RarPlnt) %>%
+  janitor::clean_names() %>% 
+  mutate(ntv_anm = native_count - ntv_plnt,
+         rare_anm = rare_count - rar_plnt)
 
 bio_raster <- rasterize(bio, strava_coarse, field = "native_count")
 rare_raster <- rasterize(bio, strava_coarse, field = "rare_count")
+
+bio_anm_raster <- rasterize(bio, strava_coarse, field = "ntv_anm")
+rare_anm_raster <- rasterize(bio, strava_coarse, field = "rare_anm")
+
+bio_plt_raster <- rasterize(bio, strava_coarse, field = "ntv_plnt")
+rare_plt_raster <- rasterize(bio, strava_coarse, field = "rar_plnt")
 
 rm(bio, strava_coarse)
 
 bio_cropped <- crop(bio_raster, cpad_super)
 bio_masked <- mask(bio_cropped, cpad_super)
 
-rm(bio_raster, bio_cropped)
+bio_anm_cropped <- crop(bio_anm_raster, cpad_super)
+bio_anm_masked <- mask(bio_anm_cropped, cpad_super)
+
+bio_plt_cropped <- crop(bio_plt_raster, cpad_super)
+bio_plt_masked <- mask(bio_plt_cropped, cpad_super)
 
 rare_cropped <- crop(rare_raster, cpad_super)
 rare_masked <- mask(rare_cropped, cpad_super)
 
-rm(rare_raster, rare_cropped)
+rare_anm_cropped <- crop(rare_anm_raster, cpad_super)
+rare_anm_masked <- mask(rare_anm_cropped, cpad_super)
+
+rare_plt_cropped <- crop(rare_plt_raster, cpad_super)
+rare_plt_masked <- mask(rare_plt_cropped, cpad_super)
+
+rm(bio_cropped, bio_raster, rare_cropped, rare_raster,
+   bio_anm_cropped, bio_anm_raster, rare_anm_cropped, rare_anm_raster,
+   bio_plt_cropped, bio_plt_raster, rare_plt_cropped, rare_plt_raster)
 
 hfp <- extract(hfp_masked, cpad_super, xy = TRUE)
 strava <- extract(strava_coarse_masked, cpad_super) %>%
@@ -68,12 +75,22 @@ bio <- extract(bio_masked, cpad_super) %>%
   select(-ID)
 rare <- extract(rare_masked, cpad_super) %>%
   select(-ID)
+bio_anm <- extract(bio_anm_masked, cpad_super) %>%
+  select(-ID)
+rare_anm <- extract(rare_anm_masked, cpad_super) %>%
+  select(-ID)
+bio_plt <- extract(bio_plt_masked, cpad_super) %>%
+  select(-ID)
+rare_plt <- extract(rare_plt_masked, cpad_super) %>%
+  select(-ID)
 
-rm(hfp_masked, strava_coarse_masked, bio_masked, rare_masked)
+rm(hfp_masked, strava_coarse_masked, bio_masked, rare_masked,
+   bio_anm_masked, rare_anm_masked,
+   bio_plt_masked, rare_plt_masked)
 
 # Combine Data ------------------------------------------------------------
 
-spatial_data <- list(hfp, strava, bio, rare) %>%
+spatial_data <- list(hfp, strava, bio, rare, bio_anm, rare_anm, bio_plt, rare_plt) %>%
   reduce(cbind) %>%
   full_join(cpad_super) %>%
   st_drop_geometry() %>%

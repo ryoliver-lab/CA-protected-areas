@@ -12,6 +12,9 @@ library(ggridges)
 library(ggExtra)
 library(gghalves)
 library(geosphere)
+library(ggfortify)
+library(ggpmisc)
+library(philentropy)
 
 # coastal is 8 km inland due to sea level rise projections
 
@@ -30,22 +33,19 @@ ca = st_read(here::here("data", "raw_data", "CA_State_TIGER2016.shp")) %>%
   select(area) %>% 
   st_drop_geometry()
 
-ocean = st_read(here::here("data", "raw_data", "3853-s3_2002_s3_reg_pacific_ocean.shp")) %>%
-  sf::st_transform(crs = st_crs(cpad_super))
-
 sg <- read_csv(here::here("data", "processed_data", "cpad_sg.csv"))
-# strava <- st_read(here::here("data", "processed_data", "cpad_strava.shp")) %>%
-#   sf::st_transform(crs = st_crs(cpad_super))
+strava <- st_read(here::here("data", "processed_data", "cpad_strava.shp")) %>%
+  sf::st_transform(crs = st_crs(cpad_super))
 hfp <- st_read(here::here("data", "processed_data", "cpad_hfp.shp")) %>%
   sf::st_transform(crs = st_crs(cpad_super))
 bio <- st_read(here::here("data", "processed_data", "cpad_bio.shp")) %>%
   sf::st_transform(crs = st_crs(cpad_super))
 
-human <- list(sg, hfp, bio) %>%
+human <- list(sg, hfp, bio, strava) %>%
   reduce(full_join) %>%
   st_as_sf()
 
-rm(sg, hfp, bio)
+rm(sg, hfp, bio, strava)
 
 # take out hoas
 
@@ -65,7 +65,7 @@ human <- human %>%
   filter(!grepl("community center", park_name, ignore.case = TRUE)) %>%
   filter(!grepl("school", park_name, ignore.case = TRUE)) %>%
   select(
-    suid_nma, med_sg, median_sg,
+    suid_nma, med_sg, median_sg, gry_scl,
     access_typ, park_name, park_url, mng_ag_id, mng_agncy, mng_ag_lev, mng_ag_typ, agncy_web,
     label_name, gap1_acres, gap2_acres, gap3_acres, gap4_acres, gap_tot_ac, shape_leng, shape_area,
     HFP_min, HFP_mean, HFP_max, HFP_median, HFP_sd, HFP_range, HFP_cv, year, bio_men, bio_mdn,rare_men, rar_mdn
@@ -79,28 +79,7 @@ human <- human %>%
     gap == gap4_acres ~ "GAP 4"
   )) %>%
   filter(!is.na(year)) %>%
-  ungroup() %>%
-  mutate(hfp_quartile = case_when(
-    HFP_median < quantile(HFP_median, probs = 0.25, na.rm = TRUE) ~ "1st Quartile",
-    HFP_median >= quantile(HFP_median, probs = 0.25, na.rm = TRUE) & HFP_median < quantile(HFP_median, probs = 0.5, na.rm = TRUE) ~ "2nd Quartile",
-    HFP_median <= quantile(HFP_median, probs = 0.75, na.rm = TRUE) & HFP_median >= quantile(HFP_median, probs = 0.5, na.rm = TRUE) ~ "3rd Quartile",
-    HFP_median > quantile(HFP_median, probs = 0.75, na.rm = TRUE) ~ "4th Quartile",
-  )) %>%
-  mutate(bio_quartile = case_when(
-    bio_mdn < quantile(bio_mdn, probs = 0.25, na.rm = TRUE) ~ "1st Quartile",
-    bio_mdn >= quantile(bio_mdn, probs = 0.25, na.rm = TRUE) & bio_mdn < quantile(bio_mdn, probs = 0.5, na.rm = TRUE) ~ "2nd Quartile",
-    bio_mdn <= quantile(bio_mdn, probs = 0.75, na.rm = TRUE) & bio_mdn >= quantile(bio_mdn, probs = 0.5, na.rm = TRUE) ~ "3rd Quartile",
-    bio_mdn > quantile(bio_mdn, probs = 0.75, na.rm = TRUE) ~ "4th Quartile",
-  ))%>%
-  mutate(sg_quartile = case_when(
-    median_sg < quantile(median_sg, probs = 0.25, na.rm = TRUE) ~ "1st Quartile",
-    median_sg >= quantile(median_sg, probs = 0.25, na.rm = TRUE) & median_sg < quantile(median_sg, probs = 0.5, na.rm = TRUE) ~ "2nd Quartile",
-    median_sg <= quantile(median_sg, probs = 0.75, na.rm = TRUE) & median_sg >= quantile(median_sg, probs = 0.5, na.rm = TRUE) ~ "3rd Quartile",
-    median_sg > quantile(median_sg, probs = 0.75, na.rm = TRUE) ~ "4th Quartile",
-  )) 
-
-# dist_to_ocean = geosphere::dist2Line(p = st_coordinates(st_centroid(human)), 
-                                              # line = as(ocean,'Spatial'))
+  ungroup()
 
 cpad_no_geom = cpad_super %>%
   st_drop_geometry()
@@ -109,21 +88,33 @@ hfp <- st_read(here::here("data", "processed_data", "in_out_hfp.shp")) %>%
   mutate(loc = fct_relevel(as.factor(loc), c("Outside Protected Areas", "Inside Protected Areas"))) %>%
   st_drop_geometry() %>%
   full_join(cpad_no_geom) %>%
-  full_join(human %>% select(suid_nma, gap_status, mng_agncy))
+  full_join(human %>% select(suid_nma, gap_status, mng_agncy)) %>%
+  filter(!is.na(HFP2009))
+
+hfp_sf <- st_read(here::here("data", "processed_data", "in_out_hfp.shp")) %>%
+  mutate(loc = fct_relevel(as.factor(loc), c("Outside Protected Areas", "Inside Protected Areas")))
 
 bio <- st_read(here::here("data", "processed_data", "in_out_bio.shp")) %>%
   mutate(loc = fct_relevel(as.factor(loc), c("Outside Protected Areas", "Inside Protected Areas"))) %>%
   st_drop_geometry() %>%
   full_join(cpad_no_geom) %>%
-  full_join(human %>% select(suid_nma, gap_status))
+  full_join(human %>% select(suid_nma, gap_status, mng_agncy))%>%
+  filter(!is.na(ntv_cnt))
+
+bio_sf <- st_read(here::here("data", "processed_data", "in_out_bio.shp")) %>%
+  mutate(loc = fct_relevel(as.factor(loc), c("Outside Protected Areas", "Inside Protected Areas")))
 
 rare <- st_read(here::here("data", "processed_data", "in_out_rare.shp")) %>%
   mutate(loc = fct_relevel(as.factor(loc), c("Outside Protected Areas", "Inside Protected Areas"))) %>%
   st_drop_geometry() %>%
   full_join(cpad_no_geom) %>%
-  full_join(human %>% select(suid_nma, gap_status))
+  full_join(human %>% select(suid_nma, gap_status, mng_agncy))%>%
+  filter(!is.na(rare_count))
 
-highlight_parks <- c(14310, 30603, 31388, 19448)
+rare_sf = st_read(here::here("data", "processed_data", "in_out_rare.shp")) %>%
+  mutate(loc = fct_relevel(as.factor(loc), c("Outside Protected Areas", "Inside Protected Areas")))
+
+# highlight_parks <- c(14310, 30603, 31388, 19448)
 
 spatial_data <- read_csv(here::here("data", "processed_data", "spatial_analysis.csv")) %>%
   filter(!is.na(hex_int)) %>%
@@ -132,23 +123,23 @@ spatial_data <- read_csv(here::here("data", "processed_data", "spatial_analysis.
   filter(!is.na(HFP2009))
 
 temporal_data <- read_csv(here::here("data", "processed_data", "temporal_analysis.csv")) %>%
-  select(suid_nma, date, sg, park_name, mng_ag_lev, mng_agncy) %>%
+  select(suid_nma, date, sg, park_name, mng_ag_lev, mng_agncy, gap_status) %>%
   filter(!is.na(sg)) %>%
   group_by(suid_nma) %>%
   mutate(count = n()) %>%
   filter(suid_nma %in% human$suid_nma) %>%
   mutate(year = year(date))
 
-human_highlight <- human %>%
-  filter(suid_nma %in% highlight_parks)
+# human_highlight <- human %>%
+#   filter(suid_nma %in% highlight_parks)
 
 human_sum <- human %>%
   st_drop_geometry() %>%
   select(-year, -med_sg) %>%
   distinct()
 
-human_highlight_sum <- human_sum %>%
-  filter(suid_nma %in% highlight_parks)
+# human_highlight_sum <- human_sum %>%
+#   filter(suid_nma %in% highlight_parks)
 
 NPS = human_sum %>% 
   filter(mng_agncy == "United States National Park Service")
@@ -157,17 +148,480 @@ TNC = human_sum %>%
   filter(mng_agncy == "The Nature Conservancy")
 
 UC = human_sum %>% 
-  filter(mng_agncy == "University of California")
+  filter(mng_agncy == "United States Forest Service")
+
+BLM = human_sum %>%
+  filter(mng_agncy == "California Department of Parks and Recreation")
 
 CDFW = human_sum %>% 
   filter(mng_agncy == "California Department of Fish and Wildlife")
 
-colors = c("United States National Park Service" = "#440154",
-           "The Nature Conservancy" = "#21918c", 
-           "University of California" = "#3b528b",
-           "California Department of Fish and Wildlife" = "#5ec962")
+colors = c("United States National Park Service" = "#031D3A",
+           "The Nature Conservancy" = "#00ABF5", 
+           "United States Forest Service" = "#047658",
+           "California Department of Fish and Wildlife" = "#C4AF45",
+           "California Department of Parks and Recreation" = "#8A716A")
 
-# Scatter Plot ------------------------------------------------------------
+# Manager Summary ---------------------------------------------------------
+
+## NPS
+
+#area managed
+sum(NPS$shape_area) / 1000000
+
+# percent in GAP 1/2
+sum(filter(NPS, gap_status %in% c("GAP 1", "GAP 2"))$shape_area) / sum(NPS$shape_area) * 100
+
+#median HFP
+median(NPS$HFP_median, na.rm=TRUE)
+
+#median safegraph
+median(NPS$median_sg, na.rm=TRUE)
+
+#median strava
+median(NPS$gry_scl, na.rm=TRUE)
+
+#median native species
+median(NPS$bio_mdn, na.rm=TRUE)
+
+#median rare
+median(NPS$rar_mdn, na.rm=TRUE)
+
+## TNC
+
+#area managed
+sum(TNC$shape_area) / 1000000
+
+# percent in GAP 1/2
+sum(filter(TNC, gap_status %in% c("GAP 1", "GAP 2"))$shape_area) / sum(TNC$shape_area) * 100
+
+#median HFP
+median(TNC$HFP_median, na.rm=TRUE)
+
+#median safegraph
+median(TNC$median_sg, na.rm=TRUE)
+
+#median strava
+median(TNC$gry_scl, na.rm=TRUE)
+
+#median native species
+median(TNC$bio_mdn, na.rm=TRUE)
+
+#median rare
+median(TNC$rar_mdn, na.rm=TRUE)
+
+## USFS
+
+#area managed
+sum(UC$shape_area) / 1000000
+
+# percent in GAP 1/2
+sum(filter(UC, gap_status %in% c("GAP 1", "GAP 2"))$shape_area) / sum(UC$shape_area) * 100
+
+#median HFP
+median(UC$HFP_median, na.rm=TRUE)
+
+#median safegraph
+median(UC$median_sg, na.rm=TRUE)
+
+#median strava
+median(UC$gry_scl, na.rm=TRUE)
+
+#median native species
+median(UC$bio_mdn, na.rm=TRUE)
+
+#median rare
+median(UC$rar_mdn, na.rm=TRUE)
+
+
+## CDFW
+
+#area managed
+sum(CDFW$shape_area) / 1000000
+
+# percent in GAP 1/2
+sum(filter(CDFW, gap_status %in% c("GAP 1", "GAP 2"))$shape_area) / sum(CDFW$shape_area) * 100
+
+#median HFP
+median(CDFW$HFP_median, na.rm=TRUE)
+
+#median safegraph
+median(CDFW$median_sg, na.rm=TRUE)
+
+#median strava
+median(CDFW$gry_scl, na.rm=TRUE)
+
+#median native species
+median(CDFW$bio_mdn, na.rm=TRUE)
+
+#median rare
+median(CDFW$rar_mdn, na.rm=TRUE)
+
+## BLM
+
+#area managed
+sum(BLM$shape_area) / 1000000
+
+# percent in GAP 1/2
+sum(filter(BLM, gap_status %in% c("GAP 1", "GAP 2"))$shape_area) / sum(BLM$shape_area) * 100
+
+#median HFP
+median(BLM$HFP_median, na.rm=TRUE)
+
+#median safegraph
+median(BLM$median_sg, na.rm=TRUE)
+
+#median strava
+median(BLM$gry_scl, na.rm=TRUE)
+
+#median native species
+median(BLM$bio_mdn, na.rm=TRUE)
+
+#median rare
+median(BLM$rar_mdn, na.rm=TRUE)
+
+# Quartile Analysis -------------------------------------------------------
+
+total = ca %>%  
+  mutate(thirty_goal = area %>% units::drop_units() * .3)
+
+hfp = hfp %>% 
+  mutate(hfp_quartile = case_when(
+    HFP2009 < quantile(HFP2009, probs = 0.25, na.rm = TRUE) ~ "1st Quartile",
+    HFP2009 >= quantile(HFP2009, probs = 0.25, na.rm = TRUE) & HFP2009 < quantile(HFP2009, probs = 0.5, na.rm = TRUE) ~ "2nd Quartile",
+    HFP2009 <= quantile(HFP2009, probs = 0.75, na.rm = TRUE) & HFP2009 >= quantile(HFP2009, probs = 0.5, na.rm = TRUE) ~ "3rd Quartile",
+    HFP2009 > quantile(HFP2009, probs = 0.75, na.rm = TRUE) ~ "4th Quartile",
+  )) 
+  
+bio = bio %>% 
+  mutate(bio_quartile = case_when(
+    ntv_cnt < quantile(ntv_cnt, probs = 0.25, na.rm = TRUE) ~ "1st Quartile",
+    ntv_cnt >= quantile(ntv_cnt, probs = 0.25, na.rm = TRUE) & ntv_cnt < quantile(ntv_cnt, probs = 0.5, na.rm = TRUE) ~ "2nd Quartile",
+    ntv_cnt <= quantile(ntv_cnt, probs = 0.75, na.rm = TRUE) & ntv_cnt >= quantile(ntv_cnt, probs = 0.5, na.rm = TRUE) ~ "3rd Quartile",
+    ntv_cnt > quantile(ntv_cnt, probs = 0.75, na.rm = TRUE) ~ "4th Quartile",
+  ))
+
+rare = rare %>% 
+  mutate(rare_quartile = case_when(
+    rare_count < quantile(rare_count, probs = 0.25, na.rm = TRUE) ~ "1st Quartile",
+    rare_count >= quantile(rare_count, probs = 0.25, na.rm = TRUE) & rare_count < quantile(rare_count, probs = 0.5, na.rm = TRUE) ~ "2nd Quartile",
+    rare_count <= quantile(rare_count, probs = 0.75, na.rm = TRUE) & rare_count >= quantile(rare_count, probs = 0.5, na.rm = TRUE) ~ "3rd Quartile",
+    rare_count > quantile(rare_count, probs = 0.75, na.rm = TRUE) ~ "4th Quartile",
+  ))
+  
+  # mutate(sg_quartile = case_when(
+  #   median_sg < quantile(median_sg, probs = 0.25, na.rm = TRUE) ~ "1st Quartile",
+  #   median_sg >= quantile(median_sg, probs = 0.25, na.rm = TRUE) & median_sg < quantile(median_sg, probs = 0.5, na.rm = TRUE) ~ "2nd Quartile",
+  #   median_sg <= quantile(median_sg, probs = 0.75, na.rm = TRUE) & median_sg >= quantile(median_sg, probs = 0.5, na.rm = TRUE) ~ "3rd Quartile",
+  #   median_sg > quantile(median_sg, probs = 0.75, na.rm = TRUE) ~ "4th Quartile",
+  # )) 
+
+### HFI
+
+hfi_quartiles = hfp %>% 
+  filter(gap_status %in% c("GAP 1", "GAP 2")) %>% 
+  group_by(hfp_quartile) %>% 
+  summarize(area = n()) %>% 
+  rename(quartile = hfp_quartile) %>% 
+  mutate(type = "Human Footprint Index")%>% 
+  ungroup() %>% 
+  mutate(percent = area / sum(area) * 100)
+
+### sg
+
+# sg_quartiles = sg %>% 
+#   filter(gap_status %in% c("GAP 1", "GAP 2")) %>% 
+#   group_by(sg_quartile) %>% 
+#   summarize(area = n()) %>% 
+#   select(area, sg_quartile) %>% 
+#   rename(quartile = sg_quartile) %>% 
+#   mutate(type = "Safegraph Counts") %>% 
+#   ungroup()  %>% 
+# mutate(percent = area / sum(area) * 100)
+
+### bio
+
+bio_quartile = bio %>% 
+  filter(gap_status %in% c("GAP 1", "GAP 2")) %>% 
+  group_by(bio_quartile) %>% 
+  summarize(area = n()) %>% 
+  rename(quartile = bio_quartile) %>% 
+  mutate(type = "Native Species Count") %>% 
+  ungroup() %>% 
+  mutate(percent = area / sum(area) * 100)
+
+### rare
+
+rare_quartile = rare %>% 
+  filter(gap_status %in% c("GAP 1", "GAP 2")) %>% 
+  select(rare_quartile) %>% 
+  group_by(rare_quartile) %>% 
+  summarize(area = n()) %>% 
+  rename(quartile = rare_quartile) %>% 
+  mutate(type = "Rare Species Count") %>% 
+  ungroup()   %>% 
+  mutate(percent = area / sum(area) * 100)
+
+gap_status = human %>% 
+  select(gap_status, park_name) %>% 
+  mutate(area = st_area(geometry)) %>% 
+  st_drop_geometry() %>% 
+  distinct() %>% 
+  group_by(gap_status) %>% 
+  mutate(area = sum(area)) %>% 
+  select(area, gap_status) %>% 
+  distinct() %>% 
+  mutate(ca_area = total$area) %>% 
+  mutate(percent = area / ca_area * 100) %>% 
+  rename(quartile = gap_status) %>% 
+  mutate(type = "GAP Status") %>% 
+  mutate(type = as.factor(type),
+         quartile = as.factor(quartile)) %>% 
+  mutate(quartile = fct_relevel(quartile, c("GAP 4", "GAP 3", "GAP 2", "GAP 1")))
+
+quartile_data = list(hfi_quartiles, bio_quartile, rare_quartile) %>%  #sg_quartiles, 
+  reduce(full_join) %>% 
+  mutate(type = as.factor(type),
+         quartile = as.factor(quartile)) %>% 
+  mutate(type = fct_relevel(type, c("Human Footprint Index","Rare Species Count", "Native Species Count" ))) %>%  #  "Safegraph Counts", 
+  mutate(quartile = fct_relevel(quartile, c("4th Quartile" ,"3rd Quartile", "2nd Quartile" ,"1st Quartile")))
+
+p4 = ggplot(gap_status) +
+  geom_bar(aes(area %>% units::drop_units() / 1000000, y = type, fill = quartile), position = "stack", stat = "identity") +
+  geom_vline(aes(xintercept = total$thirty_goal / 1000000), color = "red", linetype = "dashed", linewidth = 1) +
+  theme_bw(base_size= 16) +
+  scale_fill_viridis_d(end = 0.45, na.value = "grey") +
+  labs(x = "Area", y = "", fill = "")
+
+p5 = ggplot(quartile_data) +
+  geom_bar(aes(percent, y = type, fill = quartile), position = "stack", stat = "identity") +
+  theme_bw(base_size= 16) +
+  scale_fill_viridis_d(begin = 0.55, end = 0.9, na.value = "grey", direction = -1) +
+  labs(x = "Area", y = "", fill = "")
+
+# Distributions -----------------------------------------------------------
+
+hfp = hfp %>% 
+  group_by(suid_nma) %>% 
+  mutate(gap = max(gap1_acres, gap2_acres, gap3_acres, gap4_acres)) %>%
+  mutate(gap_status = case_when(
+    gap == gap1_acres ~ "GAP 1",
+    gap == gap2_acres ~ "GAP 2",
+    gap == gap3_acres ~ "GAP 3",
+    gap == gap4_acres ~ "GAP 4"
+  ))
+
+bio = bio %>% 
+  group_by(suid_nma) %>%
+  mutate(gap = max(gap1_acres, gap2_acres, gap3_acres, gap4_acres)) %>%
+  mutate(gap_status = case_when(
+    gap == gap1_acres ~ "GAP 1",
+    gap == gap2_acres ~ "GAP 2",
+    gap == gap3_acres ~ "GAP 3",
+    gap == gap4_acres ~ "GAP 4"
+  ))
+
+rare = rare %>% 
+  group_by(suid_nma) %>%
+  mutate(gap = max(gap1_acres, gap2_acres, gap3_acres, gap4_acres)) %>%
+  mutate(gap_status = case_when(
+    gap == gap1_acres ~ "GAP 1",
+    gap == gap2_acres ~ "GAP 2",
+    gap == gap3_acres ~ "GAP 3",
+    gap == gap4_acres ~ "GAP 4"
+  ))
+
+p1 <- ggplot(hfp) +
+  geom_density_ridges(aes(x = HFP2009, y = loc, fill = gap_status), alpha = 0.5, scale = 3)+
+  theme_bw(base_size= 16) +
+  labs(
+    x = "Human Footprint Index",
+    y = "",
+    fill = ""
+  ) +
+  scale_fill_viridis_d(end = .9, na.value = "#fde725") +
+  scale_color_manual(values = c("black", "grey")) +
+  theme(axis.text.y  = element_blank(),
+        axis.ticks.y = element_blank())
+
+p2 <- ggplot(bio) +
+  geom_density_ridges(aes(x = ntv_cnt, y = loc, fill = gap_status), alpha = 0.5, scale = 3) +
+  theme_bw(base_size= 16) +
+  labs(
+    x = "Native Species Count",
+    y = "",
+    fill = ""
+  ) +
+  scale_fill_viridis_d(end = .9, na.value = "#fde725") +
+  scale_color_manual(values = c("black", "grey")) +
+  theme(axis.text.y  = element_blank(),
+        axis.ticks.y = element_blank(),
+        legend.position = "none")
+
+p3 <- ggplot(rare) +
+  geom_density_ridges(aes(x = rare_count, y = loc, fill = gap_status), alpha = 0.5, scale = 3) +
+  theme_bw(base_size= 16) +
+  labs(
+    x = "Rare Species Count",
+    y = "",
+    fill = ""
+  ) +
+  scale_fill_viridis_d(end = .9, na.value = "#fde725") +
+  scale_color_manual(values = c("black", "grey")) +
+  theme(axis.text.y  = element_blank(),
+        axis.ticks.y = element_blank(),
+        legend.position = "none")
+
+plot = (p2 + p3 + p1)  / (p5 + p4) + plot_annotation(tag_levels = "A") 
+
+ggsave(plot, file = paste0("fig1.pdf"), path = here::here("analysis", "figs"), height = 8, width = 15)
+
+hfp_combine_sub = hfp %>% 
+  filter(mng_agncy %in% c("United States National Park Service",
+                            "The Nature Conservancy", 
+                            "United States Forest Service", 
+                            "California Department of Fish and Wildlife",
+                          "California Department of Parks and Recreation"))
+
+bio_combine_sub = bio %>% 
+  filter(mng_agncy %in% c("United States National Park Service",
+                          "The Nature Conservancy", 
+                          "United States Forest Service", 
+                          "California Department of Fish and Wildlife",
+                          "California Department of Parks and Recreation"))
+
+
+rare_combine_sub = rare %>% 
+  filter(mng_agncy %in% c("United States National Park Service",
+                          "The Nature Conservancy", 
+                          "United States Forest Service", 
+                          "California Department of Fish and Wildlife",
+                          "California Department of Parks and Recreation"))
+
+p1 <- ggplot(hfp_combine_sub) +
+  geom_density_ridges(aes(x = HFP2009, y = mng_agncy, fill = mng_agncy), alpha = 0.5, scale = 3) +
+  theme_bw(base_size= 16) +
+  labs(
+    x = "Human Footprint Index",
+    y = "",
+    fill = ""
+  ) +
+  scale_fill_manual(values = colors) +
+  scale_color_manual(values = c("black", "grey"))
+
+p2 <- ggplot(bio_combine_sub) +
+  geom_density_ridges(aes(x = ntv_cnt, y = mng_agncy, fill = mng_agncy), alpha = 0.5, scale = 3) +
+  theme_bw(base_size= 16) +
+  labs(
+    x = "Native Species Count",
+    y = "",
+    fill = ""
+  ) + 
+  scale_fill_manual(values = colors) +
+  scale_color_manual(values = c("black", "grey"))
+
+p3 <- ggplot(rare_combine_sub) +
+  geom_density_ridges(aes(x = rare_count, y = mng_agncy, fill = mng_agncy), alpha = 0.5, scale = 3) +
+  theme_bw(base_size= 16) +
+  labs(
+    x = "Rare Species Count",
+    y = "",
+    fill = ""
+  ) +
+  scale_fill_manual(values = colors) +
+  scale_color_manual(values = c("black", "grey"))
+
+ggsave(p2 / p3 / p1 + plot_annotation(tag_levels = "A") + plot_layout(guides = "collect"), file = paste0("figS1.pdf"), path = here::here("analysis", "figs"), height = 10, width = 15)
+
+# JSD Test ----------------------------------------------------------------
+
+hfp_inside = hfp %>% 
+  filter(loc == "Inside Protected Areas")
+
+hfp_inside_hist = hist(hfp_inside %>% pull(HFP2009), breaks = 50)$counts
+
+hfp_outside = hfp %>% 
+  filter(loc == "Outside Protected Areas")
+
+hfp_outside_hist = hist(hfp_outside %>% pull(HFP2009), breaks = 50)$counts
+hfp_outside_hist[51] = 0
+
+hfp_wide = rbind(hfp_inside_hist, hfp_outside_hist)
+
+JSD(hfp_wide, est.prob = "empirical") # 0.1557018 bounded between 0 = same and 1
+
+max_count = max(bio$ntv_cnt) # 319
+min_count = min(bio$ntv_cnt) # 34
+
+count_num = min_count:max_count
+
+bio_inside = bio %>% 
+  filter(loc == "Inside Protected Areas")
+
+bio_inside_break = hist(bio_inside %>% pull(ntv_cnt), breaks = max_count)$breaks
+bio_inside_count = hist(bio_inside %>% pull(ntv_cnt), breaks = max_count)$counts
+
+bio_inside_hist = rep(0, length(count_num))
+
+j = 1 # count for count/break 
+
+for(i in 1:length(count_num)) {
+  
+  if(bio_inside_break[j] == i) {
+    bio_inside_hist[i] = bio_inside_count[j]
+    j = j + 1
+    
+  }
+  
+  print(bio_inside_hist[i])    
+}
+
+bio_outside = bio %>% 
+  filter(loc == "Outside Protected Areas")
+
+bio_outside_break = hist(bio_outside %>% pull(ntv_cnt), breaks = max_count)$breaks
+bio_outside_count = hist(bio_outside %>% pull(ntv_cnt), breaks = max_count)$counts
+
+bio_outside_hist = rep(0, length(count_num))
+
+j = 1 # count for count/break 
+
+for(i in 1:length(count_num)) {
+  
+  if(bio_outside_break[j] == i) {
+    bio_outside_hist[i] = bio_outside_count[j]
+    j = j + 1
+    
+  }
+  
+  print(bio_outside_hist[i])    
+}
+
+bio_wide = rbind(bio_inside_hist, bio_outside_hist)
+
+JSD(bio_wide, est.prob = "empirical") # 0.08372079 
+
+max_count = max(rare$rare_count) 
+min_count = min(rare$rare_count) 
+
+count_num = min_count:max_count
+
+rare_inside = rare %>% 
+  filter(loc == "Inside Protected Areas")
+
+rare_inside_count = hist(rare_inside %>% pull(rare_count), breaks = max_count)$counts
+
+rare_outside = rare %>% 
+  filter(loc == "Outside Protected Areas")
+
+rare_outside_count = hist(rare_outside %>% pull(rare_count), breaks = max_count/2)$counts
+rare_outside_count[36:57] = 0
+
+rare_wide = rbind(rare_inside_count, rare_outside_count)
+
+JSD(rare_wide, est.prob = "empirical") # 0.1186649 
+
+# Scatter Plot/PCA ------------------------------------------------------------
 
 cor_check = human_sum %>% 
   select(HFP_median, median_sg) %>% 
@@ -176,393 +630,125 @@ cor_check = human_sum %>%
 cor(cor_check$HFP_median, cor_check$median_sg)
 #0.07864059
 
-p <- ggplot() +
-  geom_point(data = human_sum, aes(HFP_median, median_sg), color = "grey", alpha = 0.7) +
-  geom_point(data = CDFW, aes(HFP_median, median_sg, color = "California Department of Fish and Wildlife")) +
-  geom_point(data = NPS, aes(HFP_median, median_sg, color = "United States National Park Service")) +
-  geom_point(data = TNC, aes(HFP_median, median_sg, color = "The Nature Conservancy")) +
-  geom_point(data = UC, aes(HFP_median, median_sg, color = "University of California")) +
-  # geom_point(data = human_highlight_sum, aes(HFP_median, median_sg), color = "red", size = 2) +
-  theme_bw() +
-  labs(
-    x = "Median Human Footprint Index",
-    y = "Median Tourism",
-    color = "",
-    title = "C"
-  ) +
-  scale_y_log10() +
-  scale_color_manual(values = colors) +
-  geom_label_repel(
-    data = human_highlight_sum, aes(HFP_median, median_sg, label = paste0(park_name)),
-    size = 4,
-    alpha = 0.8,
-    min.segment.length = 1,
-    arrow = arrow(length = unit(0.1, "inches")),
-    box.padding = 1,
-    color = "black"
-  ) +
-  theme(legend.position = "bottom",
-        plot.title = element_text(size= 20, vjust = -0.5))
+hfp_sf = hfp_sf %>% 
+  filter(loc == "Outside Protected Areas") %>% 
+  rename(HFP_median = HFP2009) %>% 
+  select(HFP_median) %>% 
+  st_buffer(dist = 2)
+bio_sf = bio_sf %>% 
+  filter(loc == "Outside Protected Areas") %>% 
+  rename(bio_mdn = ntv_cnt) %>% 
+  select(bio_mdn) 
+rare_sf = rare_sf %>% 
+  filter(loc == "Outside Protected Areas") %>% 
+  rename(rar_mdn = rare_count) %>% 
+  select(rar_mdn)
 
-p1 <- ggMarginal(p, type = "density", fill = "grey")
+outside_bio = cbind(bio_sf, rare_sf) %>% 
+  select(-geometry.1) %>% 
+  st_as_sf()
 
-ggsave(p1, file = paste0("fig2C.pdf"), path = here::here("analysis", "figs"), height = 8, width = 10)
-
-p <- ggplot(human_sum) +
-  # geom_hline(aes(yintercept = 1), color = "red", alpha = 0.5) +
-  geom_point(aes(bio_men, median_sg), alpha = 0.7, color = "grey") +
-  geom_point(data = CDFW, aes(bio_men, median_sg, color = "California Department of Fish and Wildlife")) +
-  geom_point(data = NPS, aes(bio_men, median_sg, color = "United States National Park Service")) +
-  geom_point(data = TNC, aes(bio_men, median_sg, color = "The Nature Conservancy")) +
-  geom_point(data = UC, aes(bio_men, median_sg, color = "University of California")) +
-  # geom_point(data = human_highlight_sum, aes(bio_men, median_sg), color = "red", size = 2) +
-  theme_bw() +
-  labs(
-    x = "Median Terrestrial Species Count",
-    y = "Median Tourism",
-    color = "",
-    title = "B"
-  ) +
-  scale_color_manual(values = colors) +
-  scale_y_log10() +
-  geom_label_repel(
-    data = human_highlight_sum, aes(bio_men, median_sg, label = park_name),
-    size = 4,
-    alpha = 0.8,
-    min.segment.length = 1,
-    arrow = arrow(length = unit(0.1, "inches")),
-    box.padding = 1,
-    color = "black"
-  ) +
-  theme(legend.position = "bottom",
-        plot.title = element_text(size= 20, vjust = -0.5))
-
-p1 <- ggMarginal(p, type = "density", fill = "grey")
-
-ggsave(p1, file = paste0("fig2B.pdf"), path = here::here("analysis", "figs"), height = 8, width = 10)
-
-p <- ggplot(human_sum) +
-  geom_point(aes(HFP_median, bio_men), alpha = 0.7, color = "grey") +
-  geom_point(data = CDFW, aes(HFP_median, bio_men, color = "California Department of Fish and Wildlife")) +
-  geom_point(data = NPS, aes(HFP_median, bio_men, color = "United States National Park Service")) +
-  geom_point(data = TNC, aes(HFP_median, bio_men, color = "The Nature Conservancy")) +
-  geom_point(data = UC, aes(HFP_median, bio_men, color = "University of California")) +
-  # geom_point(data = human_highlight_sum, aes(HFP_median, bio_men), color = "red", size = 2) +
-  theme_bw() +
-  labs(
-    x = "Median Human Footprint Index",
-    y = "Median Terrestrial Species Count",
-    color = "",
-    title = "A"
-  ) +
-  geom_label_repel(
-    data = human_highlight_sum, aes(HFP_median, bio_men, label = park_name),
-    size = 4,
-    alpha = 0.8,
-    min.segment.length = 1,
-    arrow = arrow(length = unit(0.1, "inches")),
-    box.padding = 1,
-    color = "black"
-  ) +
-  scale_color_manual(values = colors) +
-  theme(legend.position = "bottom",
-        plot.title = element_text(size= 20, vjust = -0.5))
-
-p1 <- ggMarginal(p, type = "density", fill = "grey")
-
-ggsave(p1, file = paste0("fig2A.pdf"), path = here::here("analysis", "figs"), height = 8, width = 10)
-
-# Quartile Analysis -------------------------------------------------------
-
-total = ca %>%  
-  mutate(thirty_goal = area %>% units::drop_units() * .3)
-
-### HFI
-
-hfi_quartiles = human %>% 
-  select(park_name, hfp_quartile) %>% 
-  mutate(area = st_area(geometry)) %>% 
+outside = st_join(hfp_sf , outside_bio) %>% 
   st_drop_geometry() %>% 
-  distinct() %>% 
-  group_by(hfp_quartile) %>% 
-  mutate(area = sum(area)) %>% 
-  select(area, hfp_quartile) %>% 
-  distinct() %>% 
-  mutate(ca_area = total$area) %>% 
-  mutate(percent = area / ca_area * 100) %>% 
-  rename(quartile = hfp_quartile) %>% 
-  mutate(type = "Human Footprint Index")
+  drop_na() %>% 
+  mutate(loc = "Outside Protected Areas")
 
-### sg
-
-sg_quartiles = human %>% 
-  select(park_name, sg_quartile) %>% 
-  mutate(area = st_area(geometry)) %>% 
+pca_prep_data = human_sum %>% 
   st_drop_geometry() %>% 
-  distinct() %>% 
-  group_by(sg_quartile) %>% 
-  mutate(area = sum(area)) %>% 
-  select(area, sg_quartile) %>% 
-  distinct() %>% 
-  mutate(ca_area = total$area) %>% 
-  mutate(percent = area / ca_area * 100) %>% 
-  rename(quartile = sg_quartile) %>% 
-  mutate(type = "Safegraph Counts")
+  select(suid_nma, HFP_median, bio_mdn, rar_mdn, mng_agncy, gap_status) %>%  # median_sg, 
+  drop_na() %>% 
+  mutate(loc = "Inside Protected Areas")
 
-### bio
+pca_data1 = pca_prep_data %>% 
+  select(-suid_nma, -mng_agncy, -gap_status) %>% 
+  rbind(outside)
 
-bio_quartile = human %>% 
-  select(park_name, bio_quartile) %>% 
-  mutate(area = st_area(geometry)) %>% 
-  st_drop_geometry() %>% 
-  distinct() %>% 
-  group_by(bio_quartile) %>% 
-  mutate(area = sum(area)) %>% 
-  select(area, bio_quartile) %>% 
-  distinct() %>% 
-  mutate(ca_area = total$area) %>% 
-  mutate(percent = area / ca_area * 100) %>% 
-  rename(quartile = bio_quartile) %>% 
-  mutate(type = "Native Species Count")
+pca_data = pca_data2 %>% 
+  select(-loc)
 
-quartile_data = list(sg_quartiles, hfi_quartiles, bio_quartile) %>% 
-  reduce(full_join) %>% 
-  mutate(type = fct_relevel(as.factor(type), c("Native Species Count", "Human Footprint Index", "Safegraph Counts")))
+pca_corr = cor(pca_data)
 
-p4 = ggplot(quartile_data) +
-  geom_bar(aes(area %>% units::drop_units() / 1000000, y = type, fill = quartile), position = "stack", stat = "identity") +
-  geom_vline(aes(xintercept = total$thirty_goal / 1000000), color = "red", linetype = "dashed", linewidth = 1) +
-  theme_bw() +
-  scale_fill_viridis_d(end = 0.9, na.value = "grey") +
-  labs(x = "Area", y = "", fill = "Quartile")
+pca = prcomp(pca_data, scale. = TRUE)
+summary(pca)
 
-# ggsave(p1, file = paste0("fig4.pdf"), path = here::here("analysis", "figs"), height = 10, width = 10)
+# autoplot(pca, data = pca_prep_data) 
 
-# Distributions -----------------------------------------------------------
+explained_variance_ratio <- summary(pca)[["importance"]]['Proportion of Variance',]
+explained_variance_ratio <- 100 * explained_variance_ratio
+components <- pca[["x"]]
+components <- data.frame(components)
+components <- cbind(components, pca_prep_data$suid_nma)
+components <- cbind(components, pca_prep_data$mng_agncy) %>% 
+  as.data.frame()
+components <- cbind(components, pca_prep_data$gap_status) %>% 
+  as.data.frame()
 
-hfp <- hfp %>%
-  filter(!is.na(HFP2009)) %>%
-  rowwise() %>%
-  mutate(gap = max(gap1_acres, gap2_acres, gap3_acres, gap4_acres)) %>%
-  mutate(gap_status = case_when(
-    gap == gap1_acres ~ "GAP 1",
-    gap == gap2_acres ~ "GAP 2",
-    gap == gap3_acres ~ "GAP 3",
-    gap == gap4_acres ~ "GAP 4",
-    loc == "Outside Protected Areas" ~ "NA"
+names(components) = c("PC1", "PC2", "PC3", "PC4", 
+                      "suid_nma", "mng_agncy", "gap_status")
+
+NPS_components = components %>% 
+  filter(mng_agncy == "United States National Park Service")
+
+TNC_components = components %>% 
+  filter(mng_agncy == "The Nature Conservancy")
+
+UC_components = components %>% 
+  filter(mng_agncy == "United States Forest Service")
+
+CDFW_components = components %>% 
+  filter(mng_agncy == "California Department of Fish and Wildlife")
+
+SP_components = components %>% 
+  filter(mng_agncy == "California Department of Parks and Recreation")
+
+components = components %>% 
+  filter(PC2 > -10)
+
+loadings = as.data.frame(pca["rotation"])
+
+loadings = loadings %>% 
+  mutate(var = case_when(
+    row.names(loadings) == "median_sg" ~ "Safegraph Device Counts",
+    row.names(loadings) == "HFP_median" ~ "Human Footprint Index",
+    row.names(loadings) == "bio_mdn" ~ "Native, Rare Species",
+    row.names(loadings) == "rar_mdn" ~ ""
   ))
 
-bio <- bio %>%
-  filter(!is.na(ntv_cnt)) %>%
-  rowwise() %>%
-  mutate(gap = max(gap1_acres, gap2_acres, gap3_acres, gap4_acres)) %>%
-  mutate(gap_status = case_when(
-    gap == gap1_acres ~ "GAP 1",
-    gap == gap2_acres ~ "GAP 2",
-    gap == gap3_acres ~ "GAP 3",
-    gap == gap4_acres ~ "GAP 4",
-    loc == "Outside Protected Areas" ~ "NA"
-  ))
+p1 = ggplot() +
+  geom_point(data = components, aes(PC1, PC2), color = "grey") +
+  geom_point(data = CDFW_components, aes(PC1, PC2, color = "California Department of Fish and Wildlife")) +
+  geom_point(data = SP_components, aes(PC1, PC2, color = "California Department of Parks and Recreation")) +
+  geom_point(data = NPS_components, aes(PC1, PC2, color = "United States National Park Service")) +
+  geom_point(data = UC_components, aes(PC1, PC2, color = "United States Forest Service")) +
+  geom_point(data = TNC_components, aes(PC1, PC2, color = "The Nature Conservancy")) +
+  geom_segment(data = loadings, aes(x = 0, xend = rotation.PC1, y = 0, yend = rotation.PC2), arrow = arrow(length = unit(0.25, "cm")), linewidth = 0.5, colour = "grey20") +
+  ggrepel::geom_label_repel(data = loadings, aes(x = rotation.PC1, y = rotation.PC2, label = var), fill = "transparent", cex = 3, direction = "both", segment.size = .5) +
+  theme_bw(base_size= 16) +
+  labs(x = paste0("PC1 (", round(explained_variance_ratio[1], 2), "%)"),
+       y = paste0("PC2 (", round(explained_variance_ratio[2], 2), "%)"),
+       color = "") +
+  theme(legend.position = "bottom") +
+  scale_color_manual(values = colors) +
+  guides(color=guide_legend(nrow=2,byrow=TRUE))
 
-rare <- rare %>%
-  filter(!is.na(rare_count)) %>%
-  rowwise() %>%
-  mutate(gap = max(gap1_acres, gap2_acres, gap3_acres, gap4_acres)) %>%
-  mutate(gap_status = case_when(
-    gap == gap1_acres ~ "GAP 1",
-    gap == gap2_acres ~ "GAP 2",
-    gap == gap3_acres ~ "GAP 3",
-    gap == gap4_acres ~ "GAP 4",
-    loc == "Outside Protected Areas" ~ "NA"
-  ))
+ggsave(p1, file = paste0("fig2.pdf"), path = here::here("analysis", "figs"), height = 8, width = 10)
 
-hfp_out = hfp %>% 
-  filter(loc == "Outside Protected Areas") %>% 
-  mutate(gap_status = "None") %>% 
-  mutate(mng_agncy = "None") %>% 
-  select(HFP2009, gap_status, loc, mng_agncy)
-
-human_in = human %>% 
-  select(gap_status, HFP_median, mng_agncy) %>% 
-  mutate(loc = "Mean Inside Protected Area") %>% 
-  rename(HFP2009 = HFP_median)  %>% 
-  st_drop_geometry()
-
-hfp_combine = rbind(hfp_out, human_in) %>% 
-  as.data.frame() %>% 
-  filter(!is.na(HFP2009))
-
-bio_out = bio %>% 
-  filter(loc == "Outside Protected Areas") %>% 
-  mutate(gap_status = "None") %>% 
-  mutate(mng_agncy = "None") %>% 
-  select(ntv_cnt, gap_status, loc, mng_agncy)
-
-human_in = human %>% 
-  select(gap_status, bio_mdn, mng_agncy) %>% 
-  mutate(loc = "Mean Inside Protected Area") %>% 
-  rename(ntv_cnt = bio_mdn)  %>% 
-  st_drop_geometry()
-
-bio_combine = rbind(bio_out, human_in) %>% 
-  as.data.frame() %>% 
-  filter(!is.na(ntv_cnt))
-
-rare_out = rare %>% 
-  filter(loc == "Outside Protected Areas") %>% 
-  mutate(gap_status = "None") %>%  
-  mutate(mng_agncy = "None") %>% 
-  select(rare_count, gap_status, loc, mng_agncy)
-
-human_in = human %>% 
-  select(gap_status, rar_mdn, mng_agncy) %>% 
-  mutate(loc = " Mean Inside Protected Area") %>% 
-  rename(rare_count = rar_mdn)  %>% 
-  st_drop_geometry()
-
-rare_combine = rbind(rare_out, human_in) %>% 
-  as.data.frame() %>% 
-  filter(!is.na(rare_count))
-
-manager_sum = list(CDFW, UC, TNC, NPS) %>% 
-  reduce(full_join) %>% 
-  group_by(mng_agncy) %>% 
-  summarize(HFP_median = median(HFP_median, na.rm=TRUE),
-            bio_mdn = median(bio_mdn, na.rm=TRUE),
-            rare_mdn = median(rar_mdn, na.rm=TRUE))
-
-p1 <- ggplot(hfp_combine) +
-  geom_density_ridges(aes(x = HFP2009, y = loc, fill = loc), alpha = 0.5, scale = 3)+
-  # geom_vline(data = manager_sum, aes(xintercept = HFP_median), color = "red", linetype = "dashed") +
-  theme_bw() +
-  labs(
-    x = "Human Footprint Index",
-    y = "",
-    fill = ""
-  ) +
-  scale_fill_viridis_d(end = .9, na.value = "#fde725") +
-  scale_color_manual(values = c("black", "grey")) +
-  theme(axis.text.y  = element_blank(),
-        axis.ticks.y = element_blank())
-# +
-#   geom_label_repel(
-#     data = manager_sum, aes(x = HFP_median, y = 4, label = mng_agncy),
-#     size = 4,
-#     alpha = 0.65,
-#     min.segment.length = 1,
-#     arrow = arrow(length = unit(0.1, "inches")),
-#     box.padding = 1,
-#     color = "black"
-#   ) 
-
-p2 <- ggplot(bio_combine) +
-  geom_density_ridges(aes(x = ntv_cnt, y = loc, fill = loc), alpha = 0.5, scale = 3) +
-  # geom_vline(data = manager_sum, aes(xintercept = bio_mdn), color = "red", linetype = "dashed") +
-  theme_bw() +
-  labs(
-    x = "Native Species Count",
-    y = "",
-    fill = ""
-  ) +
-  scale_fill_viridis_d(end = .9, na.value = "#fde725") +
-  scale_color_manual(values = c("black", "grey")) +
-  theme(axis.text.y  = element_blank(),
-        axis.ticks.y = element_blank())
-# +
-  # geom_label_repel(
-  #   data = manager_sum, aes(x = bio_mdn, y = 4, label = mng_agncy),
-  #   size = 4,
-  #   alpha = 0.65,
-  #   min.segment.length = 1,
-  #   arrow = arrow(length = unit(0.1, "inches")),
-  #   box.padding = 1,
-  #   color = "black"
-
-p3 <- ggplot(rare_combine) +
-  geom_density_ridges(aes(x = rare_count, y = loc, fill = loc), alpha = 0.5, scale = 3) +
-  # geom_vline(data = manager_sum, aes(xintercept = rare_mdn), color = "red", linetype = "dashed") +
-  theme_bw() +
-  labs(
-    x = "Rare Species Count",
-    y = "",
-    fill = ""
-  ) +
-  scale_fill_viridis_d(end = .9, na.value = "#fde725") +
-  scale_color_manual(values = c("black", "grey")) +
-  theme(axis.text.y  = element_blank(),
-        axis.ticks.y = element_blank())
-# +
-  # geom_label_repel(
-  #   data = manager_sum, aes(x = rare_mdn, y = 4, label = mng_agncy),
-  #   size = 4,
-  #   alpha = 0.65,
-  #   min.segment.length = 1,
-  #   arrow = arrow(length = unit(0.1, "inches")),
-  #   box.padding = 1,
-  #   color = "black"
-  # )
-
-plot = (p2 + p3 + p1)  / p4 + plot_annotation(tag_levels = "A") + plot_layout(guides = "collect")
-
-ggsave(plot, file = paste0("fig1.pdf"), path = here::here("analysis", "figs"), height = 8, width = 12)
-
-hfp_combine_sub = hfp_combine %>% 
-  filter(mng_agncy %in% c("United States National Park Service",
-                            "The Nature Conservancy", 
-                            "University of California", 
-                            "California Department of Fish and Wildlife",
-                            "None"))
-
-bio_combine_sub = bio_combine %>% 
-  filter(mng_agncy %in% c("United States National Park Service",
-                           "The Nature Conservancy", 
-                           "University of California", 
-                           "California Department of Fish and Wildlife",
-                           "None"))
-
-
-rare_combine_sub = rare_combine %>% 
-  filter(mng_agncy %in% c("United States National Park Service",
-                           "The Nature Conservancy", 
-                           "University of California", 
-                           "California Department of Fish and Wildlife",
-                           "None"))
-
-p1 <- ggplot(hfp_combine_sub) +
-  geom_density_ridges(aes(x = HFP2009, y = loc, fill = mng_agncy), alpha = 0.5, scale = 3) +
-  theme_bw() +
-  labs(
-    x = "Human Footprint Index",
-    y = "",
-    fill = "GAP Status"
-  ) +
-  scale_fill_manual(values = colors) +
-  scale_color_manual(values = c("black", "grey"))
-
-p2 <- ggplot(bio_combine_sub) +
-  geom_density_ridges(aes(x = ntv_cnt, y = loc, fill = mng_agncy), alpha = 0.5, scale = 3) +
-  theme_bw() +
-  labs(
-    x = "Native Species Count",
-    y = "",
-    fill = "GAP Status"
-  ) + 
-  scale_fill_manual(values = colors) +
-  scale_color_manual(values = c("black", "grey"))
-
-p3 <- ggplot(rare_combine_sub) +
-  geom_density_ridges(aes(x = rare_count, y = loc, fill = mng_agncy), alpha = 0.5, scale = 3) +
-  theme_bw() +
-  labs(
-    x = "Rare Species Count",
-    y = "",
-    fill = "GAP Status"
-  ) +
-  scale_fill_manual(values = colors) +
-  scale_color_manual(values = c("black", "grey"))
-
-ggsave(p2 / p3 / p1 + plot_annotation(tag_levels = "A") + plot_layout(guides = "collect"), file = paste0("figS1.pdf"), path = here::here("analysis", "figs"), height = 8, width = 10)
-
+p2 = ggplot() +
+  geom_point(data = components, aes(PC1, PC2, color = gap_status), alpha = 0.5) +
+  # geom_point(data = CDFW_components, aes(PC1, PC2, color = "California Department of Fish and Wildlife")) +
+  # geom_point(data = SP_components, aes(PC1, PC2, color = "California Department of Parks and Recreation")) +
+  # geom_point(data = NPS_components, aes(PC1, PC2, color = "United States National Park Service")) +
+  # geom_point(data = UC_components, aes(PC1, PC2, color = "United States Forest Service")) +
+  # geom_point(data = TNC_components, aes(PC1, PC2, color = "The Nature Conservancy")) +
+  geom_segment(data = loadings, aes(x = 0, xend = rotation.PC1, y = 0, yend = rotation.PC2), arrow = arrow(length = unit(0.25, "cm")), linewidth = 0.5, colour = "grey20") +
+  ggrepel::geom_label_repel(data = loadings, aes(x = rotation.PC1, y = rotation.PC2, label = var), fill = "transparent", cex = 3, direction = "both", segment.size = .5) +
+  theme_bw(base_size= 16) +
+  labs(x = paste0("PC1 (", round(explained_variance_ratio[1], 2), "%)"),
+       y = paste0("PC2 (", round(explained_variance_ratio[2], 2), "%)"),
+       color = "") +
+  theme(legend.position = "bottom") +
+  scale_color_viridis_d(end = 0.9) +
+  guides(color=guide_legend(nrow=2,byrow=TRUE))
 
 # Spatial Analysis --------------------------------------------------------
 
@@ -573,24 +759,46 @@ park_models <- spatial_data %>%
   mutate(count = n()) %>%
   filter(count >= 3)
 
-park_data <- human %>%
-  filter(suid_nma %in% park_models$suid_nma)
+park_var = park_models %>% 
+  group_by(suid_nma) %>% 
+  summarize(hfp = sd(HFP2009, na.rm=TRUE),
+            native_count = sd(native_count, na.rm=TRUE),
+            rare_count = sd(rare_count, na.rm=TRUE),
+            strava = sd(gray_scale, na.rm=TRUE)) %>% 
+  group_by(suid_nma) %>% 
+  mutate(total_var = sum(hfp, native_count, rare_count, strava)) %>% 
+  filter(total_var > 0)
+
+park_models = park_models %>%
+  filter(suid_nma %in% park_var$suid_nma) %>% 
+  group_by(suid_nma) %>% 
+  mutate(mean_hfp = median(HFP2009, na.rm=TRUE),
+         mean_native_count = median(native_count, na.rm=TRUE),
+         mean_rare_count = median(rare_count, na.rm=TRUE),
+         mean_strava = median(gray_scale, na.rm=TRUE)) %>% 
+  ungroup() %>% 
+  mutate(HFP2009 = HFP2009 - mean_hfp,
+         native_count = native_count - mean_native_count,
+         rare_count = rare_count - mean_rare_count,
+         gray_scale = gray_scale - mean_strava)
 
 gam1 <- gam(gray_scale ~ s(HFP2009, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) + s(suid_nma, bs = "re") + s(suid_nma, HFP2009, bs = "re"), random = list(suid_nma = ~ 1 + HFP2009), data = park_models)
 gam2 <- gam(gray_scale ~ s(HFP2009, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) + s(suid_nma, bs = "re") + s(suid_nma, HFP2009, bs = "re"), random = list(suid_nma = ~ 1 + HFP2009), data = park_models %>% filter(mng_agncy == "United States National Park Service"))
 gam3 <- gam(gray_scale ~ s(HFP2009, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) + s(suid_nma, bs = "re") + s(suid_nma, HFP2009, bs = "re"), random = list(suid_nma = ~ 1 + HFP2009), data = park_models %>% filter(mng_agncy == "The Nature Conservancy"))
-gam4 <- gam(gray_scale ~ s(HFP2009, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) + s(suid_nma, bs = "re") + s(suid_nma, HFP2009, bs = "re"), random = list(suid_nma = ~ 1 + HFP2009), data = park_models %>% filter(mng_agncy == "University of California"))
+gam4 <- gam(gray_scale ~ s(HFP2009, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) + s(suid_nma, bs = "re") + s(suid_nma, HFP2009, bs = "re"), random = list(suid_nma = ~ 1 + HFP2009), data = park_models %>% filter(mng_agncy == "United States Forest Service"))
 gam5 <- gam(gray_scale ~ s(HFP2009, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) + s(suid_nma, bs = "re") + s(suid_nma, HFP2009, bs = "re"), random = list(suid_nma = ~ 1 + HFP2009), data = park_models %>% filter(mng_agncy == "California Department of Fish and Wildlife"))
+gam6 <- gam(gray_scale ~ s(HFP2009, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) + s(suid_nma, bs = "re") + s(suid_nma, HFP2009, bs = "re"), random = list(suid_nma = ~ 1 + HFP2009), data = park_models %>% filter(mng_agncy == "California Department of Parks and Recreation"))
 
-summary(gam1)
-summary(gam2)
-summary(gam3)
-summary(gam4)
-summary(gam5)
+# summary(gam1)
+# summary(gam2)
+# summary(gam3)
+# summary(gam4)
+# summary(gam5)
+# summary(gam6)
 
 p1 <- plot_predictions(gam1, condition = "HFP2009") +
-  geom_rug(data = park_data, aes(HFP_median), alpha = 1 / 2, outside = TRUE, sides = "b") +
-  theme_bw() +
+  # geom_rug(data = park_models, aes(mean_hfp), alpha = 1 / 2, outside = TRUE, sides = "b") +
+  theme_bw(base_size= 16) +
   labs(
     x = "Human Footprint Index",
     y = "Strava Gray Scale"
@@ -602,8 +810,8 @@ p1 <- plot_predictions(gam1, condition = "HFP2009") +
   )
 
 p2 <- plot_predictions(gam2, condition = "HFP2009") +
-  geom_rug(data = park_data %>% filter(mng_agncy == "United States National Park Service"), aes(HFP_median), alpha = 1 / 2, outside = TRUE, sides = "b") +
-  theme_bw() +
+  # geom_rug(data = park_models %>% filter(mng_agncy == "United States National Park Service"), aes(mean_hfp), alpha = 1 / 2, outside = TRUE, sides = "b") +
+  theme_bw(base_size= 16) +
   labs(
     x = "Human Footprint Index",
     y = "Strava Gray Scale"
@@ -615,8 +823,8 @@ p2 <- plot_predictions(gam2, condition = "HFP2009") +
   )
 
 p3 <- plot_predictions(gam3, condition = "HFP2009") +
-  geom_rug(data = park_data %>% filter(mng_agncy == "The Nature Conservancy"), aes(HFP_median), alpha = 1 / 2, outside = TRUE, sides = "b") +
-  theme_bw() +
+  # geom_rug(data = park_models %>% filter(mng_agncy == "The Nature Conservancy"), aes(mean_hfp), alpha = 1 / 2, outside = TRUE, sides = "b") +
+  theme_bw(base_size= 16) +
   labs(
     x = "Human Footprint Index",
     y = "Strava Gray Scale"
@@ -628,8 +836,8 @@ p3 <- plot_predictions(gam3, condition = "HFP2009") +
   )
 
 p4 <- plot_predictions(gam4, condition = "HFP2009") +
-  geom_rug(data = park_data %>% filter(mng_agncy == "University of California"), aes(HFP_median), alpha = 1 / 2, outside = TRUE, sides = "b") +
-  theme_bw() +
+  # geom_rug(data = park_models %>% filter(mng_agncy == "United States Forest Service"), aes(mean_hfp), alpha = 1 / 2, outside = TRUE, sides = "b") +
+  theme_bw(base_size= 16) +
   labs(
     x = "Human Footprint Index",
     y = "Strava Gray Scale"
@@ -641,8 +849,21 @@ p4 <- plot_predictions(gam4, condition = "HFP2009") +
   )
 
 p5 <- plot_predictions(gam5, condition = "HFP2009") +
-  geom_rug(data = park_data %>% filter(mng_agncy == "California Department of Fish and Wildlife"), aes(HFP_median), alpha = 1 / 2, outside = TRUE, sides = "b") +
-  theme_bw() +
+  # geom_rug(data = park_models %>% filter(mng_agncy == "California Department of Fish and Wildlife"), aes(mean_hfp), alpha = 1 / 2, outside = TRUE, sides = "b") +
+  theme_bw(base_size= 16) +
+  labs(
+    x = "Human Footprint Index",
+    y = "Strava Gray Scale"
+  ) +
+  coord_cartesian(clip = "off") +
+  theme(
+    axis.text.x = element_text(margin = margin(t = 10)),
+    axis.ticks.x = element_blank()
+  )
+
+p6 <- plot_predictions(gam6, condition = "HFP2009") +
+  # geom_rug(data = park_models %>% filter(mng_agncy == "California Department of Parks and Recreation"), aes(mean_hfp), alpha = 1 / 2, outside = TRUE, sides = "b") +
+  theme_bw(base_size= 16) +
   labs(
     x = "Human Footprint Index",
     y = "Strava Gray Scale"
@@ -656,18 +877,19 @@ p5 <- plot_predictions(gam5, condition = "HFP2009") +
 gam1 <- gam(gray_scale ~ s(native_count, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) + s(suid_nma, bs = "re") + s(suid_nma, native_count, bs = "re"), random = list(suid_nma = ~ 1 + native_count), data = park_models)
 gam2 <- gam(gray_scale ~ s(native_count, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) + s(suid_nma, bs = "re") + s(suid_nma, native_count, bs = "re"), random = list(suid_nma = ~ 1 + native_count), data = park_models %>% filter(mng_agncy == "United States National Park Service"))
 gam3 <- gam(gray_scale ~ s(native_count, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) + s(suid_nma, bs = "re") + s(suid_nma, native_count, bs = "re"), random = list(suid_nma = ~ 1 + native_count), data = park_models %>% filter(mng_agncy == "The Nature Conservancy"))
-gam4 <- gam(gray_scale ~ s(native_count, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) + s(suid_nma, bs = "re") + s(suid_nma, native_count, bs = "re"), random = list(suid_nma = ~ 1 + native_count), data = park_models %>% filter(mng_agncy == "University of California"))
+gam4 <- gam(gray_scale ~ s(native_count, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) + s(suid_nma, bs = "re") + s(suid_nma, native_count, bs = "re"), random = list(suid_nma = ~ 1 + native_count), data = park_models %>% filter(mng_agncy == "United States Forest Service"))
 gam5 <- gam(gray_scale ~ s(native_count, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) + s(suid_nma, bs = "re") + s(suid_nma, native_count, bs = "re"), random = list(suid_nma = ~ 1 + native_count), data = park_models %>% filter(mng_agncy == "California Department of Fish and Wildlife"))
+gam6 <- gam(gray_scale ~ s(native_count, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) + s(suid_nma, bs = "re") + s(suid_nma, native_count, bs = "re"), random = list(suid_nma = ~ 1 + native_count), data = park_models %>% filter(mng_agncy == "California Department of Parks and Recreation"))
 
-summary(gam1)
-summary(gam2)
-summary(gam3)
-summary(gam4)
-summary(gam5)
+# summary(gam1)
+# summary(gam2)
+# summary(gam3)
+# summary(gam4)
+# summary(gam5)
 
-p6 <- plot_predictions(gam1, condition = "native_count") +
-  geom_rug(data = park_data, aes(bio_mdn), alpha = 1 / 2, outside = TRUE, sides = "b") +
-  theme_bw() +
+p7 <- plot_predictions(gam1, condition = "native_count") +
+  # geom_rug(data = park_models, aes(mean_native_count), alpha = 1 / 2, outside = TRUE, sides = "b") +
+  theme_bw(base_size= 16) +
   labs(
     x = "Native Species Count",
     y = "Strava Gray Scale"
@@ -678,9 +900,9 @@ p6 <- plot_predictions(gam1, condition = "native_count") +
     axis.ticks.x = element_blank()
   )
 
-p7 <- plot_predictions(gam2, condition = "native_count") +
-  geom_rug(data = park_data %>% filter(mng_agncy == "United States National Park Service"), aes(bio_mdn), alpha = 1 / 2, outside = TRUE, sides = "b") +
-  theme_bw() +
+p8 <- plot_predictions(gam2, condition = "native_count") +
+  # geom_rug(data = park_models %>% filter(mng_agncy == "United States National Park Service"), aes(mean_native_count), alpha = 1 / 2, outside = TRUE, sides = "b") +
+  theme_bw(base_size= 16) +
   labs(
     x = "Native Species Count",
     y = "Strava Gray Scale"
@@ -691,9 +913,9 @@ p7 <- plot_predictions(gam2, condition = "native_count") +
     axis.ticks.x = element_blank()
   )
 
-p8 <- plot_predictions(gam3, condition = "native_count") +
-  geom_rug(data = park_data %>% filter(mng_agncy == "The Nature Conservancy"), aes(bio_mdn), alpha = 1 / 2, outside = TRUE, sides = "b") +
-  theme_bw() +
+p9 <- plot_predictions(gam3, condition = "native_count") +
+  # geom_rug(data = park_models %>% filter(mng_agncy == "The Nature Conservancy"), aes(mean_native_count), alpha = 1 / 2, outside = TRUE, sides = "b") +
+  theme_bw(base_size= 16) +
   labs(
     x = "Native Species Count",
     y = "Strava Gray Scale"
@@ -704,9 +926,9 @@ p8 <- plot_predictions(gam3, condition = "native_count") +
     axis.ticks.x = element_blank()
 )
 
-p9 <- plot_predictions(gam4, condition = "native_count") +
-  geom_rug(data = park_data %>% filter(mng_agncy == "University of California"), aes(bio_mdn), alpha = 1 / 2, outside = TRUE, sides = "b") +
-  theme_bw() +
+p10 <- plot_predictions(gam4, condition = "native_count") +
+  # geom_rug(data = park_models %>% filter(mng_agncy == "United States Forest Service"), aes(mean_native_count), alpha = 1 / 2, outside = TRUE, sides = "b") +
+  theme_bw(base_size= 16) +
   labs(
     x = "Native Species Count",
     y = "Strava Gray Scale"
@@ -717,9 +939,22 @@ p9 <- plot_predictions(gam4, condition = "native_count") +
     axis.ticks.x = element_blank()
   )
 
-p10 <- plot_predictions(gam5, condition = "native_count") +
-  geom_rug(data = park_data %>% filter(mng_agncy == "California Department of Fish and Wildlife"), aes(bio_mdn), alpha = 1 / 2, outside = TRUE, sides = "b") +
-  theme_bw() +
+p11 <- plot_predictions(gam5, condition = "native_count") +
+  # geom_rug(data = park_models %>% filter(mng_agncy == "California Department of Fish and Wildlife"), aes(mean_native_count), alpha = 1 / 2, outside = TRUE, sides = "b") +
+  theme_bw(base_size= 16) +
+  labs(
+    x = "Native Species Count",
+    y = "Strava Gray Scale"
+  ) +
+  coord_cartesian(clip = "off") +
+  theme(
+    axis.text.x = element_text(margin = margin(t = 10)),
+    axis.ticks.x = element_blank()
+  )
+
+p12 <- plot_predictions(gam6, condition = "native_count") +
+  # geom_rug(data = park_models %>% filter(mng_agncy == "California Department of Fish and Wildlife"), aes(mean_native_count), alpha = 1 / 2, outside = TRUE, sides = "b") +
+  theme_bw(base_size= 16) +
   labs(
     x = "Native Species Count",
     y = "Strava Gray Scale"
@@ -733,18 +968,19 @@ p10 <- plot_predictions(gam5, condition = "native_count") +
 gam1 <- gam(HFP2009 ~ s(native_count, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) + s(suid_nma, bs = "re") + s(suid_nma, native_count, bs = "re"), random = list(suid_nma = ~ 1 + native_count), data = park_models)
 gam2 <- gam(HFP2009 ~ s(native_count, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) + s(suid_nma, bs = "re") + s(suid_nma, native_count, bs = "re"), random = list(suid_nma = ~ 1 + native_count), data = park_models %>% filter(mng_agncy == "United States National Park Service"))
 gam3 <- gam(HFP2009 ~ s(native_count, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) + s(suid_nma, bs = "re") + s(suid_nma, native_count, bs = "re"), random = list(suid_nma = ~ 1 + native_count), data = park_models %>% filter(mng_agncy == "The Nature Conservancy"))
-gam4 <- gam(HFP2009 ~ s(native_count, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) + s(suid_nma, bs = "re") + s(suid_nma, native_count, bs = "re"), random = list(suid_nma = ~ 1 + native_count), data = park_models %>% filter(mng_agncy == "University of California"))
+gam4 <- gam(HFP2009 ~ s(native_count, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) + s(suid_nma, bs = "re") + s(suid_nma, native_count, bs = "re"), random = list(suid_nma = ~ 1 + native_count), data = park_models %>% filter(mng_agncy == "United States Forest Service"))
 gam5 <- gam(HFP2009 ~ s(native_count, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) + s(suid_nma, bs = "re") + s(suid_nma, native_count, bs = "re"), random = list(suid_nma = ~ 1 + native_count), data = park_models %>% filter(mng_agncy == "California Department of Fish and Wildlife"))
+gam6 <- gam(HFP2009 ~ s(native_count, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) + s(suid_nma, bs = "re") + s(suid_nma, native_count, bs = "re"), random = list(suid_nma = ~ 1 + native_count), data = park_models %>% filter(mng_agncy == "California Department of Parks and Recreation"))
 
-summary(gam1)
-summary(gam2)
-summary(gam3)
-summary(gam4)
-summary(gam5)
+# summary(gam1)
+# summary(gam2)
+# summary(gam3)
+# summary(gam4)
+# summary(gam5)
 
-p11 <- plot_predictions(gam1, condition = "native_count") +
-  geom_rug(data = park_data, aes(bio_mdn), alpha = 1 / 2, outside = TRUE, sides = "b") +
-  theme_bw() +
+p13 <- plot_predictions(gam1, condition = "native_count") +
+  # geom_rug(data = park_models, aes(mean_native_count), alpha = 1 / 2, outside = TRUE, sides = "b") +
+  theme_bw(base_size= 16) +
   labs(
     x = "Native Species Count",
     y = "Human Footprint Index"
@@ -755,9 +991,9 @@ p11 <- plot_predictions(gam1, condition = "native_count") +
     axis.ticks.x = element_blank()
   )
 
-p12 <- plot_predictions(gam2, condition = "native_count") +
-  geom_rug(data = park_data %>% filter(gap_status == "GAP 1"), aes(bio_mdn), alpha = 1 / 2, outside = TRUE, sides = "b") +
-  theme_bw() +
+p14 <- plot_predictions(gam2, condition = "native_count") +
+  # geom_rug(data = park_models %>% filter(mng_agncy == "United States National Park Service"), aes(mean_native_count), alpha = 1 / 2, outside = TRUE, sides = "b") +
+  theme_bw(base_size= 16) +
   labs(
     x = "Native Species Count",
     y = "Human Footprint Index"
@@ -768,9 +1004,9 @@ p12 <- plot_predictions(gam2, condition = "native_count") +
     axis.ticks.x = element_blank()
   )
 
-p13 <- plot_predictions(gam3, condition = "native_count") +
-  geom_rug(data = park_data %>% filter(mng_agncy == "The Nature Conservancy"), aes(bio_mdn), alpha = 1 / 2, outside = TRUE, sides = "b") +
-  theme_bw() +
+p15 <- plot_predictions(gam3, condition = "native_count") +
+  # geom_rug(data = park_models %>% filter(mng_agncy == "The Nature Conservancy"), aes(mean_native_count), alpha = 1 / 2, outside = TRUE, sides = "b") +
+  theme_bw(base_size= 16) +
   labs(
     x = "Native Species Count",
     y = "Human Footprint Index"
@@ -781,9 +1017,9 @@ p13 <- plot_predictions(gam3, condition = "native_count") +
     axis.ticks.x = element_blank()
   )
 
-p14 <- plot_predictions(gam4, condition = "native_count") +
-  geom_rug(data = park_data %>% filter(mng_agncy == "University of California"), aes(bio_mdn), alpha = 1 / 2, outside = TRUE, sides = "b") +
-  theme_bw() +
+p16 <- plot_predictions(gam4, condition = "native_count") +
+  # geom_rug(data = park_models %>% filter(mng_agncy == "United States Forest Service"), aes(mean_native_count), alpha = 1 / 2, outside = TRUE, sides = "b") +
+  theme_bw(base_size= 16) +
   labs(
     x = "Native Species Count",
     y = "Human Footprint Index"
@@ -794,9 +1030,9 @@ p14 <- plot_predictions(gam4, condition = "native_count") +
     axis.ticks.x = element_blank()
   )
 
-p15 <- plot_predictions(gam5, condition = "native_count") +
-  geom_rug(data = park_data %>% filter(mng_agncy == "California Department of Fish and Wildlife"), aes(bio_mdn), alpha = 1 / 2, outside = TRUE, sides = "b") +
-  theme_bw() +
+p17 <- plot_predictions(gam5, condition = "native_count") +
+  # geom_rug(data = park_models %>% filter(mng_agncy == "California Department of Fish and Wildlife"), aes(mean_native_count), alpha = 1 / 2, outside = TRUE, sides = "b") +
+  theme_bw(base_size= 16) +
   labs(
     x = "Native Species Count",
     y = "Human Footprint Index"
@@ -807,21 +1043,199 @@ p15 <- plot_predictions(gam5, condition = "native_count") +
     axis.ticks.x = element_blank()
   )
 
-plot <- p11 / p6 / p1 + plot_annotation(tag_levels = "A")
+p18 <- plot_predictions(gam6, condition = "native_count") +
+  # geom_rug(data = park_models %>% filter(mng_agncy == "California Department of Fish and Wildlife"), aes(mean_native_count), alpha = 1 / 2, outside = TRUE, sides = "b") +
+  theme_bw(base_size= 16) +
+  labs(
+    x = "Native Species Count",
+    y = "Human Footprint Index"
+  ) +
+  coord_cartesian(clip = "off") +
+  theme(
+    axis.text.x = element_text(margin = margin(t = 10)),
+    axis.ticks.x = element_blank()
+  )
+
+plot <- p13 / p7 / p1 + plot_annotation(tag_levels = "A")
 
 ggsave(plot, file = paste0("fig3.pdf"), path = here::here("analysis", "figs"), height = 15, width = 15)
 
-plot <- (p2 + p4) / (p3 + p5) + plot_annotation(tag_levels = "A")
+plot <- (p2 + p4) / (p3 + p5 + p6) + plot_annotation(tag_levels = "A")
+
+ggsave(plot, file = paste0("figS6.pdf"), path = here::here("analysis", "figs"), height = 15, width = 25)
+
+plot <- (p8 + p10) / (p9 + p11 + p12) + plot_annotation(tag_levels = "A")
+
+ggsave(plot, file = paste0("figS5.pdf"), path = here::here("analysis", "figs"), height = 15, width = 25)
+
+plot <- (p14 + p16) / (p15 + p17 + p18) + plot_annotation(tag_levels = "A")
 
 ggsave(plot, file = paste0("figS4.pdf"), path = here::here("analysis", "figs"), height = 15, width = 25)
 
-plot <- (p7 + p9) / (p8 + p10) + plot_annotation(tag_levels = "A")
+# animals only
+park_models <- spatial_data %>%
+  select(gray_scale, suid_nma, HFP2009, y, x, mng_agncy, ntv_anm, rare_anm) %>%
+  na.omit() %>%
+  group_by(suid_nma) %>%
+  mutate(count = n()) %>%
+  filter(count >= 3) %>%
+  rename(native_count = ntv_anm,
+         rare_count = rare_anm)
 
-ggsave(plot, file = paste0("figS3.pdf"), path = here::here("analysis", "figs"), height = 15, width = 25)
+park_var = park_models %>% 
+  group_by(suid_nma) %>% 
+  summarize(hfp = sd(HFP2009, na.rm=TRUE),
+            native_count = sd(native_count, na.rm=TRUE),
+            rare_count = sd(rare_count, na.rm=TRUE),
+            strava = sd(gray_scale, na.rm=TRUE)) %>% 
+  group_by(suid_nma) %>% 
+  mutate(total_var = sum(hfp, native_count, rare_count, strava)) %>% 
+  filter(total_var > 0)
 
-plot <- (p12 + p14) / (p13 + p15) + plot_annotation(tag_levels = "A")
+park_models = park_models %>%
+  filter(suid_nma %in% park_var$suid_nma) %>% 
+  group_by(suid_nma) %>% 
+  mutate(mean_hfp = median(HFP2009, na.rm=TRUE),
+         mean_native_count = median(native_count, na.rm=TRUE),
+         mean_rare_count = median(rare_count, na.rm=TRUE),
+         mean_strava = median(gray_scale, na.rm=TRUE)) %>% 
+  ungroup() %>% 
+  mutate(HFP2009 = HFP2009 - mean_hfp,
+         native_count = native_count - mean_native_count,
+         rare_count = rare_count - mean_rare_count,
+         gray_scale = gray_scale - mean_strava)
 
-ggsave(plot, file = paste0("figS2.pdf"), path = here::here("analysis", "figs"), height = 15, width = 25)
+
+gam1 <- gam(gray_scale ~ s(native_count, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) + s(suid_nma, bs = "re") + s(suid_nma, native_count, bs = "re"), random = list(suid_nma = ~ 1 + native_count), data = park_models)
+
+p1 <- plot_predictions(gam1, condition = "HFP2009") +
+  # geom_rug(data = park_models, aes(mean_hfp), alpha = 1 / 2, outside = TRUE, sides = "b") +
+  theme_bw(base_size= 16) +
+  labs(
+    x = "Human Footprint Index",
+    y = "Strava Gray Scale"
+  ) +
+  coord_cartesian(clip = "off") +
+  theme(
+    axis.text.x = element_text(margin = margin(t = 15)),
+    axis.ticks.x = element_blank()
+  )
+
+gam1 <- gam(gray_scale ~ s(native_count, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) + s(suid_nma, bs = "re") + s(suid_nma, native_count, bs = "re"), random = list(suid_nma = ~ 1 + native_count), data = park_models)
+
+p7 <- plot_predictions(gam1, condition = "native_count") +
+  # geom_rug(data = park_models, aes(mean_native_count), alpha = 1 / 2, outside = TRUE, sides = "b") +
+  theme_bw(base_size= 16) +
+  labs(
+    x = "Native Species Count",
+    y = "Strava Gray Scale"
+  ) +
+  coord_cartesian(clip = "off") +
+  theme(
+    axis.text.x = element_text(margin = margin(t = 15)),
+    axis.ticks.x = element_blank()
+  )
+
+gam1 <- gam(HFP2009 ~ s(native_count, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) + s(suid_nma, bs = "re") + s(suid_nma, native_count, bs = "re"), random = list(suid_nma = ~ 1 + native_count), data = park_models)
+
+p13 <- plot_predictions(gam1, condition = "native_count") +
+  # geom_rug(data = park_models, aes(mean_native_count), alpha = 1 / 2, outside = TRUE, sides = "b") +
+  theme_bw(base_size= 16) +
+  labs(
+    x = "Native Species Count",
+    y = "Human Footprint Index"
+  ) +
+  coord_cartesian(clip = "off") +
+  theme(
+    axis.text.x = element_text(margin = margin(t = 15)),
+    axis.ticks.x = element_blank()
+  )
+
+plot <- p13 / p7 + plot_annotation(tag_levels = "A")
+
+ggsave(plot, file = paste0("figS2.pdf"), path = here::here("analysis", "figs"), height = 10, width = 15)
+
+#plants only
+park_models <- spatial_data %>%
+  select(gray_scale, suid_nma, HFP2009, y, x, mng_agncy, ntv_plnt, rar_plnt) %>%
+  na.omit() %>%
+  group_by(suid_nma) %>%
+  mutate(count = n()) %>%
+  filter(count >= 3) %>%
+  rename(native_count = ntv_plnt,
+         rare_count = rar_plnt)
+
+park_var = park_models %>% 
+  group_by(suid_nma) %>% 
+  summarize(hfp = sd(HFP2009, na.rm=TRUE),
+            native_count = sd(native_count, na.rm=TRUE),
+            rare_count = sd(rare_count, na.rm=TRUE),
+            strava = sd(gray_scale, na.rm=TRUE)) %>% 
+  group_by(suid_nma) %>% 
+  mutate(total_var = sum(hfp, native_count, rare_count, strava)) %>% 
+  filter(total_var > 0)
+
+park_models = park_models %>%
+  filter(suid_nma %in% park_var$suid_nma) %>% 
+  group_by(suid_nma) %>% 
+  mutate(mean_hfp = median(HFP2009, na.rm=TRUE),
+         mean_native_count = median(native_count, na.rm=TRUE),
+         mean_rare_count = median(rare_count, na.rm=TRUE),
+         mean_strava = median(gray_scale, na.rm=TRUE)) %>% 
+  ungroup() %>% 
+  mutate(HFP2009 = HFP2009 - mean_hfp,
+         native_count = native_count - mean_native_count,
+         rare_count = rare_count - mean_rare_count,
+         gray_scale = gray_scale - mean_strava)
+
+gam1 <- gam(gray_scale ~ s(native_count, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) + s(suid_nma, bs = "re") + s(suid_nma, native_count, bs = "re"), random = list(suid_nma = ~ 1 + native_count), data = park_models)
+
+p1 <- plot_predictions(gam1, condition = "HFP2009") +
+  # geom_rug(data = park_models, aes(mean_hfp), alpha = 1 / 2, outside = TRUE, sides = "b") +
+  theme_bw(base_size= 16) +
+  labs(
+    x = "Human Footprint Index",
+    y = "Strava Gray Scale"
+  ) +
+  coord_cartesian(clip = "off") +
+  theme(
+    axis.text.x = element_text(margin = margin(t = 15)),
+    axis.ticks.x = element_blank()
+  )
+
+gam1 <- gam(gray_scale ~ s(native_count, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) + s(suid_nma, bs = "re") + s(suid_nma, native_count, bs = "re"), random = list(suid_nma = ~ 1 + native_count), data = park_models)
+
+p7 <- plot_predictions(gam1, condition = "native_count") +
+  # geom_rug(data = park_models, aes(mean_native_count), alpha = 1 / 2, outside = TRUE, sides = "b") +
+  theme_bw(base_size= 16) +
+  labs(
+    x = "Native Species Count",
+    y = "Strava Gray Scale"
+  ) +
+  coord_cartesian(clip = "off") +
+  theme(
+    axis.text.x = element_text(margin = margin(t = 15)),
+    axis.ticks.x = element_blank()
+  )
+
+gam1 <- gam(HFP2009 ~ s(native_count, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) + s(suid_nma, bs = "re") + s(suid_nma, native_count, bs = "re"), random = list(suid_nma = ~ 1 + native_count), data = park_models)
+
+p13 <- plot_predictions(gam1, condition = "native_count") +
+  # geom_rug(data = park_models, aes(mean_native_count), alpha = 1 / 2, outside = TRUE, sides = "b") +
+  theme_bw(base_size= 16) +
+  labs(
+    x = "Native Species Count",
+    y = "Human Footprint Index"
+  ) +
+  coord_cartesian(clip = "off") +
+  theme(
+    axis.text.x = element_text(margin = margin(t = 15)),
+    axis.ticks.x = element_blank()
+  )
+
+plot <- p13 / p7 + plot_annotation(tag_levels = "A")
+
+ggsave(plot, file = paste0("figS3.pdf"), path = here::here("analysis", "figs"), height = 10, width = 15)
 
 # Temporal Analysis -------------------------------------------------------
 
@@ -884,12 +1298,19 @@ temp_date3 <- temporal_bins %>%
   select(date, bin, date_count, mng_agncy) %>% 
   distinct()
 
+temp_date4 <- temporal_bins %>%
+  group_by(date_j, bin, gap_status) %>%
+  mutate(date_count = n()) %>% 
+  ungroup() %>%
+  select(date, bin, date_count, gap_status) %>% 
+  distinct()
+
 p1 <- ggplot(temp_date) +
   geom_tile(aes(date, bin, fill = date_count)) +
   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
   geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
   scale_fill_viridis_c() + # trans = scales::pseudo_log_trans(sigma = 0.001)
-  theme_bw() +
+  theme_bw(base_size= 16) +
   labs(
     x = "Date",
     y = "Tourism Quartiles",
@@ -900,23 +1321,58 @@ p1 <- ggplot(temp_date) +
 seasons = temporal_bins %>% 
   filter(year == 2019) %>% 
   group_by(season, suid_nma) %>% 
-  summarize(season_mean = mean(sg)) %>% 
+  summarize(season_med = median(sg)) %>% 
   group_by(suid_nma) %>% 
-  slice_max(order_by = season_mean, n = 1) %>% 
+  slice_max(order_by = season_med, n = 1) 
+
+season_sum = seasons %>% 
   group_by(season) %>% 
   mutate(season_count = n()) %>% 
   select(season_count) %>% 
   distinct()
 
-p2 = ggplot(data = seasons) +
-  geom_bar(aes(x = (season_count / sum(seasons$season_count) * 100), y = "", fill = season), position = "stack", stat = "identity") +
-  theme_bw() +
+p2 = ggplot(data = season_sum) +
+  geom_bar(aes(x = (season_count / sum(season_sum$season_count) * 100), y = "", fill = season), position = "stack", stat = "identity") +
+  theme_bw(base_size= 16) +
   labs(x = "Percent Parks with Peak Usage in a Season",
        y = "",
        fill = "") +
   scale_fill_viridis_d(end = 0.9)
 
-plot <- p1 / p2 + plot_annotation(tag_levels = "A")
+temp_med_mad = temporal_data %>% 
+  group_by(suid_nma, mng_agncy, park_name) %>% 
+  summarize(med_sg = median(sg), 
+         mad_sg = mad(sg)) %>% 
+  full_join(seasons)
+
+NPS_med_mad = temp_med_mad %>% 
+  filter(mng_agncy == "United States National Park Service")
+
+TNC_med_mad = temp_med_mad %>% 
+  filter(mng_agncy == "The Nature Conservancy")
+
+UC_med_mad = temp_med_mad %>% 
+  filter(mng_agncy == "United States Forest Service")
+
+CDFW_med_mad = temp_med_mad %>% 
+  filter(mng_agncy == "California Department of Fish and Wildlife")
+
+p3 = ggplot() +
+  geom_point(data = temp_med_mad %>% filter(med_sg < 1000), aes(med_sg, mad_sg, color = season)) +
+  # geom_point(data = CDFW_med_mad, aes(med_sg, mad_sg, color = "California Department of Fish and Wildlife")) +
+  # geom_point(data = NPS_med_mad, aes(med_sg, mad_sg, color = "United States National Park Service")) +
+  # geom_point(data = TNC_med_mad, aes(med_sg, mad_sg, color = "The Nature Conservancy")) +
+  # geom_point(data = UC_med_mad, aes(med_sg, mad_sg, color = "United States Forest Service")) +
+  theme_bw(base_size= 16) +
+  theme(legend.position = "bottom") +
+  scale_color_viridis_d(end = 0.9) +
+  guides(color=guide_legend(nrow=2,byrow=TRUE)) +
+  labs(x = "Median Safegraph",
+       y = "Median Absolute Deviance",
+       color = "")
+
+
+plot <- p1 / (p2 + p3) + plot_annotation(tag_levels = "A")
 
 ggsave(plot, file = paste0("fig4.pdf"), path = here::here("analysis", "figs"), height = 15, width = 15)
 
@@ -925,7 +1381,7 @@ p1 = ggplot(temp_date2 %>% filter(mng_ag_lev == "City")) +
   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
   geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
   scale_fill_viridis_c(na.value = "#440154") +
-  theme_bw() +
+  theme_bw(base_size= 16) +
   labs(
     x = "Date",
     y = "Safegraph Quartiles",
@@ -939,7 +1395,7 @@ p2 = ggplot(temp_date2 %>% filter(mng_ag_lev == "County")) +
   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
   geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
   scale_fill_viridis_c(na.value = "#440154") +
-  theme_bw() +
+  theme_bw(base_size= 16) +
   labs(
     x = "Date",
     y = "Safegraph Quartiles",
@@ -954,7 +1410,7 @@ p3 = ggplot(temp_date2 %>% filter(mng_ag_lev == "Federal")) +
   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
   geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
   scale_fill_viridis_c(na.value = "#440154") +
-  theme_bw() +
+  theme_bw(base_size= 16) +
   labs(
     x = "Date",
     y = "Safegraph Quartiles",
@@ -968,7 +1424,7 @@ p4 = ggplot(temp_date2 %>% filter(mng_ag_lev == "Home Owners Association")) +
   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
   geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
   scale_fill_viridis_c(na.value = "#440154") +
-  theme_bw() +
+  theme_bw(base_size= 16) +
   labs(
     x = "Date",
     y = "Safegraph Quartiles",
@@ -982,7 +1438,7 @@ p5 = ggplot(temp_date2 %>% filter(mng_ag_lev == "Joint")) +
   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
   geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
   scale_fill_viridis_c(na.value = "#440154") +
-  theme_bw() +
+  theme_bw(base_size= 16) +
   labs(
     x = "Date",
     y = "Safegraph Quartiles",
@@ -996,7 +1452,7 @@ p6 = ggplot(temp_date2 %>% filter(mng_ag_lev == "Non Profit")) +
   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
   geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
   scale_fill_viridis_c(na.value = "#440154") +
-  theme_bw() +
+  theme_bw(base_size= 16) +
   labs(
     x = "Date",
     y = "Safegraph Quartiles",
@@ -1010,7 +1466,7 @@ p7 = ggplot(temp_date2 %>% filter(mng_ag_lev == "Private")) +
   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
   geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
   scale_fill_viridis_c(na.value = "#440154") +
-  theme_bw() +
+  theme_bw(base_size= 16) +
   labs(
     x = "Date",
     y = "Safegraph Quartiles",
@@ -1024,7 +1480,7 @@ p8 = ggplot(temp_date2 %>% filter(mng_ag_lev == "Special District")) +
   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
   geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
   scale_fill_viridis_c(na.value = "#440154") +
-  theme_bw() +
+  theme_bw(base_size= 16) +
   labs(
     x = "Date",
     y = "Safegraph Quartiles",
@@ -1038,7 +1494,7 @@ p9 = ggplot(temp_date2 %>% filter(mng_ag_lev == "State")) +
   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
   geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
   scale_fill_viridis_c(na.value = "#440154") +
-  theme_bw() +
+  theme_bw(base_size= 16) +
   labs(
     x = "Date",
     y = "Safegraph Quartiles",
@@ -1049,14 +1505,14 @@ p9 = ggplot(temp_date2 %>% filter(mng_ag_lev == "State")) +
 
 p = (p1 + p2 + p3) / (p4 + p5 + p6) / (p7 + p8 + p9)
 
-ggsave(p, file = paste0("figS5.pdf"), path = here::here("analysis", "figs"), height = 15, width = 20)
+ggsave(p, file = paste0("figS7.pdf"), path = here::here("analysis", "figs"), height = 15, width = 20)
 
 p1 = ggplot(temp_date3 %>% filter(mng_agncy == "United States National Park Service")) +
   geom_tile(aes(date, bin, fill = date_count)) +
   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
   geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
   scale_fill_viridis_c(na.value = "#440154") +
-  theme_bw() +
+  theme_bw(base_size= 16) +
   labs(
     x = "Date",
     y = "Safegraph Quartiles",
@@ -1070,7 +1526,7 @@ p2 = ggplot(temp_date3 %>% filter(mng_agncy == "The Nature Conservancy")) +
   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
   geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
   scale_fill_viridis_c(na.value = "#440154") +
-  theme_bw() +
+  theme_bw(base_size= 16) +
   labs(
     x = "Date",
     y = "Safegraph Quartiles",
@@ -1085,7 +1541,7 @@ p3 = ggplot(temp_date3 %>% filter(mng_agncy == "California Department of Fish an
   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
   geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
   scale_fill_viridis_c(na.value = "#440154") +
-  theme_bw() +
+  theme_bw(base_size= 16) +
   labs(
     x = "Date",
     y = "Safegraph Quartiles",
@@ -1094,784 +1550,95 @@ p3 = ggplot(temp_date3 %>% filter(mng_agncy == "California Department of Fish an
   ) +
   scale_x_date()
 
-p4 = ggplot(temp_date3 %>% filter(mng_agncy == "University of California")) +
+p4 = ggplot(temp_date3 %>% filter(mng_agncy == "United States Forest Service")) +
   geom_tile(aes(date, bin, fill = date_count)) +
   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
   geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
   scale_fill_viridis_c(na.value = "#440154") +
-  theme_bw() +
+  theme_bw(base_size= 16) +
   labs(
     x = "Date",
     y = "Safegraph Quartiles",
     fill = "Count",
-    title = "University of California"
+    title = "United States Forest Service"
+  ) +
+  scale_x_date()
+
+p5 = ggplot(temp_date3 %>% filter(mng_agncy == "California Parks and Rec")) +
+  geom_tile(aes(date, bin, fill = date_count)) +
+  geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
+  geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
+  scale_fill_viridis_c(na.value = "#440154") +
+  theme_bw(base_size= 16) +
+  labs(
+    x = "Date",
+    y = "Safegraph Quartiles",
+    fill = "Count",
+    title = "California Parks and Rec"
+  ) +
+  scale_x_date()
+
+p = (p1 + p2) /(p3 + p4 + p5)
+
+ggsave(p, file = paste0("figS8.pdf"), path = here::here("analysis", "figs"), height = 15, width = 20)
+
+p1 = ggplot(temp_date4 %>% filter(gap_status == "GAP 1")) +
+  geom_tile(aes(date, bin, fill = date_count)) +
+  geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
+  geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
+  scale_fill_viridis_c(na.value = "#440154") +
+  theme_bw(base_size= 16) +
+  labs(
+    x = "Date",
+    y = "Safegraph Quartiles",
+    fill = "Count",
+    title = "GAP 1"
+  ) +
+  scale_x_date()
+
+p2 = ggplot(temp_date4 %>% filter(gap_status == "GAP 2")) +
+  geom_tile(aes(date, bin, fill = date_count)) +
+  geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
+  geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
+  scale_fill_viridis_c(na.value = "#440154") +
+  theme_bw(base_size= 16) +
+  labs(
+    x = "Date",
+    y = "Safegraph Quartiles",
+    fill = "Count",
+    title = "GAP 2"
+    
+  ) +
+  scale_x_date()
+
+p3 = ggplot(temp_date4 %>% filter(gap_status == "GAP 3")) +
+  geom_tile(aes(date, bin, fill = date_count)) +
+  geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
+  geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
+  scale_fill_viridis_c(na.value = "#440154") +
+  theme_bw(base_size= 16) +
+  labs(
+    x = "Date",
+    y = "Safegraph Quartiles",
+    fill = "Count",
+    title = "GAP 3"
+  ) +
+  scale_x_date()
+
+p4 = ggplot(temp_date4 %>% filter(gap_status == "GAP 4")) +
+  geom_tile(aes(date, bin, fill = date_count)) +
+  geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
+  geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
+  scale_fill_viridis_c(na.value = "#440154") +
+  theme_bw(base_size= 16) +
+  labs(
+    x = "Date",
+    y = "Safegraph Quartiles",
+    fill = "Count",
+    title = "GAP 4"
   ) +
   scale_x_date()
 
 p = (p1 + p2) /(p3 + p4)
 
-ggsave(p, file = paste0("figS6.pdf"), path = here::here("analysis", "figs"), height = 15, width = 20)
-
-
-# OLD ---------------------------------------------------------------------
-
-# p2 <- ggplot(highlight_temp) +
-#   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
-#   geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
-#   geom_line(aes(date, sg, color = as.factor(park_name)), linewidth = 1) +
-#   scale_color_viridis_d() +
-#   theme_bw() +
-#   labs(
-#     x = "Date",
-#     y = "Tourism",
-#     color = ""
-#   ) +
-#   scale_x_date()
-
-# p1 = ggplot(data = temporal_data) +
-#   geom_vline(aes(xintercept = 21), color = "red", alpha = 0.2) +
-#   geom_vline(aes(xintercept = 49), color = "red", alpha = 0.2) +
-#   geom_vline(aes(xintercept = 111), color = "red", alpha = 0.2) +
-#   geom_vline(aes(xintercept = 147), color = "red", alpha = 0.2) +
-#   geom_vline(aes(xintercept = 185), color = "red", alpha = 0.2) +
-#   geom_vline(aes(xintercept = 245), color = "red", alpha = 0.2) +
-#   geom_vline(aes(xintercept = 332), color = "red", alpha = 0.2) +
-#   geom_vline(aes(xintercept = 359), color = "red", alpha = 0.2) +
-#   geom_vline(aes(xintercept = 365), color = "red", alpha = 0.2) +
-#   geom_vline(aes(xintercept = 385), color = "red", alpha = 0.2) +
-#   geom_vline(aes(xintercept = 413), color = "red", alpha = 0.2) +
-#   geom_vline(aes(xintercept = 468), color = "red", alpha = 0.2) +
-#   geom_vline(aes(xintercept = 511), color = "red", alpha = 0.2) +
-#   geom_vline(aes(xintercept = 551), color = "red", alpha = 0.2) +
-#   geom_vline(aes(xintercept = 616), color = "red", alpha = 0.2) +
-#   geom_vline(aes(xintercept = 696), color = "red", alpha = 0.2) +
-#   geom_vline(aes(xintercept = 725), color = "red", alpha = 0.2) +
-#   geom_vline(aes(xintercept = 731), color = "red", alpha = 0.2) +
-#   geom_vline(aes(xintercept = 749), color = "red", alpha = 0.2) +
-#   geom_vline(aes(xintercept = 777), color = "red", alpha = 0.2) +
-#   geom_vline(aes(xintercept = 825), color = "red", alpha = 0.2) +
-#   geom_vline(aes(xintercept = 440), color = "blue", alpha = 0.2) + #covid lockdown
-#   geom_vline(aes(xintercept = 480), color = "blue", alpha = 0.2) + #earliest reopen
-#   geom_line(data = temporal_data, aes(date_j, sg, group = as.factor(park_name)), alpha = 0.5, color = "grey", linewidth = 0.1) +
-#   geom_line(data = highlight_temp, aes(date_j, sg, color = as.factor(park_name))) +
-#   theme_bw() +
-#   labs(x = "Julian Date",
-#        y = "Relative Tourism",
-#        color = "Park") +
-#   theme_bw() +
-#   scale_color_viridis_d(end = 0.9) +
-#   scale_y_log10() +
-#   facet_wrap(~quartile, ncol = 1, scales = "free_y") +
-#   theme(strip.background = element_rect(fill = "white"),
-#         strip.text = element_text(face = "bold"))
-# p1
-
-# ### Dispersion and Predictability
-#
-# # Dispersion
-#
-# disp <- var(spatial_data$hex_int) / mean(spatial_data$hex_int)
-#
-# # Constancy: 1 – H(x)/log(n), where H(x) is information entropy or  1/sd
-#
-# const <- 1 - entropy(spatial_data$hex_int) / log(nrow(spatial_data))
-#
-# # Consistency: [H(x) + H(y) – H(XY)]/log(n) where y is spatial position
-#
-# spatial_data <- spatial_data %>%
-#   mutate(haversine = single_pt_haversine(y, x))
-#
-# contin <- (entropy(spatial_data$hex_int) + entropy(spatial_data$haversine) - cross.entropy(spatial_data$hex_int, spatial_data$haversine)) / log(nrow(spatial_data))
-#
-# pred <- const + contin
-#
-# mod_entropy <- spatial_data %>%
-#   mutate(mod = gHM) %>%
-#   filter(!is.na(mod)) %>%
-#   group_by(suid_nma) %>%
-#   summarise(
-#     mod_disp = var(mod) / mean(mod),
-#     const_mod = 1 - entropy(mod) / log(n()),
-#     contin_mod = (entropy(mod) + entropy(haversine) - cross.entropy(mod, haversine)) / log(n()),
-#   ) %>%
-#   ungroup() %>%
-#   filter(!is.na(const_mod)) %>%
-#   filter(!is.na(contin_mod)) %>%
-#   mutate(
-#     const_mod_scale = normalize(const_mod),
-#     contin_mod_scale = normalize(contin_mod)
-#   ) %>%
-#   mutate(
-#     pred_mod = const_mod_scale + contin_mod_scale
-#   ) %>%
-#   left_join(cpad_super) %>%
-#   st_as_sf()
-#
-# spatial_entropy <- spatial_data %>%
-#   group_by(suid_nma) %>%
-#   summarize(
-#     disp = var(hex_int) / mean(hex_int),
-#     entropy = entropy(hex_int),
-#     inv_sd = 1 / sd(hex_int),
-#     const = 1 - entropy(hex_int) / log(n()),
-#     contin = (entropy(hex_int) + entropy(haversine) - cross.entropy(hex_int, haversine)) / log(n())
-#   ) %>%
-#   ungroup() %>%
-#   filter(!is.na(const)) %>%
-#   filter(!is.na(contin)) %>%
-#   mutate(
-#     const_scale = scale(const),
-#     contin_scale = scale(contin)
-#   ) %>%
-#   mutate(
-#     const_scale = const_scale[, 1],
-#     contin_scale = contin_scale[, 1]
-#   ) %>%
-#   mutate(
-#     pred = const_scale + contin_scale
-#   ) %>%
-#   left_join(cpad_super) %>%
-#   select(-geometry)
-#
-# park_entropy <- full_join(mod_entropy, spatial_entropy) %>%
-#   st_drop_geometry()
-#
-# ggplot() +
-#   geom_point(data = park_entropy, aes(disp, mod_disp)) +
-#   theme_bw() +
-#   scale_x_log10() +
-#   scale_y_log10() +
-#   labs(
-#     x = "Index of Dispersion for Strava",
-#     y = "Index of Dispersion for Modification"
-#   )
-#
-# strava_disp = park_entropy %>%
-#   left_join(human) %>%
-#   st_as_sf() %>%
-#   select(suid_nma, park_name, disp, gHM_mean, HFP_mean, hx_pp_r) %>%
-#   mutate(bin = case_when(
-#     disp <= 0.00002 ~ "Low",
-#     disp >= 1 ~ "High",
-#     TRUE ~ "Med"
-#   ))
-#
-# ggplot() +
-#   geom_sf(data = strava_disp, aes(fill = bin), color = "transparent") +
-#   scale_fill_viridis_d() +
-#   theme_bw()
-#
-# strava_disp_sum = strava_disp %>%
-#   st_drop_geometry() %>%
-#   group_by(bin) %>%
-#   summarize(
-#     ghm_mean = mean(gHM_mean, na.rm = TRUE),
-#     ghm_sd = sd(gHM_mean, na.rm = TRUE),
-#     ghm_max = max(gHM_mean, na.rm = TRUE),
-#     ghm_min = min(gHM_mean, na.rm = TRUE),
-#     hfp_mean = mean(HFP_mean, na.rm = TRUE),
-#     hfp_sd = sd(HFP_mean, na.rm = TRUE),
-#     hfp_max = max(HFP_mean, na.rm = TRUE),
-#     hfp_min = min(HFP_mean, na.rm = TRUE),
-#     strava_mean = mean(hx_pp_r, na.rm = TRUE),
-#     strava_sd = sd(hx_pp_r, na.rm = TRUE),
-#     strava_max = max(hx_pp_r, na.rm = TRUE),
-#     strava_min = min(hx_pp_r, na.rm = TRUE)
-#   )
-#
-# parks_highlight <- park_entropy %>%
-#   filter(suid_nma %in% highlight_parks)
-#
-# p1 <- ggplot() +
-#   geom_sf(data = park_entropy, aes(fill = mod_disp), color = NA, linewidth = 0.1) +
-#   geom_sf(data = parks_highlight, color = "red", fill = NA, linewidth = 1) +
-#   theme_bw() +
-#   scale_fill_viridis_c() +
-#   labs(fill = "Index of Dispersion for Modification")
-#
-# p2 <- ggplot() +
-#   geom_sf(data = park_entropy, aes(fill = pred_mod), color = NA, linewidth = 0.1) +
-#   geom_sf(data = parks_highlight, color = "red", fill = NA, linewidth = 1) +
-#   theme_bw() +
-#   scale_fill_viridis_c() +
-#   labs(fill = "Predictibility of Modification")
-#
-# p3 <- ggplot() +
-#   geom_sf(data = park_entropy, aes(fill = disp), color = NA, linewidth = 0.1) +
-#   geom_sf(data = parks_highlight, color = "red", fill = NA, linewidth = 1) +
-#   theme_bw() +
-#   scale_fill_viridis_c() +
-#   labs(fill = "Index of Dispersion for Strava")
-#
-# p4 <- ggplot() +
-#   geom_sf(data = park_entropy, aes(fill = pred), color = NA, linewidth = 0.1) +
-#   geom_sf(data = parks_highlight, color = "red", fill = NA, linewidth = 1) +
-#   theme_bw() +
-#   scale_fill_viridis_c() +
-#   labs(fill = "Predictibility of Strava")
-#
-# plot <- (p1 + p2) / (p3 + p4) + plot_annotation(tag_levels = "A")
-#
-# ggsave(plot, file = paste0("fig3.pdf"), path = here::here("analysis", "figs"), height = 15, width = 15)
-#
-# write_csv(park_entropy, here::here("data", "processed_data", "spatial_predictability.csv"))
-
-# ## Time series for representative park
-#
-# temp_2019 <- temporal_data %>%
-#   filter(year == 2019) %>%
-#   group_by(suid_nma) %>%
-#   mutate(count = n()) %>%
-#   filter(count == 365)
-#
-# temp_2020 <- temporal_data %>%
-#   filter(year == 2020) %>%
-#   group_by(suid_nma) %>%
-#   mutate(count = n()) %>%
-#   filter(count == 366)
-#
-# decom_period <- function(suid, data_set) {
-#   park <- data_set %>%
-#     filter(suid_nma == suid) %>%
-#     mutate(year = year(date))
-#
-#   park_ts <- ts(park$sg, freq = 30)
-#
-#   ### Decomposition
-#
-#   # decomp <- decompose(park_ts)
-#   # plot(decomp)
-#
-#   ### Periodicity
-#
-#   freq <- TSA::periodogram(park_ts)[["freq"]]
-#   specs <- TSA::periodogram(park_ts)[["spec"]]
-#
-#   # TSA::periodogram(park_ts, plot = TRUE) # compute and plot periodograms
-#   # abline(h = 0)
-#
-#   df <- data.frame(freq = freq, specs = specs)
-#
-#   df$p_value <- GeneCycle::fisher.g.test(park_ts)
-#
-#   df$suid_nma <- suid
-#
-#   return(df)
-# }
-#
-# period <- data.frame()
-#
-# unique_ids <- unique(temp_2019$suid_nma)
-#
-# for (i in 1:length(unique_ids)) {
-#   int_data <- decom_period(unique_ids[i], temp_2019)
-#
-#   period <- rbind(period, int_data)
-# }
-#
-# period_maxs_2019 <- period %>%
-#   filter(p_value < 0.05) %>%
-#   mutate(period = 1 / freq) %>%
-#   filter(period < 365) %>%
-#   mutate(mag = floor(log10(specs))) %>%
-#   group_by(suid_nma) %>%
-#   mutate(max_mag = max(mag)) %>%
-#   ungroup() %>%
-#   filter(mag == max_mag) %>%
-#   select(-mag, -max_mag) %>%
-#   mutate(year = 2019)
-#
-# top_periods1_2019 <- period_maxs_2019 %>%
-#   group_by(period) %>%
-#   mutate(n = n()) %>%
-#   mutate(percent = n / length(unique_ids) * 100) %>%
-#   group_by(suid_nma) %>%
-#   slice_max(order_by = specs, n = 3) %>%
-#   mutate(rank = rank(specs))
-#
-# period <- data.frame()
-#
-# unique_ids <- unique(temp_2020$suid_nma)
-#
-# for (i in 1:length(unique_ids)) {
-#   int_data <- decom_period(unique_ids[i], temp_2020)
-#
-#   period <- rbind(period, int_data)
-# }
-#
-# period_maxs_2020 <- period %>%
-#   filter(p_value < 0.05) %>%
-#   mutate(period = 1 / freq) %>%
-#   filter(period < 366) %>%
-#   mutate(mag = floor(log10(specs))) %>%
-#   group_by(suid_nma) %>%
-#   mutate(max_mag = max(mag)) %>%
-#   ungroup() %>%
-#   filter(mag == max_mag) %>%
-#   select(-mag, -max_mag) %>%
-#   mutate(year = 2020)
-#
-# top_periods1_2020 <- period_maxs_2020 %>%
-#   group_by(period) %>%
-#   mutate(n = n()) %>%
-#   mutate(percent = n / length(unique_ids) * 100) %>%
-#   group_by(suid_nma) %>%
-#   slice_max(order_by = specs, n = 3) %>%
-#   mutate(rank = rank(specs))
-#
-# period_max_all <- list(period_maxs_2019, period_maxs_2020) %>%
-#   reduce(full_join)
-#
-# top_periods_all <- list(top_periods1_2019, top_periods1_2020) %>%
-#   reduce(full_join)
-#
-# temp_highlight_2019 <- top_periods1_2019 %>%
-#   filter(suid_nma %in% c(highlight_parks)) %>%
-#   left_join(cpad_super) %>%
-#   mutate(label = paste(park_name, "Top Peak")) %>%
-#   filter(rank == 1)
-#
-# temp_highlight_2020 <- top_periods1_2020 %>%
-#   filter(suid_nma %in% c(highlight_parks)) %>%
-#   left_join(cpad_super) %>%
-#   mutate(label = paste(park_name, "Top Peak")) %>%
-#   filter(rank == 1)
-#
-# write_csv(period_max_all, here::here("analysis", "periodicity.csv"))
-#
-# write_csv(top_periods_all, here::here("analysis", "periodicity_max.csv"))
-#
-# colors <- c("1" = "black", "2" = "blue", "3" = "darkgreen")
-#
-# p2 <- ggplot() +
-#   geom_vline(aes(xintercept = c(30, 90, 180, 365)), color = "red", alpha = 0.3, linetype = "dashed") +
-#   geom_vline(data = temp_highlight_2019, aes(xintercept = period), color = "black", linetype = "dashed") +
-#   geom_density(data = top_periods1_2019 %>% filter(rank == 1), aes(period, color = "1"), linewidth = 1) +
-#   geom_density(data = top_periods1_2019 %>% filter(rank == 2), aes(period, color = "2"), linetype = "dashed", linewidth = 1) +
-#   geom_density(data = top_periods1_2019 %>% filter(rank == 3), aes(period, color = "3"), linetype = "dotdash", linewidth = 1) +
-#   theme_bw() +
-#   # scale_x_log10() +
-#   labs(
-#     x = "Period (days)",
-#     y = "Density",
-#     color = "Peak Rank",
-#     title = "2019"
-#   ) +
-#   scale_color_manual(values = colors) +
-#   geom_label_repel(
-#     data = temp_highlight_2019, aes(x = period, y = c(0.01, 0.005), label = label),
-#     size = 4,
-#     alpha = 0.65,
-#     min.segment.length = 1,
-#     arrow = arrow(length = unit(0.1, "inches")),
-#     box.padding = 1,
-#     color = "black"
-#   )
-#
-# p3 <- ggplot() +
-#   geom_vline(aes(xintercept = c(30, 90, 180, 365)), color = "red", alpha = 0.3, linetype = "dashed") +
-#   geom_vline(data = temp_highlight_2020, aes(xintercept = period), color = "black", linetype = "dashed") +
-#   geom_density(data = top_periods1_2020 %>% filter(rank == 1), aes(period, color = "1"), linewidth = 1) +
-#   geom_density(data = top_periods1_2020 %>% filter(rank == 2), aes(period, color = "2"), linetype = "dashed", linewidth = 1) +
-#   geom_density(data = top_periods1_2020 %>% filter(rank == 3), aes(period, color = "3"), linetype = "dotdash", linewidth = 1) +
-#   theme_bw() +
-#   # scale_x_log10() +
-#   labs(
-#     x = "Period (days)",
-#     y = "Density",
-#     color = "Peak Rank",
-#     title = "2020"
-#   ) +
-#   scale_color_manual(values = colors) +
-#   geom_label_repel(
-#     data = temp_highlight_2020, aes(x = period, y = c(0.015, 0.01), label = label),
-#     size = 4,
-#     alpha = 0.65,
-#     min.segment.length = 1,
-#     arrow = arrow(length = unit(0.1, "inches")),
-#     box.padding = 1,
-#     color = "black"
-#   )
-#
-# ggsave(p2 / p3 + plot_annotation(tag_levels = "A") + plot_layout(guides = "collect"), file = paste0("fig5.pdf"), path = here::here("analysis", "figs"), height = 15, width = 15)
-#
-# top_periods_rank_2019 <- top_periods_all %>%
-#   filter(year == 2019) %>%
-#   select(suid_nma, period, rank) %>%
-#   pivot_wider(names_from = rank, values_from = period)
-#
-# names(top_periods_rank_2019) <- c("suid_nma", "rank1", "rank2", "rank3")
-#
-# top_highlight_2019 <- top_periods_rank_2019 %>%
-#   filter(suid_nma %in% highlight_parks) %>%
-#   left_join(human)
-#
-# top_periods_rank_2020 <- top_periods_all %>%
-#   filter(year == 2020) %>%
-#   select(suid_nma, period, rank) %>%
-#   pivot_wider(names_from = rank, values_from = period)
-#
-# names(top_periods_rank_2020) <- c("suid_nma", "rank1", "rank2", "rank3")
-#
-# top_highlight_2020 <- top_periods_rank_2020 %>%
-#   filter(suid_nma %in% highlight_parks) %>%
-#   left_join(human)
-#
-# p <- ggplot() +
-#   geom_point(data = top_periods_rank_2019, aes(rank1, rank2)) +
-#   geom_point(data = top_highlight_2019, aes(rank1, rank2), color = "red") +
-#   theme_bw() +
-#   labs(
-#     x = "Highest Peak",
-#     y = "Next Highest Peak"
-#   ) +
-#   geom_label_repel(
-#     data = top_highlight_2019, aes(rank1, rank2, label = park_name),
-#     size = 4,
-#     alpha = 0.65,
-#     min.segment.length = 1,
-#     arrow = arrow(length = unit(0.1, "inches")),
-#     box.padding = 1,
-#     color = "black"
-#   )
-#
-# p2 <- ggplot() +
-#   geom_point(data = top_periods_rank_2020, aes(rank1, rank2)) +
-#   geom_point(data = top_highlight_2020, aes(rank1, rank2), color = "red") +
-#   theme_bw() +
-#   labs(
-#     x = "Highest Peak",
-#     y = "Next Highest Peak"
-#   ) +
-#   geom_label_repel(
-#     data = top_highlight_2020, aes(rank1, rank2, label = park_name),
-#     size = 4,
-#     alpha = 0.65,
-#     min.segment.length = 1,
-#     arrow = arrow(length = unit(0.1, "inches")),
-#     box.padding = 1,
-#     color = "black"
-#   )
-#
-# ggsave(p / p2, file = paste0("fig5.2.pdf"), path = here::here("analysis", "figs"), height = 15, width = 10)
-#
-# ### Predictability
-#
-# # Constancy: 1 – H(x)/log(n), where H(x) is information entropy or  1/sd
-#
-# const_temp <- 1 - entropy(temporal_data$sg) / log(nrow(temporal_data))
-#
-# # Consistency: [H(x) + H(y) – H(XY)]/log(n) where y is spatial position
-#
-# temporal_data <- temporal_data %>%
-#   mutate(date_num = as.numeric(date))
-#
-# # need to fix
-# contin_temp <- (entropy(temporal_data$sg) + entropy(temporal_data$date_num) - cross.entropy(temporal_data$sg, temporal_data$date_num)) / log(nrow(temporal_data))
-#
-# pred_temp <- const_temp + contin_temp
-#
-# park_entropy_temp <- temporal_data %>%
-#   group_by(suid_nma, year) %>%
-#   summarise(
-#     entropy_temp = entropy(sg),
-#     inv_sd_temp = 1 / sd(sg),
-#     const_temp = 1 - entropy(sg) / log(n()),
-#     contin_temp = (entropy(sg) + entropy(date_num) - cross.entropy(sg, date_num)) / log(n())
-#   ) %>%
-#   ungroup() %>%
-#   filter(!is.na(const_temp)) %>%
-#   filter(!is.na(contin_temp)) %>%
-#   mutate(
-#     const_temp_scale = scale(const_temp),
-#     contin_temp_scale = scale(contin_temp)
-#   ) %>%
-#   mutate(
-#     const_temp_scale = const_temp_scale[, 1],
-#     contin_temp_scale = contin_temp_scale[, 1]
-#   ) %>%
-#   mutate(
-#     pred_temp = const_temp_scale + contin_temp_scale
-#   )
-
-# predictability <- full_join(park_entropy, park_entropy_temp)
-#
-# pred_highlight <- predictability %>%
-#   filter(suid_nma %in% c(highlight_parks))
-#
-# write_csv(predictability %>% st_drop_geometry(), here::here("data", "processed_data", "predictability.csv"))
-#
-# p1 <- ggplot() +
-#   geom_point(data = predictability %>% filter(year == 2019), aes(pred, pred_mod)) +
-#   geom_point(data = pred_highlight %>% filter(year == 2019), aes(pred, pred_mod), color = "red", size = 2) +
-#   # scale_x_log10() +
-#   # scale_y_log10() +
-#   theme_bw() +
-#   labs(
-#     x = "Predictibility of Strava",
-#     y = "Predictibility of Modification"
-#   ) +
-#   geom_label_repel(
-#     data = pred_highlight %>% filter(year == 2019), aes(pred, pred_mod, label = park_name),
-#     size = 4,
-#     alpha = 0.65,
-#     min.segment.length = 1,
-#     arrow = arrow(length = unit(0.1, "inches")),
-#     box.padding = 1,
-#     color = "black", vjust = "outward", hjust = "outward"
-#   )
-#
-# p2 <- ggplot() +
-#   geom_point(data = predictability %>% filter(year == 2019), aes(pred, pred_temp)) +
-#   geom_point(data = pred_highlight %>% filter(year == 2019), aes(pred, pred_temp), color = "red", size = 2) +
-#   theme_bw() +
-#   # scale_x_log10() +
-#   # scale_y_log10() +
-#   labs(
-#     x = "Predictibility of Strava",
-#     y = "Predictibility of Safegraph"
-#   ) +
-#   geom_label_repel(
-#     data = pred_highlight %>% filter(year == 2019), aes(pred, pred_temp, label = park_name),
-#     size = 4,
-#     alpha = 0.65,
-#     min.segment.length = 1,
-#     arrow = arrow(length = unit(0.1, "inches")),
-#     box.padding = 1,
-#     color = "black", vjust = "outward", hjust = "outward"
-#   )
-#
-# p3 <- ggplot() +
-#   geom_point(data = predictability %>% filter(year == 2020), aes(pred, pred_temp)) +
-#   geom_point(data = pred_highlight %>% filter(year == 2020), aes(pred, pred_temp), color = "red", size = 2) +
-#   theme_bw() +
-#   # scale_x_log10() +
-#   # scale_y_log10() +
-#   labs(
-#     x = "Predictibility of Strava",
-#     y = "Predictibility of Safegraph"
-#   ) +
-#   geom_label_repel(
-#     data = pred_highlight %>% filter(year == 2020), aes(pred, pred_temp, label = park_name),
-#     size = 4,
-#     alpha = 0.65,
-#     min.segment.length = 1,
-#     arrow = arrow(length = unit(0.1, "inches")),
-#     box.padding = 1,
-#     color = "black", vjust = "outward", hjust = "outward"
-#   )
-#
-# p4 <- ggplot() +
-#   geom_point(data = predictability %>% filter(year == 2019), aes(disp, mod_disp)) +
-#   geom_point(data = pred_highlight %>% filter(year == 2019), aes(disp, mod_disp), color = "red", size = 2) +
-#   theme_bw() +
-#   # scale_x_log10() +
-#   # scale_y_log10() +
-#   labs(
-#     x = "Index of Dispersion for Strava",
-#     y = "Index of Dispersion for Modification"
-#   ) +
-#   geom_label_repel(
-#     data = pred_highlight %>% filter(year == 2019), aes(disp, mod_disp, label = park_name),
-#     size = 4,
-#     alpha = 0.65,
-#     min.segment.length = 1,
-#     arrow = arrow(length = unit(0.1, "inches")),
-#     box.padding = 1,
-#     color = "black"
-#   )
-#
-# plot <- (p1 + p4) / (p2 + p3) + plot_annotation(tag_levels = "A")
-#
-# ggsave(plot, file = paste0("fig4.pdf"), path = here::here("analysis", "figs"), height = 6, width = 15)
-#
-# p <- ggplot(predictability %>% filter(year %in% c(2019, 2020))) +
-#   geom_point(aes(as.factor(year), pred_temp)) +
-#   geom_line(aes(as.factor(year), pred_temp, group = suid_nma)) +
-#   geom_point(data = pred_highlight %>% filter(year %in% c(2019, 2020)), aes(as.factor(year), pred_temp), color = "red") +
-#   geom_line(data = pred_highlight %>% filter(year %in% c(2019, 2020)), aes(as.factor(year), pred_temp, group = suid_nma), color = "red") +
-#   theme_bw() +
-#   labs(
-#     x = "Year",
-#     y = "Temporal Predictability"
-#   ) +
-#   geom_label_repel(
-#     data = pred_highlight %>% filter(year == 2019), aes(as.factor(year), pred_temp, label = park_name),
-#     size = 4,
-#     alpha = 0.65,
-#     min.segment.length = 1,
-#     arrow = arrow(length = unit(0.1, "inches")),
-#     box.padding = 1,
-#     color = "black"
-#   )
-#
-# ggsave(p, file = paste0("temp_change.pdf"), path = here::here("analysis", "figs"), height = 8, width = 6)
-
-# temporal_bins2 <- temporal_data %>%
-#   mutate(
-#     max = max(sg, na.rm = TRUE),
-#     min = min(sg, na.rm = TRUE),
-#     quartile_1 = quantile(sg, probs = 0.25),
-#     quartile_2 = quantile(sg, probs = 0.5),
-#     quartile_3 = quantile(sg, probs = 0.75)
-#   ) %>%
-#   ungroup() %>%
-#   mutate(bin = case_when(
-#     sg < quartile_1 ~ 1,
-#     sg > quartile_3 ~ 4,
-#     sg >= quartile_1 & sg < quartile_2 ~ 2,
-#     sg >= quartile_2 & sg <= quartile_3 ~ 3
-#   ))
-#
-# temp_date2 <- temporal_bins2 %>%
-#   group_by(date_j, bin) %>%
-#   mutate(date_count = n())
-#
-# p2 <- ggplot(temp_date2) +
-#   geom_tile(aes(date_j, bin, color = date_count, fill = date_count)) +
-#   geom_vline(aes(xintercept = 21), color = "red") +
-#   geom_vline(aes(xintercept = 49), color = "red") +
-#   geom_vline(aes(xintercept = 111), color = "red") +
-#   geom_vline(aes(xintercept = 147), color = "red") +
-#   geom_vline(aes(xintercept = 185), color = "red") +
-#   geom_vline(aes(xintercept = 245), color = "red") +
-#   geom_vline(aes(xintercept = 332), color = "red") +
-#   geom_vline(aes(xintercept = 359), color = "red") +
-#   geom_vline(aes(xintercept = 365), color = "red") +
-#   geom_vline(aes(xintercept = 385), color = "red") +
-#   geom_vline(aes(xintercept = 413), color = "red") +
-#   geom_vline(aes(xintercept = 468), color = "red") +
-#   geom_vline(aes(xintercept = 511), color = "red") +
-#   geom_vline(aes(xintercept = 551), color = "red") +
-#   geom_vline(aes(xintercept = 616), color = "red") +
-#   geom_vline(aes(xintercept = 696), color = "red") +
-#   geom_vline(aes(xintercept = 725), color = "red") +
-#   geom_vline(aes(xintercept = 731), color = "red") +
-#   geom_vline(aes(xintercept = 749), color = "red") +
-#   geom_vline(aes(xintercept = 777), color = "red") +
-#   geom_vline(aes(xintercept = 825), color = "red") +
-#   geom_vline(aes(xintercept = 440), color = "blue") + #covid lockdown
-#   geom_vline(aes(xintercept = 480), color = "blue") + #earliest reopen
-#   geom_line(data = highlight_temp, aes(date_j, sg, group = as.factor(park_name))) +
-#   scale_color_viridis_c()+
-#   scale_fill_viridis_c() +
-#   theme_bw() +
-#   labs(x = "Julian Date",
-#        y = "Safegraph",
-#        color = "Count",
-#        fill = "Count") +
-#   scale_x_reverse()
-#
-# ggsave(p2, file = paste0("fig3.2.pdf"), path = here::here("analysis", "figs"), height = 8, width = 15)
-
-# hfp_pred <- predictions(gam_sub1, variables = "HFP2009", by = "HFP2009")
-# xy_pred <- predictions(gam1, variables = "x", by = c("x", "y"))
-
-# write_csv(hfp_pred, here::here("data", "processed_data", "hfp_pred.csv"))
-# write_csv(xy_pred, here::here("data", "processed_data", "xy_pred.csv"))
-
-# p1 <- plot_predictions(gam_sub, condition = "HFP2009") +
-#   geom_rug(data = park_data, aes(gHM_mean), alpha = 1 / 2, outside = TRUE, sides = "b") +
-#   scale_y_log10() +
-#   theme_bw() +
-#   labs(
-#     x = "Global Human Modification",
-#     y = "Strava Value"
-#   ) +
-#   coord_cartesian(clip = "off") +
-#   theme(
-#     axis.text.x = element_text(margin = margin(t = 10)),
-#     axis.ticks.x = element_blank()
-#   ) +
-#   geom_point(data = yosemite, aes(gHM_mean, hx_pp_r)) +
-#   geom_label_repel(
-#     data = yosemite, aes(gHM_mean, hx_pp_r, label = park_name),
-#     size = 4,
-#     alpha = 0.65,
-#     min.segment.length = 1,
-#     arrow = arrow(length = unit(0.1, "inches")),
-#     box.padding = 1,
-#     color = "black"
-#   )
-#
-# p2 <- plot_predictions(gam1, condition = "HFP2009") +
-#   geom_rug(data = park_data, aes(HFP_median), alpha = 1 / 2, outside = TRUE, sides = "b") +
-#   scale_y_log10() +
-#   theme_bw() +
-#   labs(
-#     x = "Human Footprint Index",
-#     y = "Strava Value"
-#   ) +
-#   coord_cartesian(clip = "off") +
-#   theme(
-#     axis.text.x = element_text(margin = margin(t = 10)),
-#     axis.ticks.x = element_blank()
-#   ) +
-#   geom_point(data = yosemite, aes(HFP_median, hx_pp_r)) +
-#   geom_label_repel(
-#     data = yosemite, aes(HFP_median, hx_pp_r, label = park_name),
-#     size = 4,
-#     alpha = 0.65,
-#     min.segment.length = 1,
-#     arrow = arrow(length = unit(0.1, "inches")),
-#     box.padding = 1,
-#     color = "black"
-#   )
-#
-#
-# p3 <- plot_predictions(gam1, condition = c("x", "y")) +
-#   scale_y_log10() +
-#   theme_bw() +
-#   labs(
-#     x = "Longitude",
-#     y = "Strava Value",
-#     color = "Latitude",
-#     fill = "Latitude"
-#   ) +
-#   scale_color_viridis_d(direction = -1, guide = guide_legend(reverse = TRUE), labels = rev(c("42.00", 39.83, 36.81, 34.91, 32.56))) +
-#   scale_fill_viridis_d(direction = -1, guide = guide_legend(reverse = TRUE), labels = rev(c("42.00", 39.83, 36.81, 34.91, 32.56))) +
-#   coord_cartesian(clip = "off") +
-#   geom_point(data = yosemite_spatial, aes(x, hx_pp_r), color = "#addc30") +
-#   geom_label_repel(
-#     data = yosemite_spatial, aes(x, hx_pp_r, label = park_name),
-#     size = 4,
-#     alpha = 0.65,
-#     min.segment.length = 1,
-#     arrow = arrow(length = unit(0.1, "inches")),
-#     box.padding = 1,
-#     color = "black"
-#   )
-
-# # Functions ---------------------------------------------------------------
-#
-# normalize <- function(x) {
-#   (x - min(x)) / (max(x) - min(x))
-# }
-#
-# single_pt_haversine <- function(lat, lng) {
-#   r <- 6371 # Earth's radius (km). Have r = 3956 if you want miles
-#
-#   # 'Single-point' Haversine formula
-#   a <- sin(lat / 2)**2 + cos(lat) * sin(lng / 2)**2
-#   d <- 2 * r * asin(sqrt(a))
-#
-#   return(d)
-# }
-#
-# entropy <- function(target) {
-#   freq <- table(target) / length(target)
-#   # vectorize
-#   vec <- as.data.frame(freq)[, 2]
-#   # drop 0 to avoid NaN resulting from log2
-#   vec <- vec[vec > 0]
-#   # compute entropy
-#   -sum(vec * log2(vec))
-# }
-#
-# cross.entropy <- function(p, phat) {
-#   x <- 0
-#   for (i in 1:length(p)) {
-#     x <- x + (p[i] * log(phat[i]))
-#   }
-#   return(-x)
-# }
+ggsave(p, file = paste0("figS9.pdf"), path = here::here("analysis", "figs"), height = 15, width = 20)
