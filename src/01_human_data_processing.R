@@ -48,84 +48,6 @@ census_blockgroup <- get_decennial(
   mutate(cbg = as.factor(cbg)) %>%
   select(-GEOID)
 
-# Human Footprint Index ---------------------------------------------------
-
-hfp <- rast(here::here("data", "raw_data", "HFP2009.tif")) %>%
-  project(crs(cpad_super))
-
-hfp_cropped <- crop(hfp, cpad_super)
-hfp_masked <- mask(hfp_cropped, cpad_super)
-hfp_masked_inv <- mask(hfp_cropped, cpad_super, inverse = TRUE)
-
-rm(hfp_cropped, hfp)
-
-cpad_hfp_values <- terra::extract(x = hfp, y = cpad_super)
-
-missing_hfp <- cpad_hfp_values %>%
-  group_by(ID) %>%
-  mutate(mean_hfp = mean(HFP2009, na.rm = TRUE)) %>%
-  filter(is.na(mean_hfp)) %>%
-  distinct()
-
-cpad_super_sub <- cpad_super %>%
-  filter(ID %in% missing_hfp$ID) %>%
-  mutate(ID2 = row_number())
-
-hfp_sub <- crop(hfp, cpad_super_sub)
-
-ggplot() +
-  geom_raster(data = hfp_sub %>% as.data.frame(xy = TRUE), aes(x, y, fill = HFP2009), alpha = 0.3) +
-  geom_sf(data = cpad_super_sub, fill = "transparent", color = "red") +
-  theme_bw() +
-  scale_color_viridis_c()
-
-cpad_hfp_values2 <- terra::extract(x = hfp, y = cpad_super_sub) %>%
-  rename(ID2 = ID)
-
-cpad_hfp_summary <- cpad_hfp_values %>%
-  rename(HFP = HFP2009) %>%
-  group_by(ID) %>%
-  summarize(across(HFP, list(min = min, mean = mean, max = max, median = median, sd = sd))) %>%
-  mutate(HFP_sd = case_when(
-    !is.na(HFP_sd) ~ HFP_sd,
-    is.na(HFP_sd) ~ 0
-  ))
-
-cpad_hfp <- full_join(cpad_super, cpad_hfp_summary) %>%
-  mutate(
-    HFP_range = HFP_max - HFP_min,
-    HFP_cv = HFP_sd / HFP_mean
-  ) %>%
-  mutate(HFP_sd = case_when(
-    !is.na(HFP_sd) ~ HFP_sd,
-    is.na(HFP_sd) ~ 0
-  )) %>%
-  mutate(HFP_cv = case_when(
-    !is.na(HFP_cv) ~ HFP_cv,
-    is.na(HFP_cv) ~ 0
-  ))
-
-inside_hfp <- terra::extract(hfp_masked, cpad_super, xy = TRUE) %>%
-  filter(!is.na(HFP2009)) %>%
-  st_as_sf(coords = c("x", "y")) %>%
-  mutate(loc = "Inside Protected Areas")
-
-outside_hfp <- terra::extract(hfp_masked_inv, ca, xy = TRUE) %>%
-  filter(!is.na(HFP2009)) %>%
-  st_as_sf(coords = c("x", "y")) %>%
-  mutate(loc = "Outside Protected Areas")
-
-hfp <- list(inside_hfp, outside_hfp) %>%
-  reduce(rbind) %>%
-  st_set_crs("EPSG:4326")
-
-st_write(cpad_hfp, here::here("data", "processed_data", "cpad_hfp.shp"), append = FALSE)
-st_write(hfp, here::here("data", "processed_data", "in_out_hfp.shp"), append = FALSE)
-
-rm(hfp_masked, hfp_masked_inv, cpad_hfp_values, cpad_hfp_summary, cpad_hfp)
-
-
-
 # Strava ------------------------------------------------------------------
 
 strava_coarse <- rast(here::here("data", "raw_data", "strava_coarse.tif")) %>%
@@ -133,6 +55,7 @@ strava_coarse <- rast(here::here("data", "raw_data", "strava_coarse.tif")) %>%
 
 strava_coarse_cropped <- crop(strava_coarse, cpad_super)
 strava_coarse_masked <- mask(strava_coarse_cropped, cpad_super)
+strava_coarse_masked_inv <- mask(strava_coarse_cropped, cpad_super, inverse = TRUE)
 
 rm(strava_coarse_cropped)
 
@@ -176,9 +99,90 @@ cpad_strava <- full_join(cpad_super, strava_sum) %>%
 
 rm(strava_sum)
 
-st_write(cpad_strava, here::here("data", "processed_data", "cpad_strava.shp"), append = FALSE)
+inside_strava <- terra::extract(strava_coarse_masked, cpad_super, xy = TRUE) %>%
+  mutate(gray_scale = (0.299 * strava_coarse_1) + (0.587 * strava_coarse_2) + (0.114 * strava_coarse_3))%>%
+  filter(!is.na(gray_scale)) %>%
+  st_as_sf(coords = c("x", "y")) %>%
+  dplyr::select(-strava_coarse_1, -strava_coarse_2, -strava_coarse_3, -strava_coarse_4) %>% 
+  mutate(loc = "Inside Protected Areas")
 
-rm(cpad_strava, cpad_strava_coarse_values, strava_coarse_masked)
+outside_strava <- terra::extract(strava_coarse_masked_inv, ca, xy = TRUE) 
+
+names(outside_strava) <- c("ID", "s1", "s2", "s3", "s4", "x", "y")
+
+outside_strava = outside_strava%>% 
+  mutate(gray_scale = (0.299 * s1) + (0.587 * s2) + (0.114 * s3)) %>%
+  filter(!is.na(gray_scale)) %>%
+  st_as_sf(coords = c("x", "y")) %>%
+  dplyr::select(-s1, -s2, -s3, -s4) %>% 
+  mutate(loc = "Outside Protected Areas")
+
+strava <- list(inside_strava, outside_strava) %>%
+  reduce(rbind) %>%
+  st_set_crs("EPSG:4326")
+
+st_write(cpad_strava, here::here("data", "processed_data", "cpad_strava.shp"), append = FALSE)
+st_write(strava, here::here("data", "processed_data", "in_out_strava.shp"), append = FALSE)
+
+rm(cpad_strava, cpad_strava_coarse_values, strava_coarse_masked, strava_coarse_masked_inv, inside_strava, outside_strava, strava)
+
+# Human Footprint Index ---------------------------------------------------
+
+hfp <- rast(here::here("data", "raw_data", "HFP2009.tif")) %>%
+  project(crs(cpad_super))
+
+hfp <- resample(hfp, strava_coarse, method = "cubic")
+
+hfp_cropped <- crop(hfp, cpad_super)
+hfp_masked <- mask(hfp_cropped, cpad_super)
+hfp_masked_inv <- mask(hfp_cropped, cpad_super, inverse = TRUE)
+
+rm(hfp_cropped, hfp)
+
+cpad_hfp_values <- terra::extract(x = hfp_masked, y = cpad_super)
+
+cpad_hfp_summary <- cpad_hfp_values %>%
+  rename(HFP = HFP2009) %>%
+  group_by(ID) %>%
+  summarize(across(HFP, list(min = min, mean = mean, max = max, median = median, sd = sd))) %>%
+  mutate(HFP_sd = case_when(
+    !is.na(HFP_sd) ~ HFP_sd,
+    is.na(HFP_sd) ~ 0
+  ))
+
+cpad_hfp <- full_join(cpad_super, cpad_hfp_summary) %>%
+  mutate(
+    HFP_range = HFP_max - HFP_min,
+    HFP_cv = HFP_sd / HFP_mean
+  ) %>%
+  mutate(HFP_sd = case_when(
+    !is.na(HFP_sd) ~ HFP_sd,
+    is.na(HFP_sd) ~ 0
+  )) %>%
+  mutate(HFP_cv = case_when(
+    !is.na(HFP_cv) ~ HFP_cv,
+    is.na(HFP_cv) ~ 0
+  ))
+
+inside_hfp <- terra::extract(hfp_masked, cpad_super, xy = TRUE) %>%
+  filter(!is.na(HFP2009)) %>%
+  st_as_sf(coords = c("x", "y")) %>%
+  mutate(loc = "Inside Protected Areas")
+
+outside_hfp <- terra::extract(hfp_masked_inv, ca, xy = TRUE) %>%
+  filter(!is.na(layer)) %>%
+  rename(HFP2009 = layer) %>% 
+  st_as_sf(coords = c("x", "y")) %>%
+  mutate(loc = "Outside Protected Areas")
+
+hfp <- list(inside_hfp, outside_hfp) %>%
+  reduce(rbind) %>%
+  st_set_crs("EPSG:4326")
+
+st_write(cpad_hfp, here::here("data", "processed_data", "cpad_hfp.shp"), append = FALSE)
+st_write(hfp, here::here("data", "processed_data", "in_out_hfp.shp"), append = FALSE)
+
+rm(hfp_masked, hfp_masked_inv, cpad_hfp_values, cpad_hfp_summary, cpad_hfp, inside_hfp, outside_hfp, hfp)
 
 # Biodiversity ------------------------------------------------------------
 
@@ -189,6 +193,9 @@ bio <- st_read(here::here("data", "raw_data", "ds2739.gdb")) %>%
 
 bio_raster <- rasterize(bio, strava_coarse, field = "native_count")
 rare_raster <- rasterize(bio, strava_coarse, field = "rare_count")
+
+bio_raster <- resample(bio_raster, strava_coarse, method = "cubic")
+rare_raster <- resample(rare_raster, strava_coarse, method = "cubic")
 
 rm(strava_coarse, bio)
 
@@ -214,7 +221,7 @@ cpad_bio_summary <- cpad_bio_values %>%
     is.na(bio_sd) ~ 0
   ))
 
-cpad_rare_summary <- cpad_rare_values %>%
+cpad_rare_summary <- cpad_rare_values%>%
   rename(rare = rare_count) %>%
   group_by(ID) %>%
   summarize(across(rare, list(min = min, mean = mean, max = max, median = median, sd = sd))) %>%
