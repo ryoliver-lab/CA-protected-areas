@@ -1355,7 +1355,7 @@ p18 <- plot_predictions(gam6, condition = "native_count") +
 
 plot <- p13 / p7 / p1 + plot_annotation(tag_levels = "A")
 
-ggsave(plot, file = paste0("fig3 - none.pdf"), path = here::here("analysis", "figs"), height = 15, width = 15)
+ggsave(plot, file = paste0("fig3.pdf"), path = here::here("analysis", "figs"), height = 15, width = 15)
 
 plot <- (p2 + p4) / (p3 + p5 + p6) + plot_annotation(tag_levels = "A")
 
@@ -1392,15 +1392,19 @@ park_var = park_models %>%
 park_models = park_models %>%
   filter(suid_nma %in% park_var$suid_nma) %>% 
   group_by(suid_nma) %>% 
-  mutate(mean_hfp = median(HFP2009, na.rm=TRUE),
-         mean_native_count = median(native_count, na.rm=TRUE),
-         mean_rare_count = median(rare_count, na.rm=TRUE),
-         mean_strava = median(gray_scale, na.rm=TRUE)) %>% 
-  ungroup() %>% 
-  mutate(HFP2009 = HFP2009 - mean_hfp,
-         native_count = native_count - mean_native_count,
-         rare_count = rare_count - mean_rare_count,
-         gray_scale = gray_scale - mean_strava)
+  mutate(mean_hfp = mean(HFP2009, na.rm=TRUE),
+         mean_native_count = mean(native_count, na.rm=TRUE),
+         mean_rare_count = mean(rare_count, na.rm=TRUE),
+         mean_strava = mean(gray_scale, na.rm=TRUE),
+         sd_hfp = sd(HFP2009, na.rm=TRUE),
+         sd_native_count = sd(native_count, na.rm=TRUE),
+         sd_rare_count = sd(rare_count, na.rm=TRUE),
+         sd_strava = sd(gray_scale, na.rm=TRUE)) %>% 
+  ungroup() %>%
+  mutate(HFP2009 = (HFP2009 - mean_hfp) / sd_hfp,
+         native_count = (native_count - mean_native_count) / sd_native_count,
+         rare_count = (rare_count - mean_rare_count) / sd_rare_count,
+         gray_scale = (gray_scale - mean_strava) / sd_strava)
 
 
 gam1 <- gam(gray_scale ~ s(native_count, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) + s(suid_nma, bs = "re") + s(suid_nma, native_count, bs = "re"), random = list(suid_nma = ~ 1 + native_count), data = park_models)
@@ -1460,15 +1464,19 @@ park_var = park_models %>%
 park_models = park_models %>%
   filter(suid_nma %in% park_var$suid_nma) %>% 
   group_by(suid_nma) %>% 
-  mutate(mean_hfp = median(HFP2009, na.rm=TRUE),
-         mean_native_count = median(native_count, na.rm=TRUE),
-         mean_rare_count = median(rare_count, na.rm=TRUE),
-         mean_strava = median(gray_scale, na.rm=TRUE)) %>% 
-  ungroup() %>% 
-  mutate(HFP2009 = HFP2009 - mean_hfp,
-         native_count = native_count - mean_native_count,
-         rare_count = rare_count - mean_rare_count,
-         gray_scale = gray_scale - mean_strava)
+  mutate(mean_hfp = mean(HFP2009, na.rm=TRUE),
+         mean_native_count = mean(native_count, na.rm=TRUE),
+         mean_rare_count = mean(rare_count, na.rm=TRUE),
+         mean_strava = mean(gray_scale, na.rm=TRUE),
+         sd_hfp = sd(HFP2009, na.rm=TRUE),
+         sd_native_count = sd(native_count, na.rm=TRUE),
+         sd_rare_count = sd(rare_count, na.rm=TRUE),
+         sd_strava = sd(gray_scale, na.rm=TRUE)) %>% 
+  ungroup() %>%
+  mutate(HFP2009 = (HFP2009 - mean_hfp) / sd_hfp,
+         native_count = (native_count - mean_native_count) / sd_native_count,
+         rare_count = (rare_count - mean_rare_count) / sd_rare_count,
+         gray_scale = (gray_scale - mean_strava) / sd_strava)
 
 gam1 <- gam(gray_scale ~ s(native_count, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) + s(suid_nma, bs = "re") + s(suid_nma, native_count, bs = "re"), random = list(suid_nma = ~ 1 + native_count), data = park_models)
 
