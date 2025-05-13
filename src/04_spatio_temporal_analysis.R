@@ -171,6 +171,11 @@ colors = c("United States National Park Service" = "#031D3A",
            "United States Forest Service" = "#047658",
            "California Department of Fish and Wildlife" = "#C4AF45",
            "California Department of Parks and Recreation" = "#8A716A")
+colors2 = c("NPS" = "#031D3A",
+           "TNC" = "#00ABF5", 
+           "USFS" = "#047658",
+           "CDFW" = "#C4AF45",
+           "CDPR" = "#8A716A")
 
 # Manager Summary ---------------------------------------------------------
 
@@ -295,102 +300,6 @@ median(BLM$rar_mdn, na.rm=TRUE)
 total = ca %>%  
   mutate(thirty_goal = area %>% units::drop_units() * .3)
 
-strava = strava %>% 
-  mutate(strava_quartile = case_when(
-    gray_scale < quantile(gray_scale, probs = 0.25, na.rm = TRUE) ~ "1st Quartile",
-    gray_scale >= quantile(gray_scale, probs = 0.25, na.rm = TRUE) & gray_scale < quantile(gray_scale, probs = 0.5, na.rm = TRUE) ~ "2nd Quartile",
-    gray_scale <= quantile(gray_scale, probs = 0.75, na.rm = TRUE) & gray_scale >= quantile(gray_scale, probs = 0.5, na.rm = TRUE) ~ "3rd Quartile",
-    gray_scale > quantile(gray_scale, probs = 0.75, na.rm = TRUE) ~ "4th Quartile",
-  )) 
-
-hfp = hfp %>% 
-  mutate(hfp_quartile = case_when(
-    HFP2009 < quantile(HFP2009, probs = 0.25, na.rm = TRUE) ~ "1st Quartile",
-    HFP2009 >= quantile(HFP2009, probs = 0.25, na.rm = TRUE) & HFP2009 < quantile(HFP2009, probs = 0.5, na.rm = TRUE) ~ "2nd Quartile",
-    HFP2009 <= quantile(HFP2009, probs = 0.75, na.rm = TRUE) & HFP2009 >= quantile(HFP2009, probs = 0.5, na.rm = TRUE) ~ "3rd Quartile",
-    HFP2009 > quantile(HFP2009, probs = 0.75, na.rm = TRUE) ~ "4th Quartile",
-  )) 
-  
-bio = bio %>% 
-  mutate(bio_quartile = case_when(
-    ntv_cnt < quantile(ntv_cnt, probs = 0.25, na.rm = TRUE) ~ "1st Quartile",
-    ntv_cnt >= quantile(ntv_cnt, probs = 0.25, na.rm = TRUE) & ntv_cnt < quantile(ntv_cnt, probs = 0.5, na.rm = TRUE) ~ "2nd Quartile",
-    ntv_cnt <= quantile(ntv_cnt, probs = 0.75, na.rm = TRUE) & ntv_cnt >= quantile(ntv_cnt, probs = 0.5, na.rm = TRUE) ~ "3rd Quartile",
-    ntv_cnt > quantile(ntv_cnt, probs = 0.75, na.rm = TRUE) ~ "4th Quartile",
-  ))
-
-rare = rare %>% 
-  mutate(rare_quartile = case_when(
-    rare_count < quantile(rare_count, probs = 0.25, na.rm = TRUE) ~ "1st Quartile",
-    rare_count >= quantile(rare_count, probs = 0.25, na.rm = TRUE) & rare_count < quantile(rare_count, probs = 0.5, na.rm = TRUE) ~ "2nd Quartile",
-    rare_count <= quantile(rare_count, probs = 0.75, na.rm = TRUE) & rare_count >= quantile(rare_count, probs = 0.5, na.rm = TRUE) ~ "3rd Quartile",
-    rare_count > quantile(rare_count, probs = 0.75, na.rm = TRUE) ~ "4th Quartile",
-  ))
-  
-  # mutate(sg_quartile = case_when(
-  #   median_sg < quantile(median_sg, probs = 0.25, na.rm = TRUE) ~ "1st Quartile",
-  #   median_sg >= quantile(median_sg, probs = 0.25, na.rm = TRUE) & median_sg < quantile(median_sg, probs = 0.5, na.rm = TRUE) ~ "2nd Quartile",
-  #   median_sg <= quantile(median_sg, probs = 0.75, na.rm = TRUE) & median_sg >= quantile(median_sg, probs = 0.5, na.rm = TRUE) ~ "3rd Quartile",
-  #   median_sg > quantile(median_sg, probs = 0.75, na.rm = TRUE) ~ "4th Quartile",
-  # )) 
-
-### Strava
-
-strava_quartiles = strava %>% 
-  filter(gap_status %in% c("GAP 1", "GAP 2")) %>% 
-  group_by(strava_quartile) %>% 
-  summarize(area = n()) %>% 
-  rename(quartile = strava_quartile) %>% 
-  mutate(type = "Recreation (Strava)")%>% 
-  ungroup() %>% 
-  mutate(percent = area / sum(area) * 100)
-
-### HFI
-
-hfi_quartiles = hfp %>% 
-  filter(gap_status %in% c("GAP 1", "GAP 2")) %>% 
-  group_by(hfp_quartile) %>% 
-  summarize(area = n()) %>% 
-  rename(quartile = hfp_quartile) %>% 
-  mutate(type = "Human Footprint Index")%>% 
-  ungroup() %>% 
-  mutate(percent = area / sum(area) * 100)
-
-### sg
-
-# sg_quartiles = sg %>% 
-#   filter(gap_status %in% c("GAP 1", "GAP 2")) %>% 
-#   group_by(sg_quartile) %>% 
-#   summarize(area = n()) %>% 
-#   select(area, sg_quartile) %>% 
-#   rename(quartile = sg_quartile) %>% 
-#   mutate(type = "Safegraph Counts") %>% 
-#   ungroup()  %>% 
-# mutate(percent = area / sum(area) * 100)
-
-### bio
-
-bio_quartile = bio %>% 
-  filter(gap_status %in% c("GAP 1", "GAP 2")) %>% 
-  group_by(bio_quartile) %>% 
-  summarize(area = n()) %>% 
-  rename(quartile = bio_quartile) %>% 
-  mutate(type = "Native Species Count") %>% 
-  ungroup() %>% 
-  mutate(percent = area / sum(area) * 100)
-
-### rare
-
-rare_quartile = rare %>% 
-  filter(gap_status %in% c("GAP 1", "GAP 2")) %>% 
-  select(rare_quartile) %>% 
-  group_by(rare_quartile) %>% 
-  summarize(area = n()) %>% 
-  rename(quartile = rare_quartile) %>% 
-  mutate(type = "Rare Species Count") %>% 
-  ungroup()   %>% 
-  mutate(percent = area / sum(area) * 100)
-
 gap_status = human %>% 
   select(gap_status, park_name) %>% 
   mutate(area = st_area(geometry)) %>% 
@@ -408,24 +317,11 @@ gap_status = human %>%
          quartile = as.factor(quartile)) %>% 
   mutate(quartile = fct_relevel(quartile, c("GAP 4", "GAP 3", "GAP 2", "GAP 1")))
 
-quartile_data = list(strava_quartiles, hfi_quartiles, bio_quartile, rare_quartile) %>%  #sg_quartiles, 
-  reduce(full_join) %>% 
-  mutate(type = as.factor(type),
-         quartile = as.factor(quartile)) %>% 
-  mutate(type = fct_relevel(type, c("Recreation (Strava)", "Human Footprint Index","Rare Species Count", "Native Species Count" ))) %>%  #  "Safegraph Counts", 
-  mutate(quartile = fct_relevel(quartile, c("4th Quartile" ,"3rd Quartile", "2nd Quartile" ,"1st Quartile")))
-
 p4 = ggplot(gap_status) +
   geom_bar(aes(area %>% units::drop_units() / 1000000, y = type, fill = quartile), position = "stack", stat = "identity") +
   geom_vline(aes(xintercept = total$thirty_goal / 1000000), color = "red", linetype = "dashed", linewidth = 1) +
   theme_bw(base_size= 16) +
   scale_fill_viridis_d(end = 0.45, na.value = "grey") +
-  labs(x = "Area", y = "", fill = "")
-
-p5 = ggplot(quartile_data) +
-  geom_bar(aes(percent, y = type, fill = quartile), position = "stack", stat = "identity") +
-  theme_bw(base_size= 16) +
-  scale_fill_viridis_d(begin = 0.55, end = 0.9, na.value = "grey", direction = -1) +
   labs(x = "Area", y = "", fill = "")
 
 # Distributions -----------------------------------------------------------
@@ -549,30 +445,47 @@ p6 <- ggplot(strava) +
   theme(axis.text.y  = element_blank(),
         axis.ticks.y = element_blank())
 
-plot = (p2 + p3 + p1 + p6)/ (p5 + p4) + plot_annotation(tag_levels = "A") 
-
-ggsave(plot, file = paste0("fig1.pdf"), path = here::here("analysis", "figs"), height = 10, width = 15)
-
 strava_combine_sub = strava %>% 
   filter(mng_agncy %in% c("United States National Park Service",
                           "The Nature Conservancy", 
                           "United States Forest Service", 
                           "California Department of Fish and Wildlife",
-                          "California Department of Parks and Recreation"))
+                          "California Department of Parks and Recreation")) %>% 
+  mutate(mng_agncy = case_when(
+    mng_agncy == "United States National Park Service" ~ "NPS",
+    mng_agncy == "The Nature Conservancy" ~ "TNC",
+    mng_agncy == "United States Forest Service" ~ "USFS",
+    mng_agncy == "California Department of Fish and Wildlife" ~ "CDFW",
+    mng_agncy == "California Department of Parks and Recreation" ~ "CDPR"
+  ))
 
 hfp_combine_sub = hfp %>% 
   filter(mng_agncy %in% c("United States National Park Service",
                             "The Nature Conservancy", 
                             "United States Forest Service", 
                             "California Department of Fish and Wildlife",
-                          "California Department of Parks and Recreation"))
+                          "California Department of Parks and Recreation")) %>% 
+  mutate(mng_agncy = case_when(
+    mng_agncy == "United States National Park Service" ~ "NPS",
+    mng_agncy == "The Nature Conservancy" ~ "TNC",
+    mng_agncy == "United States Forest Service" ~ "USFS",
+    mng_agncy == "California Department of Fish and Wildlife" ~ "CDFW",
+    mng_agncy == "California Department of Parks and Recreation" ~ "CDPR"
+  ))
 
 bio_combine_sub = bio %>% 
   filter(mng_agncy %in% c("United States National Park Service",
                           "The Nature Conservancy", 
                           "United States Forest Service", 
                           "California Department of Fish and Wildlife",
-                          "California Department of Parks and Recreation"))
+                          "California Department of Parks and Recreation")) %>% 
+  mutate(mng_agncy = case_when(
+    mng_agncy == "United States National Park Service" ~ "NPS",
+    mng_agncy == "The Nature Conservancy" ~ "TNC",
+    mng_agncy == "United States Forest Service" ~ "USFS",
+    mng_agncy == "California Department of Fish and Wildlife" ~ "CDFW",
+    mng_agncy == "California Department of Parks and Recreation" ~ "CDPR"
+  ))
 
 
 rare_combine_sub = rare %>% 
@@ -580,9 +493,16 @@ rare_combine_sub = rare %>%
                           "The Nature Conservancy", 
                           "United States Forest Service", 
                           "California Department of Fish and Wildlife",
-                          "California Department of Parks and Recreation"))
+                          "California Department of Parks and Recreation")) %>% 
+  mutate(mng_agncy = case_when(
+    mng_agncy == "United States National Park Service" ~ "NPS",
+    mng_agncy == "The Nature Conservancy" ~ "TNC",
+    mng_agncy == "United States Forest Service" ~ "USFS",
+    mng_agncy == "California Department of Fish and Wildlife" ~ "CDFW",
+    mng_agncy == "California Department of Parks and Recreation" ~ "CDPR"
+  ))
 
-p1 <- ggplot(hfp_combine_sub) +
+p7 <- ggplot(hfp_combine_sub) +
   geom_density_ridges(aes(x = HFP2009, y = mng_agncy, fill = mng_agncy), alpha = 0.5, scale = 3) +
   theme_bw(base_size= 16) +
   labs(
@@ -590,10 +510,11 @@ p1 <- ggplot(hfp_combine_sub) +
     y = "",
     fill = ""
   ) +
-  scale_fill_manual(values = colors) +
-  scale_color_manual(values = c("black", "grey"))
+  scale_fill_manual(values = colors2) +
+  scale_color_manual(values = c("black", "grey")) +
+  theme(legend.position = "none")
 
-p2 <- ggplot(bio_combine_sub) +
+p8 <- ggplot(bio_combine_sub) +
   geom_density_ridges(aes(x = ntv_cnt, y = mng_agncy, fill = mng_agncy), alpha = 0.5, scale = 3) +
   theme_bw(base_size= 16) +
   labs(
@@ -601,10 +522,11 @@ p2 <- ggplot(bio_combine_sub) +
     y = "",
     fill = ""
   ) + 
-  scale_fill_manual(values = colors) +
-  scale_color_manual(values = c("black", "grey"))
+  scale_fill_manual(values = colors2) +
+  scale_color_manual(values = c("black", "grey")) +
+  theme(legend.position = "none")
 
-p3 <- ggplot(rare_combine_sub) +
+p9 <- ggplot(rare_combine_sub) +
   geom_density_ridges(aes(x = rare_count, y = mng_agncy, fill = mng_agncy), alpha = 0.5, scale = 3) +
   theme_bw(base_size= 16) +
   labs(
@@ -612,10 +534,11 @@ p3 <- ggplot(rare_combine_sub) +
     y = "",
     fill = ""
   ) +
-  scale_fill_manual(values = colors) +
-  scale_color_manual(values = c("black", "grey"))
+  scale_fill_manual(values = colors2) +
+  scale_color_manual(values = c("black", "grey")) +
+  theme(legend.position = "none")
 
-p4 <- ggplot(strava_combine_sub) +
+p10 <- ggplot(strava_combine_sub) +
   geom_density_ridges(aes(x = gray_scale, y = mng_agncy, fill = mng_agncy), alpha = 0.5, scale = 3) +
   theme_bw(base_size= 16) +
   labs(
@@ -623,10 +546,20 @@ p4 <- ggplot(strava_combine_sub) +
     y = "",
     fill = ""
   ) +
-  scale_fill_manual(values = colors) +
-  scale_color_manual(values = c("black", "grey"))
+  scale_fill_manual(values = colors2) +
+  scale_color_manual(values = c("black", "grey")) +
+  theme(legend.position = "none")
 
-ggsave(p2 / p3 / p1 / p4 + plot_annotation(tag_levels = "A") + plot_layout(guides = "collect"), file = paste0("figS1.pdf"), path = here::here("analysis", "figs"), height = 10, width = 15)
+layout = "
+ABF
+CDG
+EEH
+EEI
+"
+
+plot = p2 + p3 + p1 + p6 + p4 + p8 + p9 + p7 + p10 + plot_annotation(tag_levels = "A") + plot_layout(design = layout) 
+
+ggsave(plot, file = paste0("fig1.pdf"), path = here::here("analysis", "figs"), height = 15, width = 30)
 
 # JSD Test ----------------------------------------------------------------
 
@@ -879,38 +812,150 @@ cor_check = human_sum %>%
 cor(cor_check$HFP_median, cor_check$gry_scl)
 # 0.7612141
 
-strava_sf = strava_sf %>% 
-  filter(loc == "Outside Protected Areas") %>% 
-  rename(gry_scl = gray_scale) %>% 
-  select(gry_scl)
-hfp_sf = hfp_sf %>% 
-  filter(loc == "Outside Protected Areas") %>% 
-  rename(HFP_median = HFP2009) %>% 
-  select(HFP_median)
-bio_sf = bio_sf %>% 
-  filter(loc == "Outside Protected Areas") %>% 
-  rename(bio_mdn = ntv_cnt) %>% 
-  select(bio_mdn) 
-rare_sf = rare_sf %>% 
-  filter(loc == "Outside Protected Areas") %>% 
-  rename(rar_mdn = rare_count) %>% 
-  select(rar_mdn)
+# strava_sf = strava_sf %>% 
+#   filter(loc == "Outside Protected Areas") %>% 
+#   rename(gry_scl = gray_scale) %>% 
+#   select(gry_scl)
+# hfp_sf = hfp_sf %>% 
+#   filter(loc == "Outside Protected Areas") %>% 
+#   rename(HFP_median = HFP2009) %>% 
+#   select(HFP_median)
+# bio_sf = bio_sf %>% 
+#   filter(loc == "Outside Protected Areas") %>% 
+#   rename(bio_mdn = ntv_cnt) %>% 
+#   select(bio_mdn) 
+# rare_sf = rare_sf %>% 
+#   filter(loc == "Outside Protected Areas") %>% 
+#   rename(rar_mdn = rare_count) %>% 
+#   select(rar_mdn)
+# 
+# outside = list(strava_sf, hfp_sf, bio_sf, rare_sf) %>% 
+#   reduce(st_join)
+# 
+# strava_sf = strava_sf %>% 
+#   filter(loc == "Inside Protected Areas") %>% 
+#   rename(gry_scl = gray_scale) %>% 
+#   select(gry_scl, ID)
+# hfp_sf = hfp_sf %>% 
+#   filter(loc == "Inside Protected Areas") %>% 
+#   rename(HFP_median = HFP2009) %>% 
+#   select(HFP_median)
+# bio_sf = bio_sf %>% 
+#   filter(loc == "Inside Protected Areas") %>% 
+#   rename(bio_mdn = ntv_cnt) %>% 
+#   select(bio_mdn) 
+# rare_sf = rare_sf %>% 
+#   filter(loc == "Inside Protected Areas") %>% 
+#   rename(rar_mdn = rare_count) %>% 
+#   select(rar_mdn)
+# 
+# inside = list(strava_sf, hfp_sf, bio_sf, rare_sf) %>% 
+#   reduce(st_join)
 
-outside = list(strava_sf, hfp_sf, bio_sf, rare_sf) %>% 
-  reduce(st_join)
-
-pca_prep_data = human_sum %>% 
-  st_drop_geometry() %>% 
-  select(suid_nma, HFP_median, gry_scl, bio_mdn, rar_mdn, mng_agncy, gap_status) %>%  # median_sg, 
+outside <- st_read(here::here("data", "processed_data", "outside.shp")) %>% 
+  mutate(loc = "Outside Protected Areas") %>% 
   drop_na() %>% 
-  mutate(loc = "Inside Protected Areas")
+  mutate(gap_status = NA, mng_agncy = NA, suid_nma = NA) %>% 
+  st_drop_geometry()
 
-pca_data1 = pca_prep_data %>% 
-  select(-suid_nma, -mng_agncy, -gap_status) %>% 
-  rbind(outside)
+inside <- read_csv(here::here("data", "processed_data", "inside.csv")) %>% 
+  mutate(loc = "Inside Protected Areas")%>% 
+  full_join(cpad_no_geom) %>% 
+  group_by(suid_nma) %>% 
+  mutate(gap = max(gap1_acres, gap2_acres, gap3_acres, gap4_acres)) %>%
+  mutate(gap_status = case_when(
+    gap == gap1_acres ~ "GAP 1",
+    gap == gap2_acres ~ "GAP 2",
+    gap == gap3_acres ~ "GAP 3",
+    gap == gap4_acres ~ "GAP 4"
+  ))%>% 
+  select(loc, gry_scl, HFP_median, bio_mdn, rar_mdn, mng_agncy, 
+         gap_status, suid_nma) %>% 
+  drop_na()
 
-pca_data = pca_data1 %>% 
-  select(-loc)
+pca_prep = rbind(outside, inside)
+
+rm(outside, inside)
+
+pca_data = pca_prep %>% 
+  select(-suid_nma, -mng_agncy, -gap_status, -loc) 
+
+# pca_corr = cor(pca_data)
+
+pca = prcomp(pca_data, scale. = TRUE)
+summary(pca)
+
+explained_variance_ratio <- summary(pca)[["importance"]]['Proportion of Variance',]
+explained_variance_ratio <- 100 * explained_variance_ratio
+components <- pca[["x"]]
+components <- data.frame(components)
+components <- cbind(components, pca_prep$suid_nma)
+components <- cbind(components, pca_prep$mng_agncy) %>% 
+  as.data.frame()
+components <- cbind(components, pca_prep$gap_status) %>% 
+  as.data.frame()
+components <- cbind(components, pca_prep$loc) %>% 
+  as.data.frame()
+
+names(components) = c("PC1", "PC2", "PC3", "PC4", 
+                      "suid_nma", "mng_agncy", "gap_status", "location")
+
+NPS_components = components %>% 
+  filter(mng_agncy == "United States National Park Service")
+
+TNC_components = components %>% 
+  filter(mng_agncy == "The Nature Conservancy")
+
+UC_components = components %>% 
+  filter(mng_agncy == "United States Forest Service")
+
+CDFW_components = components %>% 
+  filter(mng_agncy == "California Department of Fish and Wildlife")
+
+SP_components = components %>% 
+  filter(mng_agncy == "California Department of Parks and Recreation")
+
+# components = components %>% 
+  # filter(PC2 > -10)
+
+loadings = as.data.frame(pca["rotation"])
+
+loadings = loadings %>% 
+  mutate(var = case_when(
+    row.names(loadings) == "gry_scl" ~ "Recreation",
+    row.names(loadings) == "HFP_median" ~ "Human Footprint Index",
+    row.names(loadings) == "bio_mdn" ~ "Native, Rare Species",
+    row.names(loadings) == "rar_mdn" ~ ""
+  ))
+
+p1 = ggplot() +
+  geom_point(data = components %>% filter(PC2 < 10), aes(PC1, PC2), color = "grey", alpha = 0.5) +
+  geom_point(data = CDFW_components, aes(PC1, PC2, color = "California Department of Fish and Wildlife"), alpha = 0.5) +
+  geom_point(data = SP_components, aes(PC1, PC2, color = "California Department of Parks and Recreation"), alpha = 0.5) +
+  geom_point(data = NPS_components, aes(PC1, PC2, color = "United States National Park Service"), alpha = 0.5) +
+  geom_point(data = UC_components, aes(PC1, PC2, color = "United States Forest Service"), alpha = 0.5) +
+  geom_point(data = TNC_components, aes(PC1, PC2, color = "The Nature Conservancy"), alpha = 0.5) +
+  geom_segment(data = loadings, aes(x = 0, xend = rotation.PC1, y = 0, yend = rotation.PC2), arrow = arrow(length = unit(0.25, "cm")), linewidth = 0.5, colour = "grey20") +
+  ggrepel::geom_label_repel(data = loadings, aes(x = rotation.PC1, y = rotation.PC2, label = var), fill = "transparent", cex = 3, direction = "both", segment.size = .5) +
+  theme_bw(base_size= 16) +
+  labs(x = paste0("PC1 (", round(explained_variance_ratio[1], 2), "%)"),
+       y = paste0("PC2 (", round(explained_variance_ratio[2], 2), "%)"),
+       color = "") +
+  theme(legend.position = "bottom") +
+  scale_color_manual(values = colors) +
+  guides(color=guide_legend(nrow=2,byrow=TRUE)) +
+  facet_wrap(~location)
+
+ggsave(p1, file = paste0("figS1.png"), path = here::here("analysis", "figs"), height = 8, width = 12)
+
+
+pca_prep_data = human_sum %>%
+  st_drop_geometry() %>%
+  select(suid_nma, HFP_median, gry_scl, bio_mdn, rar_mdn, mng_agncy, gap_status) %>%  # median_sg,
+  drop_na() 
+
+pca_data = pca_prep_data %>% 
+  select(-suid_nma, -mng_agncy, -gap_status) 
 
 pca_corr = cor(pca_data)
 
@@ -1020,15 +1065,19 @@ park_var = park_models %>%
 park_models = park_models %>%
   filter(suid_nma %in% park_var$suid_nma) %>% 
   group_by(suid_nma) %>% 
-  mutate(mean_hfp = median(HFP2009, na.rm=TRUE),
-         mean_native_count = median(native_count, na.rm=TRUE),
-         mean_rare_count = median(rare_count, na.rm=TRUE),
-         mean_strava = median(gray_scale, na.rm=TRUE)) %>% 
-  ungroup() %>% 
-  mutate(HFP2009 = HFP2009 - mean_hfp,
-         native_count = native_count - mean_native_count,
-         rare_count = rare_count - mean_rare_count,
-         gray_scale = gray_scale - mean_strava)
+  mutate(mean_hfp = mean(HFP2009, na.rm=TRUE),
+         mean_native_count = mean(native_count, na.rm=TRUE),
+         mean_rare_count = mean(rare_count, na.rm=TRUE),
+         mean_strava = mean(gray_scale, na.rm=TRUE),
+         sd_hfp = sd(HFP2009, na.rm=TRUE),
+         sd_native_count = sd(native_count, na.rm=TRUE),
+         sd_rare_count = sd(rare_count, na.rm=TRUE),
+         sd_strava = sd(gray_scale, na.rm=TRUE)) %>% 
+  ungroup() %>%
+  mutate(HFP2009 = (HFP2009 - mean_hfp) / sd_hfp,
+         native_count = (native_count - mean_native_count) / sd_native_count,
+         rare_count = (rare_count - mean_rare_count) / sd_rare_count,
+         gray_scale = (gray_scale - mean_strava) / sd_strava)
 
 gam1 <- gam(gray_scale ~ s(HFP2009, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) + s(suid_nma, bs = "re") + s(suid_nma, HFP2009, bs = "re"), random = list(suid_nma = ~ 1 + HFP2009), data = park_models)
 gam2 <- gam(gray_scale ~ s(HFP2009, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) + s(suid_nma, bs = "re") + s(suid_nma, HFP2009, bs = "re"), random = list(suid_nma = ~ 1 + HFP2009), data = park_models %>% filter(mng_agncy == "United States National Park Service"))
@@ -1306,7 +1355,7 @@ p18 <- plot_predictions(gam6, condition = "native_count") +
 
 plot <- p13 / p7 / p1 + plot_annotation(tag_levels = "A")
 
-ggsave(plot, file = paste0("fig3.pdf"), path = here::here("analysis", "figs"), height = 15, width = 15)
+ggsave(plot, file = paste0("fig3 - none.pdf"), path = here::here("analysis", "figs"), height = 15, width = 15)
 
 plot <- (p2 + p4) / (p3 + p5 + p6) + plot_annotation(tag_levels = "A")
 
@@ -1520,18 +1569,18 @@ temp_date4 <- temporal_bins %>%
   select(date, bin, date_count, gap_status) %>% 
   distinct()
 
-p1 <- ggplot(temp_date) +
-  geom_tile(aes(date, bin, fill = date_count)) +
-  geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
-  geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
-  scale_fill_viridis_c() + # trans = scales::pseudo_log_trans(sigma = 0.001)
-  theme_bw(base_size= 16) +
-  labs(
-    x = "Date",
-    y = "Tourism Quartiles",
-    fill = "Count"
-  ) +
-  scale_x_date()
+# p1 <- ggplot(temp_date) +
+#   geom_tile(aes(date, bin, fill = date_count)) +
+#   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
+#   geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
+#   scale_fill_viridis_c() + # trans = scales::pseudo_log_trans(sigma = 0.001)
+#   theme_bw(base_size= 16) +
+#   labs(
+#     x = "Date",
+#     y = "Tourism Quartiles",
+#     fill = "Count"
+#   ) +
+#   scale_x_date()
 
 seasons = temporal_bins %>% 
   filter(year == 2019) %>% 
@@ -1552,9 +1601,11 @@ p2 = ggplot(data = season_sum) +
   labs(x = "Percent Parks with Peak Usage in a Season",
        y = "",
        fill = "") +
-  scale_fill_viridis_d(end = 0.9)
+  scale_fill_viridis_d(end = 0.9) +
+  theme(legend.position = "bottom")
 
 temp_med_mad = temporal_data %>% 
+  filter(year == 2019) %>% 
   group_by(suid_nma, mng_agncy, park_name) %>% 
   summarize(med_sg = median(sg), 
          mad_sg = mad(sg)) %>% 
@@ -1574,274 +1625,273 @@ p3 = ggplot() +
        y = "Median Absolute Deviance",
        color = "")
 
+plot <- (p2 + p3) + plot_annotation(tag_levels = "A")
 
-plot <- p1 / (p2 + p3) + plot_annotation(tag_levels = "A")
+ggsave(plot, file = paste0("fig4.pdf"), path = here::here("analysis", "figs"), height = 10, width = 15)
 
-ggsave(plot, file = paste0("fig4.pdf"), path = here::here("analysis", "figs"), height = 15, width = 15)
-
-p1 = ggplot(temp_date2 %>% filter(mng_ag_lev == "City")) +
-  geom_tile(aes(date, bin, fill = date_count)) +
-  geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
-  geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
-  scale_fill_viridis_c(na.value = "#440154") +
-  theme_bw(base_size= 16) +
-  labs(
-    x = "Date",
-    y = "Safegraph Quartiles",
-    fill = "Count",
-    title = "City"
-  ) +
-  scale_x_date()
-
-p2 = ggplot(temp_date2 %>% filter(mng_ag_lev == "County")) +
-  geom_tile(aes(date, bin, fill = date_count)) +
-  geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
-  geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
-  scale_fill_viridis_c(na.value = "#440154") +
-  theme_bw(base_size= 16) +
-  labs(
-    x = "Date",
-    y = "Safegraph Quartiles",
-    fill = "Count",
-    title = "County"
-    
-  ) +
-  scale_x_date()
-
-p3 = ggplot(temp_date2 %>% filter(mng_ag_lev == "Federal")) +
-  geom_tile(aes(date, bin, fill = date_count)) +
-  geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
-  geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
-  scale_fill_viridis_c(na.value = "#440154") +
-  theme_bw(base_size= 16) +
-  labs(
-    x = "Date",
-    y = "Safegraph Quartiles",
-    fill = "Count",
-    title = "Federal"
-  ) +
-  scale_x_date()
-
-p4 = ggplot(temp_date2 %>% filter(mng_ag_lev == "Home Owners Association")) +
-  geom_tile(aes(date, bin, fill = date_count)) +
-  geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
-  geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
-  scale_fill_viridis_c(na.value = "#440154") +
-  theme_bw(base_size= 16) +
-  labs(
-    x = "Date",
-    y = "Safegraph Quartiles",
-    fill = "Count",
-    title = "Home Owners Association"
-  ) +
-  scale_x_date()
-
-p5 = ggplot(temp_date2 %>% filter(mng_ag_lev == "Joint")) +
-  geom_tile(aes(date, bin, fill = date_count)) +
-  geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
-  geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
-  scale_fill_viridis_c(na.value = "#440154") +
-  theme_bw(base_size= 16) +
-  labs(
-    x = "Date",
-    y = "Safegraph Quartiles",
-    fill = "Count",
-    title = "Joint"
-  ) +
-  scale_x_date()
-
-p6 = ggplot(temp_date2 %>% filter(mng_ag_lev == "Non Profit")) +
-  geom_tile(aes(date, bin, fill = date_count)) +
-  geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
-  geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
-  scale_fill_viridis_c(na.value = "#440154") +
-  theme_bw(base_size= 16) +
-  labs(
-    x = "Date",
-    y = "Safegraph Quartiles",
-    fill = "Count",
-    title = "Non Profit"
-  ) +
-  scale_x_date()
-
-p7 = ggplot(temp_date2 %>% filter(mng_ag_lev == "Private")) +
-  geom_tile(aes(date, bin, fill = date_count)) +
-  geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
-  geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
-  scale_fill_viridis_c(na.value = "#440154") +
-  theme_bw(base_size= 16) +
-  labs(
-    x = "Date",
-    y = "Safegraph Quartiles",
-    fill = "Count",
-    title = "Private"
-  ) +
-  scale_x_date()
-
-p8 = ggplot(temp_date2 %>% filter(mng_ag_lev == "Special District")) +
-  geom_tile(aes(date, bin, fill = date_count)) +
-  geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
-  geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
-  scale_fill_viridis_c(na.value = "#440154") +
-  theme_bw(base_size= 16) +
-  labs(
-    x = "Date",
-    y = "Safegraph Quartiles",
-    fill = "Count",
-    title = "Special District"
-  ) +
-  scale_x_date()
-
-p9 = ggplot(temp_date2 %>% filter(mng_ag_lev == "State")) +
-  geom_tile(aes(date, bin, fill = date_count)) +
-  geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
-  geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
-  scale_fill_viridis_c(na.value = "#440154") +
-  theme_bw(base_size= 16) +
-  labs(
-    x = "Date",
-    y = "Safegraph Quartiles",
-    fill = "Count",
-    title = "State"
-  ) +
-  scale_x_date()
-
-p = (p1 + p2 + p3) / (p4 + p5 + p6) / (p7 + p8 + p9)
-
-ggsave(p, file = paste0("figS8.pdf"), path = here::here("analysis", "figs"), height = 15, width = 20)
-
-p1 = ggplot(temp_date3 %>% filter(mng_agncy == "United States National Park Service")) +
-  geom_tile(aes(date, bin, fill = date_count)) +
-  geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
-  geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
-  scale_fill_viridis_c(na.value = "#440154") +
-  theme_bw(base_size= 16) +
-  labs(
-    x = "Date",
-    y = "Safegraph Quartiles",
-    fill = "Count",
-    title = "National Park Service"
-  ) +
-  scale_x_date()
-
-p2 = ggplot(temp_date3 %>% filter(mng_agncy == "The Nature Conservancy")) +
-  geom_tile(aes(date, bin, fill = date_count)) +
-  geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
-  geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
-  scale_fill_viridis_c(na.value = "#440154") +
-  theme_bw(base_size= 16) +
-  labs(
-    x = "Date",
-    y = "Safegraph Quartiles",
-    fill = "Count",
-    title = "The Nature Conservancy"
-    
-  ) +
-  scale_x_date()
-
-p3 = ggplot(temp_date3 %>% filter(mng_agncy == "California Department of Fish and Wildlife")) +
-  geom_tile(aes(date, bin, fill = date_count)) +
-  geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
-  geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
-  scale_fill_viridis_c(na.value = "#440154") +
-  theme_bw(base_size= 16) +
-  labs(
-    x = "Date",
-    y = "Safegraph Quartiles",
-    fill = "Count",
-    title = "California Fish and Wildlife"
-  ) +
-  scale_x_date()
-
-p4 = ggplot(temp_date3 %>% filter(mng_agncy == "United States Forest Service")) +
-  geom_tile(aes(date, bin, fill = date_count)) +
-  geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
-  geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
-  scale_fill_viridis_c(na.value = "#440154") +
-  theme_bw(base_size= 16) +
-  labs(
-    x = "Date",
-    y = "Safegraph Quartiles",
-    fill = "Count",
-    title = "United States Forest Service"
-  ) +
-  scale_x_date()
-
-p5 = ggplot(temp_date3 %>% filter(mng_agncy == "California Department of Parks and Recreation")) +
-  geom_tile(aes(date, bin, fill = date_count)) +
-  geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
-  geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
-  scale_fill_viridis_c(na.value = "#440154") +
-  theme_bw(base_size= 16) +
-  labs(
-    x = "Date",
-    y = "Safegraph Quartiles",
-    fill = "Count",
-    title = "California Parks and Rec"
-  ) +
-  scale_x_date()
-
-p = (p1 + p2) /(p3 + p4 + p5)
-
-ggsave(p, file = paste0("figS9.pdf"), path = here::here("analysis", "figs"), height = 15, width = 20)
-
-p1 = ggplot(temp_date4 %>% filter(gap_status == "GAP 1")) +
-  geom_tile(aes(date, bin, fill = date_count)) +
-  geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
-  geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
-  scale_fill_viridis_c(na.value = "#440154") +
-  theme_bw(base_size= 16) +
-  labs(
-    x = "Date",
-    y = "Safegraph Quartiles",
-    fill = "Count",
-    title = "GAP 1"
-  ) +
-  scale_x_date()
-
-p2 = ggplot(temp_date4 %>% filter(gap_status == "GAP 2")) +
-  geom_tile(aes(date, bin, fill = date_count)) +
-  geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
-  geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
-  scale_fill_viridis_c(na.value = "#440154") +
-  theme_bw(base_size= 16) +
-  labs(
-    x = "Date",
-    y = "Safegraph Quartiles",
-    fill = "Count",
-    title = "GAP 2"
-    
-  ) +
-  scale_x_date()
-
-p3 = ggplot(temp_date4 %>% filter(gap_status == "GAP 3")) +
-  geom_tile(aes(date, bin, fill = date_count)) +
-  geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
-  geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
-  scale_fill_viridis_c(na.value = "#440154") +
-  theme_bw(base_size= 16) +
-  labs(
-    x = "Date",
-    y = "Safegraph Quartiles",
-    fill = "Count",
-    title = "GAP 3"
-  ) +
-  scale_x_date()
-
-p4 = ggplot(temp_date4 %>% filter(gap_status == "GAP 4")) +
-  geom_tile(aes(date, bin, fill = date_count)) +
-  geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
-  geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
-  scale_fill_viridis_c(na.value = "#440154") +
-  theme_bw(base_size= 16) +
-  labs(
-    x = "Date",
-    y = "Safegraph Quartiles",
-    fill = "Count",
-    title = "GAP 4"
-  ) +
-  scale_x_date()
-
-p = (p1 + p2) /(p3 + p4)
-
-ggsave(p, file = paste0("figS10.pdf"), path = here::here("analysis", "figs"), height = 15, width = 20)
+# p1 = ggplot(temp_date2 %>% filter(mng_ag_lev == "City")) +
+#   geom_tile(aes(date, bin, fill = date_count)) +
+#   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
+#   geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
+#   scale_fill_viridis_c(na.value = "#440154") +
+#   theme_bw(base_size= 16) +
+#   labs(
+#     x = "Date",
+#     y = "Safegraph Quartiles",
+#     fill = "Count",
+#     title = "City"
+#   ) +
+#   scale_x_date()
+# 
+# p2 = ggplot(temp_date2 %>% filter(mng_ag_lev == "County")) +
+#   geom_tile(aes(date, bin, fill = date_count)) +
+#   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
+#   geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
+#   scale_fill_viridis_c(na.value = "#440154") +
+#   theme_bw(base_size= 16) +
+#   labs(
+#     x = "Date",
+#     y = "Safegraph Quartiles",
+#     fill = "Count",
+#     title = "County"
+#     
+#   ) +
+#   scale_x_date()
+# 
+# p3 = ggplot(temp_date2 %>% filter(mng_ag_lev == "Federal")) +
+#   geom_tile(aes(date, bin, fill = date_count)) +
+#   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
+#   geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
+#   scale_fill_viridis_c(na.value = "#440154") +
+#   theme_bw(base_size= 16) +
+#   labs(
+#     x = "Date",
+#     y = "Safegraph Quartiles",
+#     fill = "Count",
+#     title = "Federal"
+#   ) +
+#   scale_x_date()
+# 
+# p4 = ggplot(temp_date2 %>% filter(mng_ag_lev == "Home Owners Association")) +
+#   geom_tile(aes(date, bin, fill = date_count)) +
+#   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
+#   geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
+#   scale_fill_viridis_c(na.value = "#440154") +
+#   theme_bw(base_size= 16) +
+#   labs(
+#     x = "Date",
+#     y = "Safegraph Quartiles",
+#     fill = "Count",
+#     title = "Home Owners Association"
+#   ) +
+#   scale_x_date()
+# 
+# p5 = ggplot(temp_date2 %>% filter(mng_ag_lev == "Joint")) +
+#   geom_tile(aes(date, bin, fill = date_count)) +
+#   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
+#   geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
+#   scale_fill_viridis_c(na.value = "#440154") +
+#   theme_bw(base_size= 16) +
+#   labs(
+#     x = "Date",
+#     y = "Safegraph Quartiles",
+#     fill = "Count",
+#     title = "Joint"
+#   ) +
+#   scale_x_date()
+# 
+# p6 = ggplot(temp_date2 %>% filter(mng_ag_lev == "Non Profit")) +
+#   geom_tile(aes(date, bin, fill = date_count)) +
+#   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
+#   geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
+#   scale_fill_viridis_c(na.value = "#440154") +
+#   theme_bw(base_size= 16) +
+#   labs(
+#     x = "Date",
+#     y = "Safegraph Quartiles",
+#     fill = "Count",
+#     title = "Non Profit"
+#   ) +
+#   scale_x_date()
+# 
+# p7 = ggplot(temp_date2 %>% filter(mng_ag_lev == "Private")) +
+#   geom_tile(aes(date, bin, fill = date_count)) +
+#   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
+#   geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
+#   scale_fill_viridis_c(na.value = "#440154") +
+#   theme_bw(base_size= 16) +
+#   labs(
+#     x = "Date",
+#     y = "Safegraph Quartiles",
+#     fill = "Count",
+#     title = "Private"
+#   ) +
+#   scale_x_date()
+# 
+# p8 = ggplot(temp_date2 %>% filter(mng_ag_lev == "Special District")) +
+#   geom_tile(aes(date, bin, fill = date_count)) +
+#   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
+#   geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
+#   scale_fill_viridis_c(na.value = "#440154") +
+#   theme_bw(base_size= 16) +
+#   labs(
+#     x = "Date",
+#     y = "Safegraph Quartiles",
+#     fill = "Count",
+#     title = "Special District"
+#   ) +
+#   scale_x_date()
+# 
+# p9 = ggplot(temp_date2 %>% filter(mng_ag_lev == "State")) +
+#   geom_tile(aes(date, bin, fill = date_count)) +
+#   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
+#   geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
+#   scale_fill_viridis_c(na.value = "#440154") +
+#   theme_bw(base_size= 16) +
+#   labs(
+#     x = "Date",
+#     y = "Safegraph Quartiles",
+#     fill = "Count",
+#     title = "State"
+#   ) +
+#   scale_x_date()
+# 
+# p = (p1 + p2 + p3) / (p4 + p5 + p6) / (p7 + p8 + p9)
+# 
+# ggsave(p, file = paste0("figS8.pdf"), path = here::here("analysis", "figs"), height = 15, width = 20)
+# 
+# p1 = ggplot(temp_date3 %>% filter(mng_agncy == "United States National Park Service")) +
+#   geom_tile(aes(date, bin, fill = date_count)) +
+#   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
+#   geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
+#   scale_fill_viridis_c(na.value = "#440154") +
+#   theme_bw(base_size= 16) +
+#   labs(
+#     x = "Date",
+#     y = "Safegraph Quartiles",
+#     fill = "Count",
+#     title = "National Park Service"
+#   ) +
+#   scale_x_date()
+# 
+# p2 = ggplot(temp_date3 %>% filter(mng_agncy == "The Nature Conservancy")) +
+#   geom_tile(aes(date, bin, fill = date_count)) +
+#   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
+#   geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
+#   scale_fill_viridis_c(na.value = "#440154") +
+#   theme_bw(base_size= 16) +
+#   labs(
+#     x = "Date",
+#     y = "Safegraph Quartiles",
+#     fill = "Count",
+#     title = "The Nature Conservancy"
+#     
+#   ) +
+#   scale_x_date()
+# 
+# p3 = ggplot(temp_date3 %>% filter(mng_agncy == "California Department of Fish and Wildlife")) +
+#   geom_tile(aes(date, bin, fill = date_count)) +
+#   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
+#   geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
+#   scale_fill_viridis_c(na.value = "#440154") +
+#   theme_bw(base_size= 16) +
+#   labs(
+#     x = "Date",
+#     y = "Safegraph Quartiles",
+#     fill = "Count",
+#     title = "California Fish and Wildlife"
+#   ) +
+#   scale_x_date()
+# 
+# p4 = ggplot(temp_date3 %>% filter(mng_agncy == "United States Forest Service")) +
+#   geom_tile(aes(date, bin, fill = date_count)) +
+#   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
+#   geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
+#   scale_fill_viridis_c(na.value = "#440154") +
+#   theme_bw(base_size= 16) +
+#   labs(
+#     x = "Date",
+#     y = "Safegraph Quartiles",
+#     fill = "Count",
+#     title = "United States Forest Service"
+#   ) +
+#   scale_x_date()
+# 
+# p5 = ggplot(temp_date3 %>% filter(mng_agncy == "California Department of Parks and Recreation")) +
+#   geom_tile(aes(date, bin, fill = date_count)) +
+#   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
+#   geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
+#   scale_fill_viridis_c(na.value = "#440154") +
+#   theme_bw(base_size= 16) +
+#   labs(
+#     x = "Date",
+#     y = "Safegraph Quartiles",
+#     fill = "Count",
+#     title = "California Parks and Rec"
+#   ) +
+#   scale_x_date()
+# 
+# p = (p1 + p2) /(p3 + p4 + p5)
+# 
+# ggsave(p, file = paste0("figS9.pdf"), path = here::here("analysis", "figs"), height = 15, width = 20)
+# 
+# p1 = ggplot(temp_date4 %>% filter(gap_status == "GAP 1")) +
+#   geom_tile(aes(date, bin, fill = date_count)) +
+#   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
+#   geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
+#   scale_fill_viridis_c(na.value = "#440154") +
+#   theme_bw(base_size= 16) +
+#   labs(
+#     x = "Date",
+#     y = "Safegraph Quartiles",
+#     fill = "Count",
+#     title = "GAP 1"
+#   ) +
+#   scale_x_date()
+# 
+# p2 = ggplot(temp_date4 %>% filter(gap_status == "GAP 2")) +
+#   geom_tile(aes(date, bin, fill = date_count)) +
+#   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
+#   geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
+#   scale_fill_viridis_c(na.value = "#440154") +
+#   theme_bw(base_size= 16) +
+#   labs(
+#     x = "Date",
+#     y = "Safegraph Quartiles",
+#     fill = "Count",
+#     title = "GAP 2"
+#     
+#   ) +
+#   scale_x_date()
+# 
+# p3 = ggplot(temp_date4 %>% filter(gap_status == "GAP 3")) +
+#   geom_tile(aes(date, bin, fill = date_count)) +
+#   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
+#   geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
+#   scale_fill_viridis_c(na.value = "#440154") +
+#   theme_bw(base_size= 16) +
+#   labs(
+#     x = "Date",
+#     y = "Safegraph Quartiles",
+#     fill = "Count",
+#     title = "GAP 3"
+#   ) +
+#   scale_x_date()
+# 
+# p4 = ggplot(temp_date4 %>% filter(gap_status == "GAP 4")) +
+#   geom_tile(aes(date, bin, fill = date_count)) +
+#   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
+#   geom_vline(aes(xintercept = as.Date("2020-04-24")), color = "blue") + # earliest reopen
+#   scale_fill_viridis_c(na.value = "#440154") +
+#   theme_bw(base_size= 16) +
+#   labs(
+#     x = "Date",
+#     y = "Safegraph Quartiles",
+#     fill = "Count",
+#     title = "GAP 4"
+#   ) +
+#   scale_x_date()
+# 
+# p = (p1 + p2) /(p3 + p4)
+# 
+# ggsave(p, file = paste0("figS10.pdf"), path = here::here("analysis", "figs"), height = 15, width = 20)
