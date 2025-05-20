@@ -1022,8 +1022,6 @@ p1 = ggplot() +
   scale_color_manual(values = colors) +
   guides(color=guide_legend(nrow=2,byrow=TRUE))
 
-ggsave(p1, file = paste0("fig2.pdf"), path = here::here("analysis", "figs"), height = 8, width = 12)
-
 p2 = ggplot() +
   geom_point(data = components %>% filter(PC2 < 10), aes(PC1, PC2, color = gap_status), alpha = 0.5) +
   # geom_point(data = CDFW_components, aes(PC1, PC2, color = "California Department of Fish and Wildlife")) +
@@ -1041,7 +1039,7 @@ p2 = ggplot() +
   scale_color_viridis_d(end = 0.9) +
   guides(color=guide_legend(nrow=2,byrow=TRUE))
 
-ggsave(p2, file = paste0("figS2.pdf"), path = here::here("analysis", "figs"), height = 8, width = 12)
+ggsave(p1 + p2 + plot_annotation(tag_levels = "A"), file = paste0("fig2.pdf"), path = here::here("analysis", "figs"), height = 8, width = 20)
 
 # Spatial Analysis --------------------------------------------------------
 
