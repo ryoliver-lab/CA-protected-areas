@@ -25,12 +25,12 @@ sf_use_s2(FALSE)
 cpad_super <- st_read(here::here("data", "raw_data", "CPAD_2023a_SuperUnits.shp")) %>%
   sf::st_transform("EPSG:4326") %>%
   janitor::clean_names() %>%
-  mutate(ID = row_number()) 
+  mutate(ID = row_number())
 
-ca = st_read(here::here("data", "raw_data", "CA_State_TIGER2016.shp")) %>%
-  sf::st_transform(crs = st_crs(cpad_super)) %>% 
-  mutate(area = st_area(geometry)) %>% 
-  select(area) %>% 
+ca <- st_read(here::here("data", "raw_data", "CA_State_TIGER2016.shp")) %>%
+  sf::st_transform(crs = st_crs(cpad_super)) %>%
+  mutate(area = st_area(geometry)) %>%
+  select(area) %>%
   st_drop_geometry()
 
 sg <- read_csv(here::here("data", "processed_data", "cpad_sg.csv"))
@@ -68,7 +68,7 @@ human <- human %>%
     suid_nma, med_sg, median_sg, gry_scl,
     access_typ, park_name, park_url, mng_ag_id, mng_agncy, mng_ag_lev, mng_ag_typ, agncy_web,
     label_name, gap1_acres, gap2_acres, gap3_acres, gap4_acres, gap_tot_ac, shape_leng, shape_area,
-    HFP_min, HFP_mean, HFP_max, HFP_median, HFP_sd, HFP_range, HFP_cv, year, bio_men, bio_mdn,rare_men, rar_mdn
+    HFP_min, HFP_mean, HFP_max, HFP_median, HFP_sd, HFP_range, HFP_cv, year, bio_men, bio_mdn, rare_men, rar_mdn
   ) %>%
   rowwise() %>%
   mutate(gap = max(gap1_acres, gap2_acres, gap3_acres, gap4_acres)) %>%
@@ -81,7 +81,7 @@ human <- human %>%
   filter(!is.na(year)) %>%
   ungroup()
 
-cpad_no_geom = cpad_super %>%
+cpad_no_geom <- cpad_super %>%
   st_drop_geometry()
 
 strava <- st_read(here::here("data", "processed_data", "in_out_strava.shp")) %>%
@@ -108,7 +108,7 @@ bio <- st_read(here::here("data", "processed_data", "in_out_bio.shp")) %>%
   mutate(loc = fct_relevel(as.factor(loc), c("Outside Protected Areas", "Inside Protected Areas"))) %>%
   st_drop_geometry() %>%
   full_join(cpad_no_geom) %>%
-  full_join(human %>% select(suid_nma, gap_status, mng_agncy))%>%
+  full_join(human %>% select(suid_nma, gap_status, mng_agncy)) %>%
   filter(!is.na(ntv_cnt))
 
 bio_sf <- st_read(here::here("data", "processed_data", "in_out_bio.shp")) %>%
@@ -118,16 +118,16 @@ rare <- st_read(here::here("data", "processed_data", "in_out_rare.shp")) %>%
   mutate(loc = fct_relevel(as.factor(loc), c("Outside Protected Areas", "Inside Protected Areas"))) %>%
   st_drop_geometry() %>%
   full_join(cpad_no_geom) %>%
-  full_join(human %>% select(suid_nma, gap_status, mng_agncy))%>%
+  full_join(human %>% select(suid_nma, gap_status, mng_agncy)) %>%
   filter(!is.na(rare_count))
 
-rare_sf = st_read(here::here("data", "processed_data", "in_out_rare.shp")) %>%
+rare_sf <- st_read(here::here("data", "processed_data", "in_out_rare.shp")) %>%
   mutate(loc = fct_relevel(as.factor(loc), c("Outside Protected Areas", "Inside Protected Areas")))
 
 spatial_data <- read_csv(here::here("data", "processed_data", "spatial_analysis.csv")) %>%
   filter(!is.na(hex_int)) %>%
   filter(suid_nma %in% human$suid_nma) %>%
-  full_join(human %>% select(suid_nma, mng_agncy)) %>% 
+  full_join(human %>% select(suid_nma, mng_agncy)) %>%
   filter(!is.na(HFP2009))
 
 temporal_data <- read_csv(here::here("data", "processed_data", "temporal_analysis.csv")) %>%
@@ -138,7 +138,7 @@ temporal_data <- read_csv(here::here("data", "processed_data", "temporal_analysi
     gap == gap2_acres ~ "GAP 2",
     gap == gap3_acres ~ "GAP 3",
     gap == gap4_acres ~ "GAP 4"
-  )) %>% 
+  )) %>%
   select(suid_nma, date, sg, park_name, mng_ag_lev, mng_agncy, gap_status) %>%
   filter(!is.na(sg)) %>%
   group_by(suid_nma) %>%
@@ -151,216 +151,188 @@ human_sum <- human %>%
   select(-year, -med_sg) %>%
   distinct()
 
-NPS = human_sum %>% 
+NPS <- human_sum %>%
   filter(mng_agncy == "United States National Park Service")
 
-TNC = human_sum %>% 
+TNC <- human_sum %>%
   filter(mng_agncy == "The Nature Conservancy")
 
-UC = human_sum %>% 
+UC <- human_sum %>%
   filter(mng_agncy == "United States Forest Service")
 
-BLM = human_sum %>%
+BLM <- human_sum %>%
   filter(mng_agncy == "California Department of Parks and Recreation")
 
-CDFW = human_sum %>% 
+CDFW <- human_sum %>%
   filter(mng_agncy == "California Department of Fish and Wildlife")
 
-colors = c("United States National Park Service" = "#031D3A",
-           "The Nature Conservancy" = "#00ABF5", 
-           "United States Forest Service" = "#047658",
-           "California Department of Fish and Wildlife" = "#C4AF45",
-           "California Department of Parks and Recreation" = "#8A716A")
-colors2 = c("NPS" = "#031D3A",
-           "TNC" = "#00ABF5", 
-           "USFS" = "#047658",
-           "CDFW" = "#C4AF45",
-           "CDPR" = "#8A716A")
+colors <- c(
+  "United States National Park Service" = "#031D3A",
+  "The Nature Conservancy" = "#00ABF5",
+  "United States Forest Service" = "#047658",
+  "California Department of Fish and Wildlife" = "#C4AF45",
+  "California Department of Parks and Recreation" = "#8A716A"
+)
+colors2 <- c(
+  "NPS" = "#031D3A",
+  "TNC" = "#00ABF5",
+  "USFS" = "#047658",
+  "CDFW" = "#C4AF45",
+  "CDPR" = "#8A716A"
+)
 
 # Manager Summary ---------------------------------------------------------
 
 ## NPS
 
-#area managed
+# area managed
 sum(NPS$shape_area) / 1000000
 
 # percent in GAP 1/2
 sum(filter(NPS, gap_status %in% c("GAP 1", "GAP 2"))$shape_area) / sum(NPS$shape_area) * 100
 
-#median HFP
-median(NPS$HFP_median, na.rm=TRUE)
+# median HFP
+median(NPS$HFP_median, na.rm = TRUE)
 
-#median safegraph
-median(NPS$median_sg, na.rm=TRUE)
+# median safegraph
+median(NPS$median_sg, na.rm = TRUE)
 
-#median strava
-median(NPS$gry_scl, na.rm=TRUE)
+# median strava
+median(NPS$gry_scl, na.rm = TRUE)
 
-#median native species
-median(NPS$bio_mdn, na.rm=TRUE)
+# median native species
+median(NPS$bio_mdn, na.rm = TRUE)
 
-#median rare
-median(NPS$rar_mdn, na.rm=TRUE)
+# median rare
+median(NPS$rar_mdn, na.rm = TRUE)
 
 ## TNC
 
-#area managed
+# area managed
 sum(TNC$shape_area) / 1000000
 
 # percent in GAP 1/2
 sum(filter(TNC, gap_status %in% c("GAP 1", "GAP 2"))$shape_area) / sum(TNC$shape_area) * 100
 
-#median HFP
-median(TNC$HFP_median, na.rm=TRUE)
+# median HFP
+median(TNC$HFP_median, na.rm = TRUE)
 
-#median safegraph
-median(TNC$median_sg, na.rm=TRUE)
+# median safegraph
+median(TNC$median_sg, na.rm = TRUE)
 
-#median strava
-median(TNC$gry_scl, na.rm=TRUE)
+# median strava
+median(TNC$gry_scl, na.rm = TRUE)
 
-#median native species
-median(TNC$bio_mdn, na.rm=TRUE)
+# median native species
+median(TNC$bio_mdn, na.rm = TRUE)
 
-#median rare
-median(TNC$rar_mdn, na.rm=TRUE)
+# median rare
+median(TNC$rar_mdn, na.rm = TRUE)
 
 ## USFS
 
-#area managed
+# area managed
 sum(UC$shape_area) / 1000000
 
 # percent in GAP 1/2
 sum(filter(UC, gap_status %in% c("GAP 1", "GAP 2"))$shape_area) / sum(UC$shape_area) * 100
 
-#median HFP
-median(UC$HFP_median, na.rm=TRUE)
+# median HFP
+median(UC$HFP_median, na.rm = TRUE)
 
-#median safegraph
-median(UC$median_sg, na.rm=TRUE)
+# median safegraph
+median(UC$median_sg, na.rm = TRUE)
 
-#median strava
-median(UC$gry_scl, na.rm=TRUE)
+# median strava
+median(UC$gry_scl, na.rm = TRUE)
 
-#median native species
-median(UC$bio_mdn, na.rm=TRUE)
+# median native species
+median(UC$bio_mdn, na.rm = TRUE)
 
-#median rare
-median(UC$rar_mdn, na.rm=TRUE)
+# median rare
+median(UC$rar_mdn, na.rm = TRUE)
 
 
 ## CDFW
 
-#area managed
+# area managed
 sum(CDFW$shape_area) / 1000000
 
 # percent in GAP 1/2
 sum(filter(CDFW, gap_status %in% c("GAP 1", "GAP 2"))$shape_area) / sum(CDFW$shape_area) * 100
 
-#median HFP
-median(CDFW$HFP_median, na.rm=TRUE)
+# median HFP
+median(CDFW$HFP_median, na.rm = TRUE)
 
-#median safegraph
-median(CDFW$median_sg, na.rm=TRUE)
+# median safegraph
+median(CDFW$median_sg, na.rm = TRUE)
 
-#median strava
-median(CDFW$gry_scl, na.rm=TRUE)
+# median strava
+median(CDFW$gry_scl, na.rm = TRUE)
 
-#median native species
-median(CDFW$bio_mdn, na.rm=TRUE)
+# median native species
+median(CDFW$bio_mdn, na.rm = TRUE)
 
-#median rare
-median(CDFW$rar_mdn, na.rm=TRUE)
+# median rare
+median(CDFW$rar_mdn, na.rm = TRUE)
 
 ## BLM
 
-#area managed
+# area managed
 sum(BLM$shape_area) / 1000000
 
 # percent in GAP 1/2
 sum(filter(BLM, gap_status %in% c("GAP 1", "GAP 2"))$shape_area) / sum(BLM$shape_area) * 100
 
-#median HFP
-median(BLM$HFP_median, na.rm=TRUE)
+# median HFP
+median(BLM$HFP_median, na.rm = TRUE)
 
-#median safegraph
-median(BLM$median_sg, na.rm=TRUE)
+# median safegraph
+median(BLM$median_sg, na.rm = TRUE)
 
-#median strava
-median(BLM$gry_scl, na.rm=TRUE)
+# median strava
+median(BLM$gry_scl, na.rm = TRUE)
 
-#median native species
-median(BLM$bio_mdn, na.rm=TRUE)
+# median native species
+median(BLM$bio_mdn, na.rm = TRUE)
 
-#median rare
-median(BLM$rar_mdn, na.rm=TRUE)
+# median rare
+median(BLM$rar_mdn, na.rm = TRUE)
 
 # Quartile Analysis -------------------------------------------------------
 
-total = ca %>%  
+total <- ca %>%
   mutate(thirty_goal = area %>% units::drop_units() * .3)
 
-gap_status = human %>% 
-  select(gap_status, park_name) %>% 
-  mutate(area = st_area(geometry)) %>% 
-  st_drop_geometry() %>% 
-  distinct() %>% 
-  group_by(gap_status) %>% 
-  mutate(area = sum(area)) %>% 
-  select(area, gap_status) %>% 
-  distinct() %>% 
-  mutate(ca_area = total$area) %>% 
-  mutate(percent = area / ca_area * 100) %>% 
-  rename(quartile = gap_status) %>% 
-  mutate(type = "GAP Status") %>% 
-  mutate(type = as.factor(type),
-         quartile = as.factor(quartile)) %>% 
+gap_status <- human %>%
+  select(gap_status, park_name) %>%
+  mutate(area = st_area(geometry)) %>%
+  st_drop_geometry() %>%
+  distinct() %>%
+  group_by(gap_status) %>%
+  mutate(area = sum(area)) %>%
+  select(area, gap_status) %>%
+  distinct() %>%
+  mutate(ca_area = total$area) %>%
+  mutate(percent = area / ca_area * 100) %>%
+  rename(quartile = gap_status) %>%
+  mutate(type = "GAP Status") %>%
+  mutate(
+    type = as.factor(type),
+    quartile = as.factor(quartile)
+  ) %>%
   mutate(quartile = fct_relevel(quartile, c("GAP 4", "GAP 3", "GAP 2", "GAP 1")))
 
-p4 = ggplot(gap_status) +
+p4 <- ggplot(gap_status) +
   geom_bar(aes(area %>% units::drop_units() / 1000000, y = type, fill = quartile), position = "stack", stat = "identity") +
   geom_vline(aes(xintercept = total$thirty_goal / 1000000), color = "red", linetype = "dashed", linewidth = 1) +
-  theme_bw(base_size= 16) +
+  theme_bw(base_size = 16) +
   scale_fill_viridis_d(end = 0.45, na.value = "grey") +
   labs(x = "Area", y = "", fill = "")
 
 # Distributions -----------------------------------------------------------
 
-strava = strava %>% 
-  group_by(suid_nma) %>% 
-  mutate(gap = max(gap1_acres, gap2_acres, gap3_acres, gap4_acres)) %>%
-  mutate(gap_status = case_when(
-    gap == gap1_acres ~ "GAP 1",
-    gap == gap2_acres ~ "GAP 2",
-    gap == gap3_acres ~ "GAP 3",
-    gap == gap4_acres ~ "GAP 4"
-  )) %>% 
-  mutate(gap_loc = case_when(
-    loc == "Outside Protected Areas" ~ "Outside",
-    gap_status == "GAP 1" ~ "GAP 1",
-    gap_status == "GAP 2" ~ "GAP 2",
-    gap_status == "GAP 3" ~ "GAP 3",
-    gap_status == "GAP 4" ~ "GAP 4"
-  ))
-
-hfp = hfp %>% 
-  group_by(suid_nma) %>% 
-  mutate(gap = max(gap1_acres, gap2_acres, gap3_acres, gap4_acres)) %>%
-  mutate(gap_status = case_when(
-    gap == gap1_acres ~ "GAP 1",
-    gap == gap2_acres ~ "GAP 2",
-    gap == gap3_acres ~ "GAP 3",
-    gap == gap4_acres ~ "GAP 4"
-  )) %>% 
-  mutate(gap_loc = case_when(
-    loc == "Outside Protected Areas" ~ "Outside",
-    gap_status == "GAP 1" ~ "GAP 1",
-    gap_status == "GAP 2" ~ "GAP 2",
-    gap_status == "GAP 3" ~ "GAP 3",
-    gap_status == "GAP 4" ~ "GAP 4"
-  ))
-
-bio = bio %>% 
+strava <- strava %>%
   group_by(suid_nma) %>%
   mutate(gap = max(gap1_acres, gap2_acres, gap3_acres, gap4_acres)) %>%
   mutate(gap_status = case_when(
@@ -368,7 +340,7 @@ bio = bio %>%
     gap == gap2_acres ~ "GAP 2",
     gap == gap3_acres ~ "GAP 3",
     gap == gap4_acres ~ "GAP 4"
-  )) %>% 
+  )) %>%
   mutate(gap_loc = case_when(
     loc == "Outside Protected Areas" ~ "Outside",
     gap_status == "GAP 1" ~ "GAP 1",
@@ -377,7 +349,7 @@ bio = bio %>%
     gap_status == "GAP 4" ~ "GAP 4"
   ))
 
-rare = rare %>% 
+hfp <- hfp %>%
   group_by(suid_nma) %>%
   mutate(gap = max(gap1_acres, gap2_acres, gap3_acres, gap4_acres)) %>%
   mutate(gap_status = case_when(
@@ -385,7 +357,41 @@ rare = rare %>%
     gap == gap2_acres ~ "GAP 2",
     gap == gap3_acres ~ "GAP 3",
     gap == gap4_acres ~ "GAP 4"
-  )) %>% 
+  )) %>%
+  mutate(gap_loc = case_when(
+    loc == "Outside Protected Areas" ~ "Outside",
+    gap_status == "GAP 1" ~ "GAP 1",
+    gap_status == "GAP 2" ~ "GAP 2",
+    gap_status == "GAP 3" ~ "GAP 3",
+    gap_status == "GAP 4" ~ "GAP 4"
+  ))
+
+bio <- bio %>%
+  group_by(suid_nma) %>%
+  mutate(gap = max(gap1_acres, gap2_acres, gap3_acres, gap4_acres)) %>%
+  mutate(gap_status = case_when(
+    gap == gap1_acres ~ "GAP 1",
+    gap == gap2_acres ~ "GAP 2",
+    gap == gap3_acres ~ "GAP 3",
+    gap == gap4_acres ~ "GAP 4"
+  )) %>%
+  mutate(gap_loc = case_when(
+    loc == "Outside Protected Areas" ~ "Outside",
+    gap_status == "GAP 1" ~ "GAP 1",
+    gap_status == "GAP 2" ~ "GAP 2",
+    gap_status == "GAP 3" ~ "GAP 3",
+    gap_status == "GAP 4" ~ "GAP 4"
+  ))
+
+rare <- rare %>%
+  group_by(suid_nma) %>%
+  mutate(gap = max(gap1_acres, gap2_acres, gap3_acres, gap4_acres)) %>%
+  mutate(gap_status = case_when(
+    gap == gap1_acres ~ "GAP 1",
+    gap == gap2_acres ~ "GAP 2",
+    gap == gap3_acres ~ "GAP 3",
+    gap == gap4_acres ~ "GAP 4"
+  )) %>%
   mutate(gap_loc = case_when(
     loc == "Outside Protected Areas" ~ "Outside",
     gap_status == "GAP 1" ~ "GAP 1",
@@ -395,8 +401,8 @@ rare = rare %>%
   ))
 
 p1 <- ggplot(hfp) +
-  geom_density_ridges(aes(x = HFP2009, y = gap_loc, fill = gap_loc), alpha = 0.5, scale = 3)+
-  theme_bw(base_size= 16) +
+  geom_density_ridges(aes(x = HFP2009, y = gap_loc, fill = gap_loc), alpha = 0.5, scale = 3) +
+  theme_bw(base_size = 16) +
   labs(
     x = "Human Footprint Index",
     y = "",
@@ -408,7 +414,7 @@ p1 <- ggplot(hfp) +
 
 p2 <- ggplot(bio) +
   geom_density_ridges(aes(x = ntv_cnt, y = gap_loc, fill = gap_loc), alpha = 0.5, scale = 3) +
-  theme_bw(base_size= 16) +
+  theme_bw(base_size = 16) +
   labs(
     x = "Native Species Count",
     y = "",
@@ -420,7 +426,7 @@ p2 <- ggplot(bio) +
 
 p3 <- ggplot(rare) +
   geom_density_ridges(aes(x = rare_count, y = gap_loc, fill = gap_loc), alpha = 0.5, scale = 3) +
-  theme_bw(base_size= 16) +
+  theme_bw(base_size = 16) +
   labs(
     x = "Rare Species Count",
     y = "",
@@ -428,13 +434,15 @@ p3 <- ggplot(rare) +
   ) +
   scale_fill_viridis_d(end = .9, na.value = "#fde725") +
   scale_color_manual(values = c("black", "grey")) +
-  theme(axis.text.y  = element_blank(),
-        axis.ticks.y = element_blank(),
-        legend.position = "none")
+  theme(
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    legend.position = "none"
+  )
 
 p6 <- ggplot(strava) +
   geom_density_ridges(aes(x = gray_scale, y = gap_loc, fill = gap_loc), alpha = 0.5, scale = 3) +
-  theme_bw(base_size= 16) +
+  theme_bw(base_size = 16) +
   labs(
     x = "Recreation (Strava Heat Map)",
     y = "",
@@ -442,15 +450,19 @@ p6 <- ggplot(strava) +
   ) +
   scale_fill_viridis_d(end = .9, na.value = "#fde725") +
   scale_color_manual(values = c("black", "grey")) +
-  theme(axis.text.y  = element_blank(),
-        axis.ticks.y = element_blank())
+  theme(
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank()
+  )
 
-strava_combine_sub = strava %>% 
-  filter(mng_agncy %in% c("United States National Park Service",
-                          "The Nature Conservancy", 
-                          "United States Forest Service", 
-                          "California Department of Fish and Wildlife",
-                          "California Department of Parks and Recreation")) %>% 
+strava_combine_sub <- strava %>%
+  filter(mng_agncy %in% c(
+    "United States National Park Service",
+    "The Nature Conservancy",
+    "United States Forest Service",
+    "California Department of Fish and Wildlife",
+    "California Department of Parks and Recreation"
+  )) %>%
   mutate(mng_agncy = case_when(
     mng_agncy == "United States National Park Service" ~ "NPS",
     mng_agncy == "The Nature Conservancy" ~ "TNC",
@@ -459,12 +471,14 @@ strava_combine_sub = strava %>%
     mng_agncy == "California Department of Parks and Recreation" ~ "CDPR"
   ))
 
-hfp_combine_sub = hfp %>% 
-  filter(mng_agncy %in% c("United States National Park Service",
-                            "The Nature Conservancy", 
-                            "United States Forest Service", 
-                            "California Department of Fish and Wildlife",
-                          "California Department of Parks and Recreation")) %>% 
+hfp_combine_sub <- hfp %>%
+  filter(mng_agncy %in% c(
+    "United States National Park Service",
+    "The Nature Conservancy",
+    "United States Forest Service",
+    "California Department of Fish and Wildlife",
+    "California Department of Parks and Recreation"
+  )) %>%
   mutate(mng_agncy = case_when(
     mng_agncy == "United States National Park Service" ~ "NPS",
     mng_agncy == "The Nature Conservancy" ~ "TNC",
@@ -473,12 +487,14 @@ hfp_combine_sub = hfp %>%
     mng_agncy == "California Department of Parks and Recreation" ~ "CDPR"
   ))
 
-bio_combine_sub = bio %>% 
-  filter(mng_agncy %in% c("United States National Park Service",
-                          "The Nature Conservancy", 
-                          "United States Forest Service", 
-                          "California Department of Fish and Wildlife",
-                          "California Department of Parks and Recreation")) %>% 
+bio_combine_sub <- bio %>%
+  filter(mng_agncy %in% c(
+    "United States National Park Service",
+    "The Nature Conservancy",
+    "United States Forest Service",
+    "California Department of Fish and Wildlife",
+    "California Department of Parks and Recreation"
+  )) %>%
   mutate(mng_agncy = case_when(
     mng_agncy == "United States National Park Service" ~ "NPS",
     mng_agncy == "The Nature Conservancy" ~ "TNC",
@@ -488,12 +504,14 @@ bio_combine_sub = bio %>%
   ))
 
 
-rare_combine_sub = rare %>% 
-  filter(mng_agncy %in% c("United States National Park Service",
-                          "The Nature Conservancy", 
-                          "United States Forest Service", 
-                          "California Department of Fish and Wildlife",
-                          "California Department of Parks and Recreation")) %>% 
+rare_combine_sub <- rare %>%
+  filter(mng_agncy %in% c(
+    "United States National Park Service",
+    "The Nature Conservancy",
+    "United States Forest Service",
+    "California Department of Fish and Wildlife",
+    "California Department of Parks and Recreation"
+  )) %>%
   mutate(mng_agncy = case_when(
     mng_agncy == "United States National Park Service" ~ "NPS",
     mng_agncy == "The Nature Conservancy" ~ "TNC",
@@ -504,7 +522,7 @@ rare_combine_sub = rare %>%
 
 p7 <- ggplot(hfp_combine_sub) +
   geom_density_ridges(aes(x = HFP2009, y = mng_agncy, fill = mng_agncy), alpha = 0.5, scale = 3) +
-  theme_bw(base_size= 16) +
+  theme_bw(base_size = 16) +
   labs(
     x = "Human Footprint Index",
     y = "",
@@ -516,19 +534,19 @@ p7 <- ggplot(hfp_combine_sub) +
 
 p8 <- ggplot(bio_combine_sub) +
   geom_density_ridges(aes(x = ntv_cnt, y = mng_agncy, fill = mng_agncy), alpha = 0.5, scale = 3) +
-  theme_bw(base_size= 16) +
+  theme_bw(base_size = 16) +
   labs(
     x = "Native Species Count",
     y = "",
     fill = ""
-  ) + 
+  ) +
   scale_fill_manual(values = colors2) +
   scale_color_manual(values = c("black", "grey")) +
   theme(legend.position = "none")
 
 p9 <- ggplot(rare_combine_sub) +
   geom_density_ridges(aes(x = rare_count, y = mng_agncy, fill = mng_agncy), alpha = 0.5, scale = 3) +
-  theme_bw(base_size= 16) +
+  theme_bw(base_size = 16) +
   labs(
     x = "Rare Species Count",
     y = "",
@@ -540,7 +558,7 @@ p9 <- ggplot(rare_combine_sub) +
 
 p10 <- ggplot(strava_combine_sub) +
   geom_density_ridges(aes(x = gray_scale, y = mng_agncy, fill = mng_agncy), alpha = 0.5, scale = 3) +
-  theme_bw(base_size= 16) +
+  theme_bw(base_size = 16) +
   labs(
     x = "Recreation (Strava)",
     y = "",
@@ -550,377 +568,364 @@ p10 <- ggplot(strava_combine_sub) +
   scale_color_manual(values = c("black", "grey")) +
   theme(legend.position = "none")
 
-layout = "
+layout <- "
 ABF
 CDG
 EEH
 EEI
 "
 
-plot = p2 + p3 + p1 + p6 + p4 + p8 + p9 + p7 + p10 + plot_annotation(tag_levels = "A") + plot_layout(design = layout) 
+plot <- p2 + p3 + p1 + p6 + p4 + p8 + p9 + p7 + p10 + plot_annotation(tag_levels = "A") + plot_layout(design = layout)
 
 ggsave(plot, file = paste0("fig1.pdf"), path = here::here("analysis", "figs"), height = 15, width = 30)
 
 # JSD Test ----------------------------------------------------------------
 
-strava_inside = strava %>% 
-  filter(loc == "Inside Protected Areas") %>% 
+strava_inside <- strava %>%
+  filter(loc == "Inside Protected Areas") %>%
   filter(gap_status %in% c("GAP 1", "GAP 2")) %>%
   filter(gap_status %in% c("GAP 3", "GAP 4")) %>%
   filter(!is.na(gray_scale))
 
-max_count = max(strava$gray_scale, na.rm=TRUE) 
-min_count = min(strava$gray_scale, na.rm=TRUE) 
+max_count <- max(strava$gray_scale, na.rm = TRUE)
+min_count <- min(strava$gray_scale, na.rm = TRUE)
 
-count_num = min_count:max_count
+count_num <- min_count:max_count
 
-strava_inside_break = hist(strava_inside %>% pull(gray_scale), breaks = max_count)$breaks
-strava_inside_count = hist(strava_inside %>% pull(gray_scale), breaks = max_count)$counts
+strava_inside_break <- hist(strava_inside %>% pull(gray_scale), breaks = max_count)$breaks
+strava_inside_count <- hist(strava_inside %>% pull(gray_scale), breaks = max_count)$counts
 
-strava_inside_hist = rep(0, length(count_num))
+strava_inside_hist <- rep(0, length(count_num))
 
-j = 1 # count for count/break 
+j <- 1 # count for count/break
 
-for(i in 0:length(count_num)- 2) {
-  
-  
-  if(strava_inside_break[j] == i) {
-    strava_inside_hist[i] = strava_inside_count[j]
-    j = j + 1
+for (i in 0:length(count_num) - 2) {
+  if (strava_inside_break[j] == i) {
+    strava_inside_hist[i] <- strava_inside_count[j]
+    j <- j + 1
   }
-  
+
   print(strava_inside_hist[i])
 }
 
-strava_outside = strava %>% 
-  filter(loc == "Outside Protected Areas") %>% 
+strava_outside <- strava %>%
+  filter(loc == "Outside Protected Areas") %>%
   filter(!is.na(gray_scale))
 
-strava_outside_break = hist(strava_outside %>% pull(gray_scale), breaks = max_count)$breaks
-strava_outside_count = hist(strava_outside %>% pull(gray_scale), breaks = max_count)$counts
+strava_outside_break <- hist(strava_outside %>% pull(gray_scale), breaks = max_count)$breaks
+strava_outside_count <- hist(strava_outside %>% pull(gray_scale), breaks = max_count)$counts
 
-strava_outside_hist = rep(0, length(count_num))
+strava_outside_hist <- rep(0, length(count_num))
 
-j = 1 # count for count/break 
+j <- 1 # count for count/break
 
-for(i in 0:length(count_num) - 2) {
-
-  
-  if(strava_outside_break[j] == i & j < length(strava_outside_break)) {
-    strava_outside_hist[i] = strava_outside_count[j]
-    j = j + 1
-    
+for (i in 0:length(count_num) - 2) {
+  if (strava_outside_break[j] == i & j < length(strava_outside_break)) {
+    strava_outside_hist[i] <- strava_outside_count[j]
+    j <- j + 1
   }
-  
-  # print(strava_outside_hist[i])    
+
+  # print(strava_outside_hist[i])
 }
 
-strava_inside_hist[is.na(strava_inside_hist)] = 0
-strava_outside_hist[is.na(strava_outside_hist)] = 0
+strava_inside_hist[is.na(strava_inside_hist)] <- 0
+strava_outside_hist[is.na(strava_outside_hist)] <- 0
 
-strava_wide = rbind(strava_inside_hist, strava_outside_hist)
+strava_wide <- rbind(strava_inside_hist, strava_outside_hist)
 
 JSD(strava_wide, est.prob = "empirical") #  0.2268064 bounded between 0 = same and 1
-#GAP 1/2  0.1241334 
-# GAP 3/4 0.2687929 
+# GAP 1/2  0.1241334
+# GAP 3/4 0.2687929
 
-hfp_inside = hfp %>% 
+hfp_inside <- hfp %>%
   filter(gap_status %in% c("GAP 1", "GAP 2")) %>%
   filter(gap_status %in% c("GAP 3", "GAP 4")) %>%
-  filter(loc == "Inside Protected Areas") 
+  filter(loc == "Inside Protected Areas")
 
-max_count = max(hfp$HFP2009, na.rm=TRUE) 
-min_count = min(hfp$HFP2009, na.rm=TRUE) 
+max_count <- max(hfp$HFP2009, na.rm = TRUE)
+min_count <- min(hfp$HFP2009, na.rm = TRUE)
 
-count_num = min_count:max_count
+count_num <- min_count:max_count
 
-hfp_inside_break = hist(hfp_inside %>% pull(HFP2009), breaks = max_count)$breaks
-hfp_inside_count = hist(hfp_inside %>% pull(HFP2009), breaks = max_count)$counts
+hfp_inside_break <- hist(hfp_inside %>% pull(HFP2009), breaks = max_count)$breaks
+hfp_inside_count <- hist(hfp_inside %>% pull(HFP2009), breaks = max_count)$counts
 
-hfp_inside_hist = rep(0, length(count_num))
+hfp_inside_hist <- rep(0, length(count_num))
 
-j = 1 # count for count/break 
+j <- 1 # count for count/break
 
-for(i in -1:length(count_num)-2) {
-  
-  
-  if(hfp_inside_break[j] == i) {
-    hfp_inside_hist[i] = hfp_inside_count[j]
-    j = j + 1
+for (i in -1:length(count_num) - 2) {
+  if (hfp_inside_break[j] == i) {
+    hfp_inside_hist[i] <- hfp_inside_count[j]
+    j <- j + 1
   }
-  
+
   print(hfp_inside_hist[i])
 }
 
-hfp_outside = hfp %>% 
-  filter(loc == "Outside Protected Areas") %>% 
+hfp_outside <- hfp %>%
+  filter(loc == "Outside Protected Areas") %>%
   filter(!is.na(HFP2009))
 
-hfp_outside_break = hist(hfp_outside %>% pull(HFP2009), breaks = max_count)$breaks
-hfp_outside_count = hist(hfp_outside %>% pull(HFP2009), breaks = max_count)$counts
+hfp_outside_break <- hist(hfp_outside %>% pull(HFP2009), breaks = max_count)$breaks
+hfp_outside_count <- hist(hfp_outside %>% pull(HFP2009), breaks = max_count)$counts
 
-hfp_outside_hist = rep(0, length(count_num))
+hfp_outside_hist <- rep(0, length(count_num))
 
-j = 1 # count for count/break 
+j <- 1 # count for count/break
 
-for(i in -1:length(count_num) - 2) {
-  
-  
-  if(hfp_outside_break[j] == i & j < length(hfp_outside_break)) {
-    hfp_outside_hist[i] = hfp_outside_count[j]
-    j = j + 1
-    
+for (i in -1:length(count_num) - 2) {
+  if (hfp_outside_break[j] == i & j < length(hfp_outside_break)) {
+    hfp_outside_hist[i] <- hfp_outside_count[j]
+    j <- j + 1
   }
-  
-  # print(hfp_outside_hist[i])    
+
+  # print(hfp_outside_hist[i])
 }
 
-hfp_inside_hist[is.na(hfp_inside_hist)] = 0
-hfp_outside_hist[is.na(hfp_outside_hist)] = 0
+hfp_inside_hist[is.na(hfp_inside_hist)] <- 0
+hfp_outside_hist[is.na(hfp_outside_hist)] <- 0
 
-hfp_wide = rbind(hfp_inside_hist, hfp_outside_hist)
+hfp_wide <- rbind(hfp_inside_hist, hfp_outside_hist)
 
 JSD(hfp_wide, est.prob = "empirical") # 0.2641989 bounded between 0 = same and 1
-#GAP 1/2 0.1492382
-# GAP 3/4 0.3097443 
+# GAP 1/2 0.1492382
+# GAP 3/4 0.3097443
 
-max_count = max(bio$ntv_cnt) # 319
-min_count = min(bio$ntv_cnt) # 34
+max_count <- max(bio$ntv_cnt) # 319
+min_count <- min(bio$ntv_cnt) # 34
 
-count_num = min_count:max_count
+count_num <- min_count:max_count
 
-bio_inside = bio %>% 
-  # filter(gap_status %in% c("GAP 1", "GAP 2")) %>% 
-  # filter(gap_status %in% c("GAP 3", "GAP 4")) %>%
-  filter(loc == "Inside Protected Areas") 
-
-bio_inside_break = hist(bio_inside %>% pull(ntv_cnt), breaks = max_count)$breaks
-bio_inside_count = hist(bio_inside %>% pull(ntv_cnt), breaks = max_count)$counts
-
-bio_inside_hist = rep(0, length(count_num))
-
-j = 1 # count for count/break 
-
-for(i in 1:length(count_num)) {
-  
-  if(bio_inside_break[j] == i) {
-    bio_inside_hist[i] = bio_inside_count[j]
-    j = j + 1
-    
-  }
-  
-  print(bio_inside_hist[i])    
-}
-
-bio_outside = bio %>% 
-  filter(loc == "Outside Protected Areas")
-
-bio_outside_break = hist(bio_outside %>% pull(ntv_cnt), breaks = max_count)$breaks
-bio_outside_count = hist(bio_outside %>% pull(ntv_cnt), breaks = max_count)$counts
-
-bio_outside_hist = rep(0, length(count_num))
-
-j = 1 # count for count/break 
-
-for(i in 1:length(count_num)) {
-  
-  if(bio_outside_break[j] == i) {
-    bio_outside_hist[i] = bio_outside_count[j]
-    j = j + 1
-    
-  }
-  
-  print(bio_outside_hist[i])    
-}
-
-bio_wide = rbind(bio_inside_hist, bio_outside_hist)
-
-JSD(bio_wide, est.prob = "empirical") # 0.08372079 
-#GAP 1/2 0.09911446 
-# GAP 3/4 0.06522453 
-
-max_count = max(rare$rare_count) 
-min_count = min(rare$rare_count) 
-
-count_num = min_count:max_count
-count_num =count_num[-1]
-
-rare_inside = rare %>% 
+bio_inside <- bio %>%
   # filter(gap_status %in% c("GAP 1", "GAP 2")) %>%
   # filter(gap_status %in% c("GAP 3", "GAP 4")) %>%
-  filter(loc == "Inside Protected Areas")  %>% 
-  filter(rare_count > 0)
+  filter(loc == "Inside Protected Areas")
 
-rare_inside_break = hist(rare_inside %>% pull(rare_count), breaks = 50)$breaks
-rare_inside_count = hist(rare_inside %>% pull(rare_count), breaks = 50)$counts
+bio_inside_break <- hist(bio_inside %>% pull(ntv_cnt), breaks = max_count)$breaks
+bio_inside_count <- hist(bio_inside %>% pull(ntv_cnt), breaks = max_count)$counts
 
-rare_inside_hist = rep(0, length(count_num))
+bio_inside_hist <- rep(0, length(count_num))
 
-j = 1 # count for count/break 
+j <- 1 # count for count/break
 
-for(i in 0:length(count_num)-2) {
-  
-  if(rare_inside_break[j] == i) {
-    rare_inside_hist[i] = rare_inside_count[j]
-    j = j + 1
-    
+for (i in 1:length(count_num)) {
+  if (bio_inside_break[j] == i) {
+    bio_inside_hist[i] <- bio_inside_count[j]
+    j <- j + 1
   }
-  
-  print(rare_inside_hist[i])    
+
+  print(bio_inside_hist[i])
 }
 
-rare_outside = rare %>% 
-  filter(loc == "Outside Protected Areas") %>% 
+bio_outside <- bio %>%
+  filter(loc == "Outside Protected Areas")
+
+bio_outside_break <- hist(bio_outside %>% pull(ntv_cnt), breaks = max_count)$breaks
+bio_outside_count <- hist(bio_outside %>% pull(ntv_cnt), breaks = max_count)$counts
+
+bio_outside_hist <- rep(0, length(count_num))
+
+j <- 1 # count for count/break
+
+for (i in 1:length(count_num)) {
+  if (bio_outside_break[j] == i) {
+    bio_outside_hist[i] <- bio_outside_count[j]
+    j <- j + 1
+  }
+
+  print(bio_outside_hist[i])
+}
+
+bio_wide <- rbind(bio_inside_hist, bio_outside_hist)
+
+JSD(bio_wide, est.prob = "empirical") # 0.08372079
+# GAP 1/2 0.09911446
+# GAP 3/4 0.06522453
+
+max_count <- max(rare$rare_count)
+min_count <- min(rare$rare_count)
+
+count_num <- min_count:max_count
+count_num <- count_num[-1]
+
+rare_inside <- rare %>%
+  # filter(gap_status %in% c("GAP 1", "GAP 2")) %>%
+  # filter(gap_status %in% c("GAP 3", "GAP 4")) %>%
+  filter(loc == "Inside Protected Areas") %>%
   filter(rare_count > 0)
 
-rare_outside_break = hist(rare_outside %>% pull(rare_count), breaks = 40)$breaks
-rare_outside_count = hist(rare_outside %>% pull(rare_count), breaks = 40)$counts
+rare_inside_break <- hist(rare_inside %>% pull(rare_count), breaks = 50)$breaks
+rare_inside_count <- hist(rare_inside %>% pull(rare_count), breaks = 50)$counts
 
-rare_outside_hist = rep(0, length(count_num))
+rare_inside_hist <- rep(0, length(count_num))
 
-j = 1 # count for count/break 
+j <- 1 # count for count/break
 
-for(i in 0:length(count_num)-2) {
-  
-  if(rare_outside_break[j] == i) {
-    rare_outside_hist[i] = rare_outside_count[j]
-    
-    if(j < length(rare_outside_count))
-      j = j + 1
-    else {
-      j = 1
+for (i in 0:length(count_num) - 2) {
+  if (rare_inside_break[j] == i) {
+    rare_inside_hist[i] <- rare_inside_count[j]
+    j <- j + 1
+  }
+
+  print(rare_inside_hist[i])
+}
+
+rare_outside <- rare %>%
+  filter(loc == "Outside Protected Areas") %>%
+  filter(rare_count > 0)
+
+rare_outside_break <- hist(rare_outside %>% pull(rare_count), breaks = 40)$breaks
+rare_outside_count <- hist(rare_outside %>% pull(rare_count), breaks = 40)$counts
+
+rare_outside_hist <- rep(0, length(count_num))
+
+j <- 1 # count for count/break
+
+for (i in 0:length(count_num) - 2) {
+  if (rare_outside_break[j] == i) {
+    rare_outside_hist[i] <- rare_outside_count[j]
+
+    if (j < length(rare_outside_count)) {
+      j <- j + 1
+    } else {
+      j <- 1
     }
   }
-  
+
   print(rare_outside_hist[i])
 }
 
-rare_outside_hist[is.na(rare_outside_hist)] = 0
+rare_outside_hist[is.na(rare_outside_hist)] <- 0
 
-rare_wide = rbind(rare_inside_hist, rare_outside_hist)
+rare_wide <- rbind(rare_inside_hist, rare_outside_hist)
 
-JSD(rare_wide, est.prob = "empirical") #  0.1061642 
-#GAP 1/2  0.1255155 
-# GAP 3/4  0.1008245 
+JSD(rare_wide, est.prob = "empirical") #  0.1061642
+# GAP 1/2  0.1255155
+# GAP 3/4  0.1008245
 
 # Scatter Plot/PCA ------------------------------------------------------------
 
-cor_check = human_sum %>% 
-  select(HFP_median, gry_scl) %>% 
+cor_check <- human_sum %>%
+  select(HFP_median, gry_scl) %>%
   drop_na()
 
 cor(cor_check$HFP_median, cor_check$gry_scl)
 # 0.7612141
 
-# strava_sf = strava_sf %>% 
-#   filter(loc == "Outside Protected Areas") %>% 
-#   rename(gry_scl = gray_scale) %>% 
+# strava_sf = strava_sf %>%
+#   filter(loc == "Outside Protected Areas") %>%
+#   rename(gry_scl = gray_scale) %>%
 #   select(gry_scl)
-# hfp_sf = hfp_sf %>% 
-#   filter(loc == "Outside Protected Areas") %>% 
-#   rename(HFP_median = HFP2009) %>% 
+# hfp_sf = hfp_sf %>%
+#   filter(loc == "Outside Protected Areas") %>%
+#   rename(HFP_median = HFP2009) %>%
 #   select(HFP_median)
-# bio_sf = bio_sf %>% 
-#   filter(loc == "Outside Protected Areas") %>% 
-#   rename(bio_mdn = ntv_cnt) %>% 
-#   select(bio_mdn) 
-# rare_sf = rare_sf %>% 
-#   filter(loc == "Outside Protected Areas") %>% 
-#   rename(rar_mdn = rare_count) %>% 
+# bio_sf = bio_sf %>%
+#   filter(loc == "Outside Protected Areas") %>%
+#   rename(bio_mdn = ntv_cnt) %>%
+#   select(bio_mdn)
+# rare_sf = rare_sf %>%
+#   filter(loc == "Outside Protected Areas") %>%
+#   rename(rar_mdn = rare_count) %>%
 #   select(rar_mdn)
-# 
-# outside = list(strava_sf, hfp_sf, bio_sf, rare_sf) %>% 
+#
+# outside = list(strava_sf, hfp_sf, bio_sf, rare_sf) %>%
 #   reduce(st_join)
-# 
-# strava_sf = strava_sf %>% 
-#   filter(loc == "Inside Protected Areas") %>% 
-#   rename(gry_scl = gray_scale) %>% 
+#
+# strava_sf = strava_sf %>%
+#   filter(loc == "Inside Protected Areas") %>%
+#   rename(gry_scl = gray_scale) %>%
 #   select(gry_scl, ID)
-# hfp_sf = hfp_sf %>% 
-#   filter(loc == "Inside Protected Areas") %>% 
-#   rename(HFP_median = HFP2009) %>% 
+# hfp_sf = hfp_sf %>%
+#   filter(loc == "Inside Protected Areas") %>%
+#   rename(HFP_median = HFP2009) %>%
 #   select(HFP_median)
-# bio_sf = bio_sf %>% 
-#   filter(loc == "Inside Protected Areas") %>% 
-#   rename(bio_mdn = ntv_cnt) %>% 
-#   select(bio_mdn) 
-# rare_sf = rare_sf %>% 
-#   filter(loc == "Inside Protected Areas") %>% 
-#   rename(rar_mdn = rare_count) %>% 
+# bio_sf = bio_sf %>%
+#   filter(loc == "Inside Protected Areas") %>%
+#   rename(bio_mdn = ntv_cnt) %>%
+#   select(bio_mdn)
+# rare_sf = rare_sf %>%
+#   filter(loc == "Inside Protected Areas") %>%
+#   rename(rar_mdn = rare_count) %>%
 #   select(rar_mdn)
-# 
-# inside = list(strava_sf, hfp_sf, bio_sf, rare_sf) %>% 
+#
+# inside = list(strava_sf, hfp_sf, bio_sf, rare_sf) %>%
 #   reduce(st_join)
 
-outside <- st_read(here::here("data", "processed_data", "outside.shp")) %>% 
-  mutate(loc = "Outside Protected Areas") %>% 
-  drop_na() %>% 
-  mutate(gap_status = NA, mng_agncy = NA, suid_nma = NA) %>% 
+outside <- st_read(here::here("data", "processed_data", "outside.shp")) %>%
+  mutate(loc = "Outside Protected Areas") %>%
+  drop_na() %>%
+  mutate(gap_status = NA, mng_agncy = NA, suid_nma = NA) %>%
   st_drop_geometry()
 
-inside <- read_csv(here::here("data", "processed_data", "inside.csv")) %>% 
-  mutate(loc = "Inside Protected Areas")%>% 
-  full_join(cpad_no_geom) %>% 
-  group_by(suid_nma) %>% 
+inside <- read_csv(here::here("data", "processed_data", "inside.csv")) %>%
+  mutate(loc = "Inside Protected Areas") %>%
+  full_join(cpad_no_geom) %>%
+  group_by(suid_nma) %>%
   mutate(gap = max(gap1_acres, gap2_acres, gap3_acres, gap4_acres)) %>%
   mutate(gap_status = case_when(
     gap == gap1_acres ~ "GAP 1",
     gap == gap2_acres ~ "GAP 2",
     gap == gap3_acres ~ "GAP 3",
     gap == gap4_acres ~ "GAP 4"
-  ))%>% 
-  select(loc, gry_scl, HFP_median, bio_mdn, rar_mdn, mng_agncy, 
-         gap_status, suid_nma) %>% 
+  )) %>%
+  select(
+    loc, gry_scl, HFP_median, bio_mdn, rar_mdn, mng_agncy,
+    gap_status, suid_nma
+  ) %>%
   drop_na()
 
-pca_prep = rbind(outside, inside)
+pca_prep <- rbind(outside, inside)
 
 rm(outside, inside)
 
-pca_data = pca_prep %>% 
-  select(-suid_nma, -mng_agncy, -gap_status, -loc) 
+pca_data <- pca_prep %>%
+  select(-suid_nma, -mng_agncy, -gap_status, -loc)
 
 # pca_corr = cor(pca_data)
 
-pca = prcomp(pca_data, scale. = TRUE)
+pca <- prcomp(pca_data, scale. = TRUE)
 summary(pca)
 
-explained_variance_ratio <- summary(pca)[["importance"]]['Proportion of Variance',]
+explained_variance_ratio <- summary(pca)[["importance"]]["Proportion of Variance", ]
 explained_variance_ratio <- 100 * explained_variance_ratio
 components <- pca[["x"]]
 components <- data.frame(components)
 components <- cbind(components, pca_prep$suid_nma)
-components <- cbind(components, pca_prep$mng_agncy) %>% 
+components <- cbind(components, pca_prep$mng_agncy) %>%
   as.data.frame()
-components <- cbind(components, pca_prep$gap_status) %>% 
+components <- cbind(components, pca_prep$gap_status) %>%
   as.data.frame()
-components <- cbind(components, pca_prep$loc) %>% 
+components <- cbind(components, pca_prep$loc) %>%
   as.data.frame()
 
-names(components) = c("PC1", "PC2", "PC3", "PC4", 
-                      "suid_nma", "mng_agncy", "gap_status", "location")
+names(components) <- c(
+  "PC1", "PC2", "PC3", "PC4",
+  "suid_nma", "mng_agncy", "gap_status", "location"
+)
 
-NPS_components = components %>% 
+NPS_components <- components %>%
   filter(mng_agncy == "United States National Park Service")
 
-TNC_components = components %>% 
+TNC_components <- components %>%
   filter(mng_agncy == "The Nature Conservancy")
 
-UC_components = components %>% 
+UC_components <- components %>%
   filter(mng_agncy == "United States Forest Service")
 
-CDFW_components = components %>% 
+CDFW_components <- components %>%
   filter(mng_agncy == "California Department of Fish and Wildlife")
 
-SP_components = components %>% 
+SP_components <- components %>%
   filter(mng_agncy == "California Department of Parks and Recreation")
 
-# components = components %>% 
-  # filter(PC2 > -10)
+# components = components %>%
+# filter(PC2 > -10)
 
-loadings = as.data.frame(pca["rotation"])
+loadings <- as.data.frame(pca["rotation"])
 
-loadings = loadings %>% 
+loadings <- loadings %>%
   mutate(var = case_when(
     row.names(loadings) == "gry_scl" ~ "Recreation",
     row.names(loadings) == "HFP_median" ~ "Human Footprint Index",
@@ -928,7 +933,7 @@ loadings = loadings %>%
     row.names(loadings) == "rar_mdn" ~ ""
   ))
 
-p1 = ggplot() +
+p1 <- ggplot() +
   geom_point(data = components %>% filter(PC2 < 10), aes(PC1, PC2), color = "grey", alpha = 0.5) +
   geom_point(data = CDFW_components, aes(PC1, PC2, color = "California Department of Fish and Wildlife"), alpha = 0.5) +
   geom_point(data = SP_components, aes(PC1, PC2, color = "California Department of Parks and Recreation"), alpha = 0.5) +
@@ -937,67 +942,71 @@ p1 = ggplot() +
   geom_point(data = TNC_components, aes(PC1, PC2, color = "The Nature Conservancy"), alpha = 0.5) +
   geom_segment(data = loadings, aes(x = 0, xend = rotation.PC1, y = 0, yend = rotation.PC2), arrow = arrow(length = unit(0.25, "cm")), linewidth = 0.5, colour = "grey20") +
   ggrepel::geom_label_repel(data = loadings, aes(x = rotation.PC1, y = rotation.PC2, label = var), fill = "transparent", cex = 3, direction = "both", segment.size = .5) +
-  theme_bw(base_size= 16) +
-  labs(x = paste0("PC1 (", round(explained_variance_ratio[1], 2), "%)"),
-       y = paste0("PC2 (", round(explained_variance_ratio[2], 2), "%)"),
-       color = "") +
+  theme_bw(base_size = 16) +
+  labs(
+    x = paste0("PC1 (", round(explained_variance_ratio[1], 2), "%)"),
+    y = paste0("PC2 (", round(explained_variance_ratio[2], 2), "%)"),
+    color = ""
+  ) +
   theme(legend.position = "bottom") +
   scale_color_manual(values = colors) +
-  guides(color=guide_legend(nrow=2,byrow=TRUE)) +
+  guides(color = guide_legend(nrow = 2, byrow = TRUE)) +
   facet_wrap(~location)
 
 ggsave(p1, file = paste0("figS1.png"), path = here::here("analysis", "figs"), height = 8, width = 12)
 
 
-pca_prep_data = human_sum %>%
+pca_prep_data <- human_sum %>%
   st_drop_geometry() %>%
-  select(suid_nma, HFP_median, gry_scl, bio_mdn, rar_mdn, mng_agncy, gap_status) %>%  # median_sg,
-  drop_na() 
+  select(suid_nma, HFP_median, gry_scl, bio_mdn, rar_mdn, mng_agncy, gap_status) %>% # median_sg,
+  drop_na()
 
-pca_data = pca_prep_data %>% 
-  select(-suid_nma, -mng_agncy, -gap_status) 
+pca_data <- pca_prep_data %>%
+  select(-suid_nma, -mng_agncy, -gap_status)
 
-pca_corr = cor(pca_data)
+pca_corr <- cor(pca_data)
 
-pca = prcomp(pca_data, scale. = TRUE)
+pca <- prcomp(pca_data, scale. = TRUE)
 summary(pca)
 
-# autoplot(pca, data = pca_prep_data) 
+# autoplot(pca, data = pca_prep_data)
 
-explained_variance_ratio <- summary(pca)[["importance"]]['Proportion of Variance',]
+explained_variance_ratio <- summary(pca)[["importance"]]["Proportion of Variance", ]
 explained_variance_ratio <- 100 * explained_variance_ratio
 components <- pca[["x"]]
 components <- data.frame(components)
 components <- cbind(components, pca_prep_data$suid_nma)
-components <- cbind(components, pca_prep_data$mng_agncy) %>% 
+components <- cbind(components, pca_prep_data$mng_agncy) %>%
   as.data.frame()
-components <- cbind(components, pca_prep_data$gap_status) %>% 
+components <- cbind(components, pca_prep_data$gap_status) %>%
   as.data.frame()
 
-names(components) = c("PC1", "PC2", "PC3", "PC4", 
-                      "suid_nma", "mng_agncy", "gap_status")
+names(components) <- c(
+  "PC1", "PC2", "PC3", "PC4",
+  "suid_nma", "mng_agncy", "gap_status"
+)
 
-NPS_components = components %>% 
+NPS_components <- components %>%
   filter(mng_agncy == "United States National Park Service")
 
-TNC_components = components %>% 
+TNC_components <- components %>%
   filter(mng_agncy == "The Nature Conservancy")
 
-UC_components = components %>% 
+UC_components <- components %>%
   filter(mng_agncy == "United States Forest Service")
 
-CDFW_components = components %>% 
+CDFW_components <- components %>%
   filter(mng_agncy == "California Department of Fish and Wildlife")
 
-SP_components = components %>% 
+SP_components <- components %>%
   filter(mng_agncy == "California Department of Parks and Recreation")
 
-components = components %>% 
+components <- components %>%
   filter(PC2 > -10)
 
-loadings = as.data.frame(pca["rotation"])
+loadings <- as.data.frame(pca["rotation"])
 
-loadings = loadings %>% 
+loadings <- loadings %>%
   mutate(var = case_when(
     row.names(loadings) == "gry_scl" ~ "Recreation",
     row.names(loadings) == "HFP_median" ~ "Human Footprint Index",
@@ -1005,7 +1014,7 @@ loadings = loadings %>%
     row.names(loadings) == "rar_mdn" ~ ""
   ))
 
-p1 = ggplot() +
+p1 <- ggplot() +
   geom_point(data = components %>% filter(PC2 < 10), aes(PC1, PC2), color = "grey") +
   geom_point(data = CDFW_components, aes(PC1, PC2, color = "California Department of Fish and Wildlife")) +
   geom_point(data = SP_components, aes(PC1, PC2, color = "California Department of Parks and Recreation")) +
@@ -1014,15 +1023,17 @@ p1 = ggplot() +
   geom_point(data = TNC_components, aes(PC1, PC2, color = "The Nature Conservancy")) +
   geom_segment(data = loadings, aes(x = 0, xend = rotation.PC1, y = 0, yend = rotation.PC2), arrow = arrow(length = unit(0.25, "cm")), linewidth = 0.5, colour = "grey20") +
   ggrepel::geom_label_repel(data = loadings, aes(x = rotation.PC1, y = rotation.PC2, label = var), fill = "transparent", cex = 3, direction = "both", segment.size = .5) +
-  theme_bw(base_size= 16) +
-  labs(x = paste0("PC1 (", round(explained_variance_ratio[1], 2), "%)"),
-       y = paste0("PC2 (", round(explained_variance_ratio[2], 2), "%)"),
-       color = "") +
+  theme_bw(base_size = 16) +
+  labs(
+    x = paste0("PC1 (", round(explained_variance_ratio[1], 2), "%)"),
+    y = paste0("PC2 (", round(explained_variance_ratio[2], 2), "%)"),
+    color = ""
+  ) +
   theme(legend.position = "bottom") +
   scale_color_manual(values = colors) +
-  guides(color=guide_legend(nrow=2,byrow=TRUE))
+  guides(color = guide_legend(nrow = 2, byrow = TRUE))
 
-p2 = ggplot() +
+p2 <- ggplot() +
   geom_point(data = components %>% filter(PC2 < 10), aes(PC1, PC2, color = gap_status), alpha = 0.5) +
   # geom_point(data = CDFW_components, aes(PC1, PC2, color = "California Department of Fish and Wildlife")) +
   # geom_point(data = SP_components, aes(PC1, PC2, color = "California Department of Parks and Recreation")) +
@@ -1031,13 +1042,15 @@ p2 = ggplot() +
   # geom_point(data = TNC_components, aes(PC1, PC2, color = "The Nature Conservancy")) +
   geom_segment(data = loadings, aes(x = 0, xend = rotation.PC1, y = 0, yend = rotation.PC2), arrow = arrow(length = unit(0.25, "cm")), linewidth = 0.5, colour = "grey20") +
   ggrepel::geom_label_repel(data = loadings, aes(x = rotation.PC1, y = rotation.PC2, label = var), fill = "transparent", cex = 3, direction = "both", segment.size = .5) +
-  theme_bw(base_size= 16) +
-  labs(x = paste0("PC1 (", round(explained_variance_ratio[1], 2), "%)"),
-       y = paste0("PC2 (", round(explained_variance_ratio[2], 2), "%)"),
-       color = "") +
+  theme_bw(base_size = 16) +
+  labs(
+    x = paste0("PC1 (", round(explained_variance_ratio[1], 2), "%)"),
+    y = paste0("PC2 (", round(explained_variance_ratio[2], 2), "%)"),
+    color = ""
+  ) +
   theme(legend.position = "bottom") +
   scale_color_viridis_d(end = 0.9) +
-  guides(color=guide_legend(nrow=2,byrow=TRUE))
+  guides(color = guide_legend(nrow = 2, byrow = TRUE))
 
 ggsave(p1 + p2 + plot_annotation(tag_levels = "A"), file = paste0("fig2.pdf"), path = here::here("analysis", "figs"), height = 8, width = 20)
 
@@ -1050,32 +1063,38 @@ park_models <- spatial_data %>%
   mutate(count = n()) %>%
   filter(count >= 3)
 
-park_var = park_models %>% 
-  group_by(suid_nma) %>% 
-  summarize(hfp = sd(HFP2009, na.rm=TRUE),
-            native_count = sd(native_count, na.rm=TRUE),
-            rare_count = sd(rare_count, na.rm=TRUE),
-            strava = sd(gray_scale, na.rm=TRUE)) %>% 
-  group_by(suid_nma) %>% 
-  mutate(total_var = sum(hfp, native_count, rare_count, strava)) %>% 
+park_var <- park_models %>%
+  group_by(suid_nma) %>%
+  summarize(
+    hfp = sd(HFP2009, na.rm = TRUE),
+    native_count = sd(native_count, na.rm = TRUE),
+    rare_count = sd(rare_count, na.rm = TRUE),
+    strava = sd(gray_scale, na.rm = TRUE)
+  ) %>%
+  group_by(suid_nma) %>%
+  mutate(total_var = sum(hfp, native_count, rare_count, strava)) %>%
   filter(total_var > 0)
 
-park_models = park_models %>%
-  filter(suid_nma %in% park_var$suid_nma) %>% 
-  group_by(suid_nma) %>% 
-  mutate(mean_hfp = mean(HFP2009, na.rm=TRUE),
-         mean_native_count = mean(native_count, na.rm=TRUE),
-         mean_rare_count = mean(rare_count, na.rm=TRUE),
-         mean_strava = mean(gray_scale, na.rm=TRUE),
-         sd_hfp = sd(HFP2009, na.rm=TRUE),
-         sd_native_count = sd(native_count, na.rm=TRUE),
-         sd_rare_count = sd(rare_count, na.rm=TRUE),
-         sd_strava = sd(gray_scale, na.rm=TRUE)) %>% 
+park_models <- park_models %>%
+  filter(suid_nma %in% park_var$suid_nma) %>%
+  group_by(suid_nma) %>%
+  mutate(
+    mean_hfp = mean(HFP2009, na.rm = TRUE),
+    mean_native_count = mean(native_count, na.rm = TRUE),
+    mean_rare_count = mean(rare_count, na.rm = TRUE),
+    mean_strava = mean(gray_scale, na.rm = TRUE),
+    sd_hfp = sd(HFP2009, na.rm = TRUE),
+    sd_native_count = sd(native_count, na.rm = TRUE),
+    sd_rare_count = sd(rare_count, na.rm = TRUE),
+    sd_strava = sd(gray_scale, na.rm = TRUE)
+  ) %>%
   ungroup() %>%
-  mutate(HFP2009 = (HFP2009 - mean_hfp) / sd_hfp,
-         native_count = (native_count - mean_native_count) / sd_native_count,
-         rare_count = (rare_count - mean_rare_count) / sd_rare_count,
-         gray_scale = (gray_scale - mean_strava) / sd_strava)
+  mutate(
+    HFP2009 = (HFP2009 - mean_hfp) / sd_hfp,
+    native_count = (native_count - mean_native_count) / sd_native_count,
+    rare_count = (rare_count - mean_rare_count) / sd_rare_count,
+    gray_scale = (gray_scale - mean_strava) / sd_strava
+  )
 
 gam1 <- gam(gray_scale ~ s(HFP2009, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) + s(suid_nma, bs = "re") + s(suid_nma, HFP2009, bs = "re"), random = list(suid_nma = ~ 1 + HFP2009), data = park_models)
 gam2 <- gam(gray_scale ~ s(HFP2009, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) + s(suid_nma, bs = "re") + s(suid_nma, HFP2009, bs = "re"), random = list(suid_nma = ~ 1 + HFP2009), data = park_models %>% filter(mng_agncy == "United States National Park Service"))
@@ -1093,7 +1112,7 @@ summary(gam1)
 
 p1 <- plot_predictions(gam1, condition = "HFP2009") +
   geom_rug(data = park_models, aes(HFP2009), alpha = 1 / 2, outside = TRUE, sides = "b") +
-  theme_bw(base_size= 16) +
+  theme_bw(base_size = 16) +
   labs(
     x = "Human Footprint Index",
     y = "Strava Gray Scale"
@@ -1106,7 +1125,7 @@ p1 <- plot_predictions(gam1, condition = "HFP2009") +
 
 p2 <- plot_predictions(gam2, condition = "HFP2009") +
   geom_rug(data = park_models %>% filter(mng_agncy == "United States National Park Service"), aes(HFP2009), alpha = 1 / 2, outside = TRUE, sides = "b") +
-  theme_bw(base_size= 16) +
+  theme_bw(base_size = 16) +
   labs(
     x = "Human Footprint Index",
     y = "Strava Gray Scale"
@@ -1119,7 +1138,7 @@ p2 <- plot_predictions(gam2, condition = "HFP2009") +
 
 p3 <- plot_predictions(gam3, condition = "HFP2009") +
   geom_rug(data = park_models %>% filter(mng_agncy == "The Nature Conservancy"), aes(HFP2009), alpha = 1 / 2, outside = TRUE, sides = "b") +
-  theme_bw(base_size= 16) +
+  theme_bw(base_size = 16) +
   labs(
     x = "Human Footprint Index",
     y = "Strava Gray Scale"
@@ -1132,7 +1151,7 @@ p3 <- plot_predictions(gam3, condition = "HFP2009") +
 
 p4 <- plot_predictions(gam4, condition = "HFP2009") +
   geom_rug(data = park_models %>% filter(mng_agncy == "United States Forest Service"), aes(HFP2009), alpha = 1 / 2, outside = TRUE, sides = "b") +
-  theme_bw(base_size= 16) +
+  theme_bw(base_size = 16) +
   labs(
     x = "Human Footprint Index",
     y = "Strava Gray Scale"
@@ -1145,7 +1164,7 @@ p4 <- plot_predictions(gam4, condition = "HFP2009") +
 
 p5 <- plot_predictions(gam5, condition = "HFP2009") +
   geom_rug(data = park_models %>% filter(mng_agncy == "California Department of Fish and Wildlife"), aes(HFP2009), alpha = 1 / 2, outside = TRUE, sides = "b") +
-  theme_bw(base_size= 16) +
+  theme_bw(base_size = 16) +
   labs(
     x = "Human Footprint Index",
     y = "Strava Gray Scale"
@@ -1158,7 +1177,7 @@ p5 <- plot_predictions(gam5, condition = "HFP2009") +
 
 p6 <- plot_predictions(gam6, condition = "HFP2009") +
   geom_rug(data = park_models %>% filter(mng_agncy == "California Department of Parks and Recreation"), aes(HFP2009), alpha = 1 / 2, outside = TRUE, sides = "b") +
-  theme_bw(base_size= 16) +
+  theme_bw(base_size = 16) +
   labs(
     x = "Human Footprint Index",
     y = "Strava Gray Scale"
@@ -1184,7 +1203,7 @@ summary(gam1)
 
 p7 <- plot_predictions(gam1, condition = "native_count") +
   geom_rug(data = park_models, aes(native_count), alpha = 1 / 2, outside = TRUE, sides = "b") +
-  theme_bw(base_size= 16) +
+  theme_bw(base_size = 16) +
   labs(
     x = "Native Species Count",
     y = "Strava Gray Scale"
@@ -1197,7 +1216,7 @@ p7 <- plot_predictions(gam1, condition = "native_count") +
 
 p8 <- plot_predictions(gam2, condition = "native_count") +
   geom_rug(data = park_models %>% filter(mng_agncy == "United States National Park Service"), aes(native_count), alpha = 1 / 2, outside = TRUE, sides = "b") +
-  theme_bw(base_size= 16) +
+  theme_bw(base_size = 16) +
   labs(
     x = "Native Species Count",
     y = "Strava Gray Scale"
@@ -1210,7 +1229,7 @@ p8 <- plot_predictions(gam2, condition = "native_count") +
 
 p9 <- plot_predictions(gam3, condition = "native_count") +
   geom_rug(data = park_models %>% filter(mng_agncy == "The Nature Conservancy"), aes(native_count), alpha = 1 / 2, outside = TRUE, sides = "b") +
-  theme_bw(base_size= 16) +
+  theme_bw(base_size = 16) +
   labs(
     x = "Native Species Count",
     y = "Strava Gray Scale"
@@ -1219,11 +1238,11 @@ p9 <- plot_predictions(gam3, condition = "native_count") +
   theme(
     axis.text.x = element_text(margin = margin(t = 10)),
     axis.ticks.x = element_blank()
-)
+  )
 
 p10 <- plot_predictions(gam4, condition = "native_count") +
   geom_rug(data = park_models %>% filter(mng_agncy == "United States Forest Service"), aes(native_count), alpha = 1 / 2, outside = TRUE, sides = "b") +
-  theme_bw(base_size= 16) +
+  theme_bw(base_size = 16) +
   labs(
     x = "Native Species Count",
     y = "Strava Gray Scale"
@@ -1236,7 +1255,7 @@ p10 <- plot_predictions(gam4, condition = "native_count") +
 
 p11 <- plot_predictions(gam5, condition = "native_count") +
   geom_rug(data = park_models %>% filter(mng_agncy == "California Department of Fish and Wildlife"), aes(native_count), alpha = 1 / 2, outside = TRUE, sides = "b") +
-  theme_bw(base_size= 16) +
+  theme_bw(base_size = 16) +
   labs(
     x = "Native Species Count",
     y = "Strava Gray Scale"
@@ -1249,7 +1268,7 @@ p11 <- plot_predictions(gam5, condition = "native_count") +
 
 p12 <- plot_predictions(gam6, condition = "native_count") +
   geom_rug(data = park_models %>% filter(mng_agncy == "California Department of Fish and Wildlife"), aes(native_count), alpha = 1 / 2, outside = TRUE, sides = "b") +
-  theme_bw(base_size= 16) +
+  theme_bw(base_size = 16) +
   labs(
     x = "Native Species Count",
     y = "Strava Gray Scale"
@@ -1275,7 +1294,7 @@ summary(gam1)
 
 p13 <- plot_predictions(gam1, condition = "native_count") +
   geom_rug(data = park_models, aes(native_count), alpha = 1 / 2, outside = TRUE, sides = "b") +
-  theme_bw(base_size= 16) +
+  theme_bw(base_size = 16) +
   labs(
     x = "Native Species Count",
     y = "Human Footprint Index"
@@ -1288,7 +1307,7 @@ p13 <- plot_predictions(gam1, condition = "native_count") +
 
 p14 <- plot_predictions(gam2, condition = "native_count") +
   geom_rug(data = park_models %>% filter(mng_agncy == "United States National Park Service"), aes(native_count), alpha = 1 / 2, outside = TRUE, sides = "b") +
-  theme_bw(base_size= 16) +
+  theme_bw(base_size = 16) +
   labs(
     x = "Native Species Count",
     y = "Human Footprint Index"
@@ -1301,7 +1320,7 @@ p14 <- plot_predictions(gam2, condition = "native_count") +
 
 p15 <- plot_predictions(gam3, condition = "native_count") +
   geom_rug(data = park_models %>% filter(mng_agncy == "The Nature Conservancy"), aes(native_count), alpha = 1 / 2, outside = TRUE, sides = "b") +
-  theme_bw(base_size= 16) +
+  theme_bw(base_size = 16) +
   labs(
     x = "Native Species Count",
     y = "Human Footprint Index"
@@ -1314,7 +1333,7 @@ p15 <- plot_predictions(gam3, condition = "native_count") +
 
 p16 <- plot_predictions(gam4, condition = "native_count") +
   geom_rug(data = park_models %>% filter(mng_agncy == "United States Forest Service"), aes(native_count), alpha = 1 / 2, outside = TRUE, sides = "b") +
-  theme_bw(base_size= 16) +
+  theme_bw(base_size = 16) +
   labs(
     x = "Native Species Count",
     y = "Human Footprint Index"
@@ -1327,7 +1346,7 @@ p16 <- plot_predictions(gam4, condition = "native_count") +
 
 p17 <- plot_predictions(gam5, condition = "native_count") +
   geom_rug(data = park_models %>% filter(mng_agncy == "California Department of Fish and Wildlife"), aes(native_count), alpha = 1 / 2, outside = TRUE, sides = "b") +
-  theme_bw(base_size= 16) +
+  theme_bw(base_size = 16) +
   labs(
     x = "Native Species Count",
     y = "Human Footprint Index"
@@ -1340,7 +1359,7 @@ p17 <- plot_predictions(gam5, condition = "native_count") +
 
 p18 <- plot_predictions(gam6, condition = "native_count") +
   geom_rug(data = park_models %>% filter(mng_agncy == "California Department of Fish and Wildlife"), aes(native_count), alpha = 1 / 2, outside = TRUE, sides = "b") +
-  theme_bw(base_size= 16) +
+  theme_bw(base_size = 16) +
   labs(
     x = "Native Species Count",
     y = "Human Footprint Index"
@@ -1374,42 +1393,50 @@ park_models <- spatial_data %>%
   group_by(suid_nma) %>%
   mutate(count = n()) %>%
   filter(count >= 3) %>%
-  rename(native_count = ntv_anm,
-         rare_count = rare_anm)
+  rename(
+    native_count = ntv_anm,
+    rare_count = rare_anm
+  )
 
-park_var = park_models %>% 
-  group_by(suid_nma) %>% 
-  summarize(hfp = sd(HFP2009, na.rm=TRUE),
-            native_count = sd(native_count, na.rm=TRUE),
-            rare_count = sd(rare_count, na.rm=TRUE),
-            strava = sd(gray_scale, na.rm=TRUE)) %>% 
-  group_by(suid_nma) %>% 
-  mutate(total_var = sum(hfp, native_count, rare_count, strava)) %>% 
+park_var <- park_models %>%
+  group_by(suid_nma) %>%
+  summarize(
+    hfp = sd(HFP2009, na.rm = TRUE),
+    native_count = sd(native_count, na.rm = TRUE),
+    rare_count = sd(rare_count, na.rm = TRUE),
+    strava = sd(gray_scale, na.rm = TRUE)
+  ) %>%
+  group_by(suid_nma) %>%
+  mutate(total_var = sum(hfp, native_count, rare_count, strava)) %>%
   filter(total_var > 0)
 
-park_models = park_models %>%
-  filter(suid_nma %in% park_var$suid_nma) %>% 
-  group_by(suid_nma) %>% 
-  mutate(mean_hfp = mean(HFP2009, na.rm=TRUE),
-         mean_native_count = mean(native_count, na.rm=TRUE),
-         mean_rare_count = mean(rare_count, na.rm=TRUE),
-         mean_strava = mean(gray_scale, na.rm=TRUE),
-         sd_hfp = sd(HFP2009, na.rm=TRUE),
-         sd_native_count = sd(native_count, na.rm=TRUE),
-         sd_rare_count = sd(rare_count, na.rm=TRUE),
-         sd_strava = sd(gray_scale, na.rm=TRUE)) %>% 
+park_models <- park_models %>%
+  filter(suid_nma %in% park_var$suid_nma) %>%
+  group_by(suid_nma) %>%
+  mutate(
+    mean_hfp = mean(HFP2009, na.rm = TRUE),
+    mean_native_count = mean(native_count, na.rm = TRUE),
+    mean_rare_count = mean(rare_count, na.rm = TRUE),
+    mean_strava = mean(gray_scale, na.rm = TRUE),
+    sd_hfp = sd(HFP2009, na.rm = TRUE),
+    sd_native_count = sd(native_count, na.rm = TRUE),
+    sd_rare_count = sd(rare_count, na.rm = TRUE),
+    sd_strava = sd(gray_scale, na.rm = TRUE)
+  ) %>%
   ungroup() %>%
-  mutate(HFP2009 = (HFP2009 - mean_hfp) / sd_hfp,
-         native_count = (native_count - mean_native_count) / sd_native_count,
-         rare_count = (rare_count - mean_rare_count) / sd_rare_count,
-         gray_scale = (gray_scale - mean_strava) / sd_strava)
+  mutate(
+    HFP2009 = (HFP2009 - mean_hfp) / sd_hfp,
+    native_count = (native_count - mean_native_count) / sd_native_count,
+    rare_count = (rare_count - mean_rare_count) / sd_rare_count,
+    gray_scale = (gray_scale - mean_strava) / sd_strava
+  )
 
 
 gam1 <- gam(gray_scale ~ s(native_count, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) + s(suid_nma, bs = "re") + s(suid_nma, native_count, bs = "re"), random = list(suid_nma = ~ 1 + native_count), data = park_models)
 
 p7 <- plot_predictions(gam1, condition = "native_count") +
   geom_rug(data = park_models, aes(native_count), alpha = 1 / 2, outside = TRUE, sides = "b") +
-  theme_bw(base_size= 16) +
+  theme_bw(base_size = 16) +
   labs(
     x = "Native Species Count",
     y = "Strava Gray Scale"
@@ -1424,7 +1451,7 @@ gam1 <- gam(HFP2009 ~ s(native_count, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) 
 
 p13 <- plot_predictions(gam1, condition = "native_count") +
   geom_rug(data = park_models, aes(native_count), alpha = 1 / 2, outside = TRUE, sides = "b") +
-  theme_bw(base_size= 16) +
+  theme_bw(base_size = 16) +
   labs(
     x = "Native Species Count",
     y = "Human Footprint Index"
@@ -1439,48 +1466,56 @@ plot <- p13 / p7 + plot_annotation(tag_levels = "A")
 
 ggsave(plot, file = paste0("figS3.pdf"), path = here::here("analysis", "figs"), height = 10, width = 15)
 
-#plants only
+# plants only
 park_models <- spatial_data %>%
   select(gray_scale, suid_nma, HFP2009, y, x, mng_agncy, ntv_plnt, rar_plnt) %>%
   na.omit() %>%
   group_by(suid_nma) %>%
   mutate(count = n()) %>%
   filter(count >= 3) %>%
-  rename(native_count = ntv_plnt,
-         rare_count = rar_plnt)
+  rename(
+    native_count = ntv_plnt,
+    rare_count = rar_plnt
+  )
 
-park_var = park_models %>% 
-  group_by(suid_nma) %>% 
-  summarize(hfp = sd(HFP2009, na.rm=TRUE),
-            native_count = sd(native_count, na.rm=TRUE),
-            rare_count = sd(rare_count, na.rm=TRUE),
-            strava = sd(gray_scale, na.rm=TRUE)) %>% 
-  group_by(suid_nma) %>% 
-  mutate(total_var = sum(hfp, native_count, rare_count, strava)) %>% 
+park_var <- park_models %>%
+  group_by(suid_nma) %>%
+  summarize(
+    hfp = sd(HFP2009, na.rm = TRUE),
+    native_count = sd(native_count, na.rm = TRUE),
+    rare_count = sd(rare_count, na.rm = TRUE),
+    strava = sd(gray_scale, na.rm = TRUE)
+  ) %>%
+  group_by(suid_nma) %>%
+  mutate(total_var = sum(hfp, native_count, rare_count, strava)) %>%
   filter(total_var > 0)
 
-park_models = park_models %>%
-  filter(suid_nma %in% park_var$suid_nma) %>% 
-  group_by(suid_nma) %>% 
-  mutate(mean_hfp = mean(HFP2009, na.rm=TRUE),
-         mean_native_count = mean(native_count, na.rm=TRUE),
-         mean_rare_count = mean(rare_count, na.rm=TRUE),
-         mean_strava = mean(gray_scale, na.rm=TRUE),
-         sd_hfp = sd(HFP2009, na.rm=TRUE),
-         sd_native_count = sd(native_count, na.rm=TRUE),
-         sd_rare_count = sd(rare_count, na.rm=TRUE),
-         sd_strava = sd(gray_scale, na.rm=TRUE)) %>% 
+park_models <- park_models %>%
+  filter(suid_nma %in% park_var$suid_nma) %>%
+  group_by(suid_nma) %>%
+  mutate(
+    mean_hfp = mean(HFP2009, na.rm = TRUE),
+    mean_native_count = mean(native_count, na.rm = TRUE),
+    mean_rare_count = mean(rare_count, na.rm = TRUE),
+    mean_strava = mean(gray_scale, na.rm = TRUE),
+    sd_hfp = sd(HFP2009, na.rm = TRUE),
+    sd_native_count = sd(native_count, na.rm = TRUE),
+    sd_rare_count = sd(rare_count, na.rm = TRUE),
+    sd_strava = sd(gray_scale, na.rm = TRUE)
+  ) %>%
   ungroup() %>%
-  mutate(HFP2009 = (HFP2009 - mean_hfp) / sd_hfp,
-         native_count = (native_count - mean_native_count) / sd_native_count,
-         rare_count = (rare_count - mean_rare_count) / sd_rare_count,
-         gray_scale = (gray_scale - mean_strava) / sd_strava)
+  mutate(
+    HFP2009 = (HFP2009 - mean_hfp) / sd_hfp,
+    native_count = (native_count - mean_native_count) / sd_native_count,
+    rare_count = (rare_count - mean_rare_count) / sd_rare_count,
+    gray_scale = (gray_scale - mean_strava) / sd_strava
+  )
 
 gam1 <- gam(gray_scale ~ s(native_count, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) + s(suid_nma, bs = "re") + s(suid_nma, native_count, bs = "re"), random = list(suid_nma = ~ 1 + native_count), data = park_models)
 
 p7 <- plot_predictions(gam1, condition = "native_count") +
   geom_rug(data = park_models, aes(native_count), alpha = 1 / 2, outside = TRUE, sides = "b") +
-  theme_bw(base_size= 16) +
+  theme_bw(base_size = 16) +
   labs(
     x = "Native Species Count",
     y = "Strava Gray Scale"
@@ -1495,7 +1530,7 @@ gam1 <- gam(HFP2009 ~ s(native_count, k = 3) + s(y, x, bs = "gp", m = 1, k = 3) 
 
 p13 <- plot_predictions(gam1, condition = "native_count") +
   geom_rug(data = park_models, aes(native_count), alpha = 1 / 2, outside = TRUE, sides = "b") +
-  theme_bw(base_size= 16) +
+  theme_bw(base_size = 16) +
   labs(
     x = "Native Species Count",
     y = "Human Footprint Index"
@@ -1518,16 +1553,19 @@ temporal_data <- temporal_data %>%
     year == 2020 ~ date_j + 365,
     year == 2021 ~ date_j + 731,
     year == 2019 ~ date_j
-  )) %>% 
-  mutate(month = month(date),
-         day = mday(date)) %>% 
+  )) %>%
+  mutate(
+    month = month(date),
+    day = mday(date)
+  ) %>%
   mutate(day_plus_month = day + month * 100) %>%
   mutate(season = case_when(
-    day_plus_month %in% 320:620 ~ 'Spring',
-    day_plus_month %in% 621:922 ~ 'Summer',
-    day_plus_month %in% 923:1221 ~ 'Fall',
-    TRUE ~ 'Winter')) %>% 
-  select(-month, -day, -day_plus_month) %>% 
+    day_plus_month %in% 320:620 ~ "Spring",
+    day_plus_month %in% 621:922 ~ "Summer",
+    day_plus_month %in% 923:1221 ~ "Fall",
+    TRUE ~ "Winter"
+  )) %>%
+  select(-month, -day, -day_plus_month) %>%
   mutate(season = fct_relevel(season, "Winter", "Spring", "Summer", "Fall"))
 
 temporal_bins <- temporal_data %>%
@@ -1545,34 +1583,34 @@ temporal_bins <- temporal_data %>%
     sg > quartile_3 ~ "4th Quartile",
     sg >= quartile_1 & sg < quartile_2 ~ "2nd Quartile",
     sg >= quartile_2 & sg <= quartile_3 ~ "3rd Quartile"
-  )) 
+  ))
 
 temp_date <- temporal_bins %>%
   group_by(date_j, bin) %>%
-  mutate(date_count = n()) %>% 
+  mutate(date_count = n()) %>%
   ungroup() %>%
-  select(date, bin, date_count) %>% 
+  select(date, bin, date_count) %>%
   distinct()
 
 temp_date2 <- temporal_bins %>%
   group_by(date_j, bin, mng_ag_lev) %>%
-  mutate(date_count = n()) %>% 
+  mutate(date_count = n()) %>%
   ungroup() %>%
-  select(date, bin, date_count, mng_ag_lev) %>% 
+  select(date, bin, date_count, mng_ag_lev) %>%
   distinct()
 
 temp_date3 <- temporal_bins %>%
   group_by(date_j, bin, mng_agncy) %>%
-  mutate(date_count = n()) %>% 
+  mutate(date_count = n()) %>%
   ungroup() %>%
-  select(date, bin, date_count, mng_agncy) %>% 
+  select(date, bin, date_count, mng_agncy) %>%
   distinct()
 
 temp_date4 <- temporal_bins %>%
   group_by(date_j, bin, gap_status) %>%
-  mutate(date_count = n()) %>% 
+  mutate(date_count = n()) %>%
   ungroup() %>%
-  select(date, bin, date_count, gap_status) %>% 
+  select(date, bin, date_count, gap_status) %>%
   distinct()
 
 # p1 <- ggplot(temp_date) +
@@ -1588,48 +1626,54 @@ temp_date4 <- temporal_bins %>%
 #   ) +
 #   scale_x_date()
 
-seasons = temporal_bins %>% 
-  filter(year == 2019) %>% 
-  group_by(season, suid_nma) %>% 
-  summarize(season_med = median(sg)) %>% 
-  group_by(suid_nma) %>% 
-  slice_max(order_by = season_med, n = 1) 
+seasons <- temporal_bins %>%
+  filter(year == 2019) %>%
+  group_by(season, suid_nma) %>%
+  summarize(season_med = median(sg)) %>%
+  group_by(suid_nma) %>%
+  slice_max(order_by = season_med, n = 1)
 
-season_sum = seasons %>% 
-  group_by(season) %>% 
-  mutate(season_count = n()) %>% 
-  select(season_count) %>% 
+season_sum <- seasons %>%
+  group_by(season) %>%
+  mutate(season_count = n()) %>%
+  select(season_count) %>%
   distinct()
 
-p2 = ggplot(data = season_sum) +
+p2 <- ggplot(data = season_sum) +
   geom_bar(aes(x = (season_count / sum(season_sum$season_count) * 100), y = "", fill = season), position = "stack", stat = "identity") +
-  theme_bw(base_size= 16) +
-  labs(x = "Percent Parks with Peak Usage in a Season",
-       y = "",
-       fill = "") +
+  theme_bw(base_size = 16) +
+  labs(
+    x = "Percent Parks with Peak Usage in a Season",
+    y = "",
+    fill = ""
+  ) +
   scale_fill_viridis_d(end = 0.9) +
   theme(legend.position = "bottom")
 
-temp_med_mad = temporal_data %>% 
-  filter(year == 2019) %>% 
-  group_by(suid_nma, mng_agncy, park_name) %>% 
-  summarize(med_sg = median(sg), 
-         mad_sg = mad(sg)) %>% 
+temp_med_mad <- temporal_data %>%
+  filter(year == 2019) %>%
+  group_by(suid_nma, mng_agncy, park_name) %>%
+  summarize(
+    med_sg = median(sg),
+    mad_sg = mad(sg)
+  ) %>%
   full_join(seasons)
 
-p3 = ggplot() +
+p3 <- ggplot() +
   geom_point(data = temp_med_mad %>% filter(med_sg < 1000), aes(med_sg, mad_sg, color = season)) +
   # geom_point(data = CDFW_med_mad, aes(med_sg, mad_sg, color = "California Department of Fish and Wildlife")) +
   # geom_point(data = NPS_med_mad, aes(med_sg, mad_sg, color = "United States National Park Service")) +
   # geom_point(data = TNC_med_mad, aes(med_sg, mad_sg, color = "The Nature Conservancy")) +
   # geom_point(data = UC_med_mad, aes(med_sg, mad_sg, color = "United States Forest Service")) +
-  theme_bw(base_size= 16) +
+  theme_bw(base_size = 16) +
   theme(legend.position = "bottom") +
   scale_color_viridis_d(end = 0.9) +
-  guides(color=guide_legend(nrow=2,byrow=TRUE)) +
-  labs(x = "Median Safegraph",
-       y = "Median Absolute Deviance",
-       color = "")
+  guides(color = guide_legend(nrow = 2, byrow = TRUE)) +
+  labs(
+    x = "Median Safegraph",
+    y = "Median Absolute Deviance",
+    color = ""
+  )
 
 plot <- (p2 + p3) + plot_annotation(tag_levels = "A")
 
@@ -1648,7 +1692,7 @@ ggsave(plot, file = paste0("fig4.pdf"), path = here::here("analysis", "figs"), h
 #     title = "City"
 #   ) +
 #   scale_x_date()
-# 
+#
 # p2 = ggplot(temp_date2 %>% filter(mng_ag_lev == "County")) +
 #   geom_tile(aes(date, bin, fill = date_count)) +
 #   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
@@ -1660,10 +1704,10 @@ ggsave(plot, file = paste0("fig4.pdf"), path = here::here("analysis", "figs"), h
 #     y = "Safegraph Quartiles",
 #     fill = "Count",
 #     title = "County"
-#     
+#
 #   ) +
 #   scale_x_date()
-# 
+#
 # p3 = ggplot(temp_date2 %>% filter(mng_ag_lev == "Federal")) +
 #   geom_tile(aes(date, bin, fill = date_count)) +
 #   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
@@ -1677,7 +1721,7 @@ ggsave(plot, file = paste0("fig4.pdf"), path = here::here("analysis", "figs"), h
 #     title = "Federal"
 #   ) +
 #   scale_x_date()
-# 
+#
 # p4 = ggplot(temp_date2 %>% filter(mng_ag_lev == "Home Owners Association")) +
 #   geom_tile(aes(date, bin, fill = date_count)) +
 #   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
@@ -1691,7 +1735,7 @@ ggsave(plot, file = paste0("fig4.pdf"), path = here::here("analysis", "figs"), h
 #     title = "Home Owners Association"
 #   ) +
 #   scale_x_date()
-# 
+#
 # p5 = ggplot(temp_date2 %>% filter(mng_ag_lev == "Joint")) +
 #   geom_tile(aes(date, bin, fill = date_count)) +
 #   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
@@ -1705,7 +1749,7 @@ ggsave(plot, file = paste0("fig4.pdf"), path = here::here("analysis", "figs"), h
 #     title = "Joint"
 #   ) +
 #   scale_x_date()
-# 
+#
 # p6 = ggplot(temp_date2 %>% filter(mng_ag_lev == "Non Profit")) +
 #   geom_tile(aes(date, bin, fill = date_count)) +
 #   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
@@ -1719,7 +1763,7 @@ ggsave(plot, file = paste0("fig4.pdf"), path = here::here("analysis", "figs"), h
 #     title = "Non Profit"
 #   ) +
 #   scale_x_date()
-# 
+#
 # p7 = ggplot(temp_date2 %>% filter(mng_ag_lev == "Private")) +
 #   geom_tile(aes(date, bin, fill = date_count)) +
 #   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
@@ -1733,7 +1777,7 @@ ggsave(plot, file = paste0("fig4.pdf"), path = here::here("analysis", "figs"), h
 #     title = "Private"
 #   ) +
 #   scale_x_date()
-# 
+#
 # p8 = ggplot(temp_date2 %>% filter(mng_ag_lev == "Special District")) +
 #   geom_tile(aes(date, bin, fill = date_count)) +
 #   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
@@ -1747,7 +1791,7 @@ ggsave(plot, file = paste0("fig4.pdf"), path = here::here("analysis", "figs"), h
 #     title = "Special District"
 #   ) +
 #   scale_x_date()
-# 
+#
 # p9 = ggplot(temp_date2 %>% filter(mng_ag_lev == "State")) +
 #   geom_tile(aes(date, bin, fill = date_count)) +
 #   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
@@ -1761,11 +1805,11 @@ ggsave(plot, file = paste0("fig4.pdf"), path = here::here("analysis", "figs"), h
 #     title = "State"
 #   ) +
 #   scale_x_date()
-# 
+#
 # p = (p1 + p2 + p3) / (p4 + p5 + p6) / (p7 + p8 + p9)
-# 
+#
 # ggsave(p, file = paste0("figS8.pdf"), path = here::here("analysis", "figs"), height = 15, width = 20)
-# 
+#
 # p1 = ggplot(temp_date3 %>% filter(mng_agncy == "United States National Park Service")) +
 #   geom_tile(aes(date, bin, fill = date_count)) +
 #   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
@@ -1779,7 +1823,7 @@ ggsave(plot, file = paste0("fig4.pdf"), path = here::here("analysis", "figs"), h
 #     title = "National Park Service"
 #   ) +
 #   scale_x_date()
-# 
+#
 # p2 = ggplot(temp_date3 %>% filter(mng_agncy == "The Nature Conservancy")) +
 #   geom_tile(aes(date, bin, fill = date_count)) +
 #   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
@@ -1791,10 +1835,10 @@ ggsave(plot, file = paste0("fig4.pdf"), path = here::here("analysis", "figs"), h
 #     y = "Safegraph Quartiles",
 #     fill = "Count",
 #     title = "The Nature Conservancy"
-#     
+#
 #   ) +
 #   scale_x_date()
-# 
+#
 # p3 = ggplot(temp_date3 %>% filter(mng_agncy == "California Department of Fish and Wildlife")) +
 #   geom_tile(aes(date, bin, fill = date_count)) +
 #   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
@@ -1808,7 +1852,7 @@ ggsave(plot, file = paste0("fig4.pdf"), path = here::here("analysis", "figs"), h
 #     title = "California Fish and Wildlife"
 #   ) +
 #   scale_x_date()
-# 
+#
 # p4 = ggplot(temp_date3 %>% filter(mng_agncy == "United States Forest Service")) +
 #   geom_tile(aes(date, bin, fill = date_count)) +
 #   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
@@ -1822,7 +1866,7 @@ ggsave(plot, file = paste0("fig4.pdf"), path = here::here("analysis", "figs"), h
 #     title = "United States Forest Service"
 #   ) +
 #   scale_x_date()
-# 
+#
 # p5 = ggplot(temp_date3 %>% filter(mng_agncy == "California Department of Parks and Recreation")) +
 #   geom_tile(aes(date, bin, fill = date_count)) +
 #   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
@@ -1836,11 +1880,11 @@ ggsave(plot, file = paste0("fig4.pdf"), path = here::here("analysis", "figs"), h
 #     title = "California Parks and Rec"
 #   ) +
 #   scale_x_date()
-# 
+#
 # p = (p1 + p2) /(p3 + p4 + p5)
-# 
+#
 # ggsave(p, file = paste0("figS9.pdf"), path = here::here("analysis", "figs"), height = 15, width = 20)
-# 
+#
 # p1 = ggplot(temp_date4 %>% filter(gap_status == "GAP 1")) +
 #   geom_tile(aes(date, bin, fill = date_count)) +
 #   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
@@ -1854,7 +1898,7 @@ ggsave(plot, file = paste0("fig4.pdf"), path = here::here("analysis", "figs"), h
 #     title = "GAP 1"
 #   ) +
 #   scale_x_date()
-# 
+#
 # p2 = ggplot(temp_date4 %>% filter(gap_status == "GAP 2")) +
 #   geom_tile(aes(date, bin, fill = date_count)) +
 #   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
@@ -1866,10 +1910,10 @@ ggsave(plot, file = paste0("fig4.pdf"), path = here::here("analysis", "figs"), h
 #     y = "Safegraph Quartiles",
 #     fill = "Count",
 #     title = "GAP 2"
-#     
+#
 #   ) +
 #   scale_x_date()
-# 
+#
 # p3 = ggplot(temp_date4 %>% filter(gap_status == "GAP 3")) +
 #   geom_tile(aes(date, bin, fill = date_count)) +
 #   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
@@ -1883,7 +1927,7 @@ ggsave(plot, file = paste0("fig4.pdf"), path = here::here("analysis", "figs"), h
 #     title = "GAP 3"
 #   ) +
 #   scale_x_date()
-# 
+#
 # p4 = ggplot(temp_date4 %>% filter(gap_status == "GAP 4")) +
 #   geom_tile(aes(date, bin, fill = date_count)) +
 #   geom_vline(aes(xintercept = as.Date("2020-03-15")), color = "blue") + # covid lockdown
@@ -1897,7 +1941,7 @@ ggsave(plot, file = paste0("fig4.pdf"), path = here::here("analysis", "figs"), h
 #     title = "GAP 4"
 #   ) +
 #   scale_x_date()
-# 
+#
 # p = (p1 + p2) /(p3 + p4)
-# 
+#
 # ggsave(p, file = paste0("figS10.pdf"), path = here::here("analysis", "figs"), height = 15, width = 20)

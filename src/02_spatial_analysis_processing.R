@@ -31,9 +31,11 @@ rm(hfp_cropped, hfp)
 bio <- st_read(here::here("data", "raw_data", "ds2739.gdb")) %>%
   sf::st_transform(crs(cpad_super)) %>%
   select(NativeCount, RareCount, NtvPlnt, RarPlnt) %>%
-  janitor::clean_names() %>% 
-  mutate(ntv_anm = native_count - ntv_plnt,
-         rare_anm = rare_count - rar_plnt)
+  janitor::clean_names() %>%
+  mutate(
+    ntv_anm = native_count - ntv_plnt,
+    rare_anm = rare_count - rar_plnt
+  )
 
 bio_raster <- rasterize(bio, strava_coarse, field = "native_count")
 rare_raster <- rasterize(bio, strava_coarse, field = "rare_count")
@@ -64,9 +66,11 @@ rare_anm_masked <- mask(rare_anm_cropped, cpad_super)
 rare_plt_cropped <- crop(rare_plt_raster, cpad_super)
 rare_plt_masked <- mask(rare_plt_cropped, cpad_super)
 
-rm(bio_cropped, bio_raster, rare_cropped, rare_raster,
-   bio_anm_cropped, bio_anm_raster, rare_anm_cropped, rare_anm_raster,
-   bio_plt_cropped, bio_plt_raster, rare_plt_cropped, rare_plt_raster)
+rm(
+  bio_cropped, bio_raster, rare_cropped, rare_raster,
+  bio_anm_cropped, bio_anm_raster, rare_anm_cropped, rare_anm_raster,
+  bio_plt_cropped, bio_plt_raster, rare_plt_cropped, rare_plt_raster
+)
 
 hfp <- extract(hfp_masked, cpad_super, xy = TRUE)
 strava <- extract(strava_coarse_masked, cpad_super) %>%
@@ -84,9 +88,11 @@ bio_plt <- extract(bio_plt_masked, cpad_super) %>%
 rare_plt <- extract(rare_plt_masked, cpad_super) %>%
   select(-ID)
 
-rm(hfp_masked, strava_coarse_masked, bio_masked, rare_masked,
-   bio_anm_masked, rare_anm_masked,
-   bio_plt_masked, rare_plt_masked)
+rm(
+  hfp_masked, strava_coarse_masked, bio_masked, rare_masked,
+  bio_anm_masked, rare_anm_masked,
+  bio_plt_masked, rare_plt_masked
+)
 
 # Combine Data ------------------------------------------------------------
 
