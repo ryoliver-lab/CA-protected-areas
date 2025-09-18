@@ -13,6 +13,12 @@ cpad_super <- st_read(here::here("data", "raw_data", "CPAD_2023a_SuperUnits.shp"
   janitor::clean_names() %>%
   mutate(ID = row_number())
 
+# cpad_super %>%  
+#   st_drop_geometry() %>% 
+#   group_by(mng_agncy) %>% 
+#   summarise(n = n()) %>% 
+#   mutate(avg = mean(n))
+
 ca <- st_read(here::here("data", "raw_data", "CA_State_TIGER2016.shp")) %>%
   sf::st_transform(st_crs(cpad_super))
 
