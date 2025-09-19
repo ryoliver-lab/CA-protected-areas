@@ -598,226 +598,81 @@ ggsave(plot, file = paste0("fig1.pdf"), path = here::here("analysis", "figs"), h
 
 strava_inside <- strava %>%
   filter(loc == "Inside Protected Areas") %>%
-  filter(gap_status %in% c("GAP 1", "GAP 2")) %>%
-  filter(gap_status %in% c("GAP 3", "GAP 4")) %>%
-  filter(!is.na(gray_scale))
-
-max_count <- max(strava$gray_scale, na.rm = TRUE)
-min_count <- min(strava$gray_scale, na.rm = TRUE)
-
-count_num <- min_count:max_count
-
-strava_inside_break <- hist(strava_inside %>% pull(gray_scale), breaks = max_count)$breaks
-strava_inside_count <- hist(strava_inside %>% pull(gray_scale), breaks = max_count)$counts
-
-strava_inside_hist <- rep(0, length(count_num))
-
-j <- 1 # count for count/break
-
-for (i in 0:length(count_num) - 2) {
-  if (strava_inside_break[j] == i) {
-    strava_inside_hist[i] <- strava_inside_count[j]
-    j <- j + 1
-  }
-
-  print(strava_inside_hist[i])
-}
+  # filter(gap_status %in% c("GAP 1", "GAP 2")) %>%
+  # filter(gap_status %in% c("GAP 3", "GAP 4")) %>%
+  filter(!is.na(gray_scale)) %>% 
+  pull(gray_scale)
 
 strava_outside <- strava %>%
   filter(loc == "Outside Protected Areas") %>%
-  filter(!is.na(gray_scale))
+  filter(!is.na(gray_scale)) %>% 
+  pull(gray_scale)
 
-strava_outside_break <- hist(strava_outside %>% pull(gray_scale), breaks = max_count)$breaks
-strava_outside_count <- hist(strava_outside %>% pull(gray_scale), breaks = max_count)$counts
+breaks <- seq(min(c(strava_inside,strava_outside)), max(c(strava_inside,strava_outside)), length.out = 100)
+p1 <- hist(strava_inside, breaks = breaks, plot = FALSE)$counts / length(strava_inside)
+p2 <- hist(strava_outside, breaks = breaks, plot = FALSE)$counts / length(strava_outside)
 
-strava_outside_hist <- rep(0, length(count_num))
-
-j <- 1 # count for count/break
-
-for (i in 0:length(count_num) - 2) {
-  if (strava_outside_break[j] == i & j < length(strava_outside_break)) {
-    strava_outside_hist[i] <- strava_outside_count[j]
-    j <- j + 1
-  }
-
-  # print(strava_outside_hist[i])
-}
-
-strava_inside_hist[is.na(strava_inside_hist)] <- 0
-strava_outside_hist[is.na(strava_outside_hist)] <- 0
-
-strava_wide <- rbind(strava_inside_hist, strava_outside_hist)
-
-JSD(strava_wide, est.prob = "empirical") #  0.2268064 bounded between 0 = same and 1
-# GAP 1/2  0.1241334
-# GAP 3/4 0.2687929
+JSD(rbind(p1, p2), unit = "log2") #  0.1924401 bounded between 0 = same and 1
+# GAP 1/2  0.1062134
+# GAP 3/4 0.226426
 
 hfp_inside <- hfp %>%
-  filter(gap_status %in% c("GAP 1", "GAP 2")) %>%
-  filter(gap_status %in% c("GAP 3", "GAP 4")) %>%
-  filter(loc == "Inside Protected Areas")
-
-max_count <- max(hfp$HFP2009, na.rm = TRUE)
-min_count <- min(hfp$HFP2009, na.rm = TRUE)
-
-count_num <- min_count:max_count
-
-hfp_inside_break <- hist(hfp_inside %>% pull(HFP2009), breaks = max_count)$breaks
-hfp_inside_count <- hist(hfp_inside %>% pull(HFP2009), breaks = max_count)$counts
-
-hfp_inside_hist <- rep(0, length(count_num))
-
-j <- 1 # count for count/break
-
-for (i in -1:length(count_num) - 2) {
-  if (hfp_inside_break[j] == i) {
-    hfp_inside_hist[i] <- hfp_inside_count[j]
-    j <- j + 1
-  }
-
-  print(hfp_inside_hist[i])
-}
+  # filter(gap_status %in% c("GAP 1", "GAP 2")) %>%
+  # filter(gap_status %in% c("GAP 3", "GAP 4")) %>%
+  filter(loc == "Inside Protected Areas") %>% 
+  filter(!is.na(HFP2009)) %>% 
+  pull(HFP2009)
 
 hfp_outside <- hfp %>%
   filter(loc == "Outside Protected Areas") %>%
-  filter(!is.na(HFP2009))
+  filter(!is.na(HFP2009)) %>% 
+  pull(HFP2009)
 
-hfp_outside_break <- hist(hfp_outside %>% pull(HFP2009), breaks = max_count)$breaks
-hfp_outside_count <- hist(hfp_outside %>% pull(HFP2009), breaks = max_count)$counts
+breaks <- seq(min(c(hfp_inside,hfp_outside)), max(c(hfp_inside,hfp_outside)), length.out = 100)
+p1 <- hist(hfp_inside, breaks = breaks, plot = FALSE)$counts / length(hfp_inside)
+p2 <- hist(hfp_outside, breaks = breaks, plot = FALSE)$counts / length(hfp_outside)
 
-hfp_outside_hist <- rep(0, length(count_num))
-
-j <- 1 # count for count/break
-
-for (i in -1:length(count_num) - 2) {
-  if (hfp_outside_break[j] == i & j < length(hfp_outside_break)) {
-    hfp_outside_hist[i] <- hfp_outside_count[j]
-    j <- j + 1
-  }
-
-  # print(hfp_outside_hist[i])
-}
-
-hfp_inside_hist[is.na(hfp_inside_hist)] <- 0
-hfp_outside_hist[is.na(hfp_outside_hist)] <- 0
-
-hfp_wide <- rbind(hfp_inside_hist, hfp_outside_hist)
-
-JSD(hfp_wide, est.prob = "empirical") # 0.2641989 bounded between 0 = same and 1
-# GAP 1/2 0.1492382
-# GAP 3/4 0.3097443
-
-max_count <- max(bio$ntv_cnt) # 319
-min_count <- min(bio$ntv_cnt) # 34
-
-count_num <- min_count:max_count
+JSD(rbind(p1, p2), unit = "log2") # 0.2506861  bounded between 0 = same and 1
+# GAP 1/2 0.1258098 
+# GAP 3/4 0.2990319 
 
 bio_inside <- bio %>%
   # filter(gap_status %in% c("GAP 1", "GAP 2")) %>%
   # filter(gap_status %in% c("GAP 3", "GAP 4")) %>%
-  filter(loc == "Inside Protected Areas")
-
-bio_inside_break <- hist(bio_inside %>% pull(ntv_cnt), breaks = max_count)$breaks
-bio_inside_count <- hist(bio_inside %>% pull(ntv_cnt), breaks = max_count)$counts
-
-bio_inside_hist <- rep(0, length(count_num))
-
-j <- 1 # count for count/break
-
-for (i in 1:length(count_num)) {
-  if (bio_inside_break[j] == i) {
-    bio_inside_hist[i] <- bio_inside_count[j]
-    j <- j + 1
-  }
-
-  print(bio_inside_hist[i])
-}
+  filter(loc == "Inside Protected Areas") %>% 
+  pull(ntv_cnt)
 
 bio_outside <- bio %>%
-  filter(loc == "Outside Protected Areas")
+  filter(loc == "Outside Protected Areas") %>% 
+  pull(ntv_cnt)
 
-bio_outside_break <- hist(bio_outside %>% pull(ntv_cnt), breaks = max_count)$breaks
-bio_outside_count <- hist(bio_outside %>% pull(ntv_cnt), breaks = max_count)$counts
+breaks <- seq(min(c(bio_inside,bio_outside)), max(c(bio_inside,bio_outside)), length.out = 100)
+p1 <- hist(bio_inside, breaks = breaks, plot = FALSE)$counts / length(bio_inside)
+p2 <- hist(bio_outside, breaks = breaks, plot = FALSE)$counts / length(bio_outside)
 
-bio_outside_hist <- rep(0, length(count_num))
-
-j <- 1 # count for count/break
-
-for (i in 1:length(count_num)) {
-  if (bio_outside_break[j] == i) {
-    bio_outside_hist[i] <- bio_outside_count[j]
-    j <- j + 1
-  }
-
-  print(bio_outside_hist[i])
-}
-
-bio_wide <- rbind(bio_inside_hist, bio_outside_hist)
-
-JSD(bio_wide, est.prob = "empirical") # 0.08372079
-# GAP 1/2 0.09911446
-# GAP 3/4 0.06522453
-
-max_count <- max(rare$rare_count)
-min_count <- min(rare$rare_count)
-
-count_num <- min_count:max_count
-count_num <- count_num[-1]
+JSD(rbind(p1, p2), unit = "log2") #  0.07591866 
+# GAP 1/2 0.1098876 
+# GAP 3/4 0.07428793 
 
 rare_inside <- rare %>%
   # filter(gap_status %in% c("GAP 1", "GAP 2")) %>%
   # filter(gap_status %in% c("GAP 3", "GAP 4")) %>%
   filter(loc == "Inside Protected Areas") %>%
-  filter(rare_count > 0)
-
-rare_inside_break <- hist(rare_inside %>% pull(rare_count), breaks = 50)$breaks
-rare_inside_count <- hist(rare_inside %>% pull(rare_count), breaks = 50)$counts
-
-rare_inside_hist <- rep(0, length(count_num))
-
-j <- 1 # count for count/break
-
-for (i in 0:length(count_num) - 2) {
-  if (rare_inside_break[j] == i) {
-    rare_inside_hist[i] <- rare_inside_count[j]
-    j <- j + 1
-  }
-
-  print(rare_inside_hist[i])
-}
+  filter(rare_count > 0) %>% 
+  pull(rare_count)
 
 rare_outside <- rare %>%
   filter(loc == "Outside Protected Areas") %>%
-  filter(rare_count > 0)
+  filter(rare_count > 0) %>% 
+  pull(rare_count)
 
-rare_outside_break <- hist(rare_outside %>% pull(rare_count), breaks = 40)$breaks
-rare_outside_count <- hist(rare_outside %>% pull(rare_count), breaks = 40)$counts
+breaks <- seq(min(c(rare_inside,rare_outside)), max(c(rare_inside,rare_outside)), length.out = 100)
+p1 <- hist(rare_inside, breaks = breaks, plot = FALSE)$counts / length(rare_inside)
+p2 <- hist(rare_outside, breaks = breaks, plot = FALSE)$counts / length(rare_outside)
 
-rare_outside_hist <- rep(0, length(count_num))
-
-j <- 1 # count for count/break
-
-for (i in 0:length(count_num) - 2) {
-  if (rare_outside_break[j] == i) {
-    rare_outside_hist[i] <- rare_outside_count[j]
-
-    if (j < length(rare_outside_count)) {
-      j <- j + 1
-    } else {
-      j <- 1
-    }
-  }
-
-  print(rare_outside_hist[i])
-}
-
-rare_outside_hist[is.na(rare_outside_hist)] <- 0
-
-rare_wide <- rbind(rare_inside_hist, rare_outside_hist)
-
-JSD(rare_wide, est.prob = "empirical") #  0.1061642
-# GAP 1/2  0.1255155
-# GAP 3/4  0.1008245
+JSD(rbind(p1, p2), unit = "log2") # 0.1106599 
+# GAP 1/2  0.1201862 
+# GAP 3/4   0.1083332 
 
 # Scatter Plot/PCA ------------------------------------------------------------
 
