@@ -6,8 +6,7 @@ library(terra)
 
 cpad_super <- st_read(here::here("data", "raw_data", "CPAD_2023a_SuperUnits.shp")) %>%
   sf::st_transform("EPSG:4326") %>%
-  janitor::clean_names()  %>%
-  filter(shape_area >= 10000)%>%
+  janitor::clean_names() %>% 
   mutate(ID = row_number())
 
 strava_coarse <- rast(here::here("data", "raw_data", "strava_coarse.tif")) %>%
@@ -88,9 +87,6 @@ spatial_data <- list(hfp, strava,  bio_anm, rare_anm, bio_plt, rare_plt) %>%
   filter(!is.na(strava_coarse_1)) %>%
   mutate(gray_scale = (0.299 * strava_coarse_1) + (0.587 * strava_coarse_2) + (0.114 * strava_coarse_3)) %>% 
   select(-strava_coarse_1, -strava_coarse_2, -strava_coarse_3, -strava_coarse_4) %>% 
-  group_by(ID) %>%
-  mutate(count = n()) %>% 
-  ungroup() %>% 
   full_join(cpad_super) %>% 
   st_drop_geometry() %>%
   select(-ID, -geometry)

@@ -175,7 +175,11 @@ rm(pixel_sum)
 
 spatial_data <- read_csv(here::here("data", "processed_data", "spatial_analysis.csv")) %>%
   filter(suid_nma %in% human$suid_nma) %>%            
-  full_join(human %>% select(suid_nma, gap_status, mng_agncy))
+  full_join(human %>% select(suid_nma, gap_status, mng_agncy))  %>%
+  group_by(suid_nma) %>%
+  mutate(count = n()) %>%
+  filter(count >= 50) %>% 
+  select(-count) 
 
 colors <- c(
   "United States National Park Service" = "#031D3A",
@@ -196,176 +200,232 @@ colors2 <- c(
 
 ## NPS
 
-length(unique(NPS$suid_nma))
+length(unique(NPS$suid_nma)) #64
+
+NPS_unique = NPS %>% 
+  select(suid_nma, shape_area, gap_status) %>% 
+  distinct()
 
 # area managed
-sum(NPS$shape_area) / 1000000 #30743.97
+sum(NPS_unique$shape_area) / 1000000 #30743.97
 
 # percent in GAP 1/2
-sum(filter(NPS, gap_status %in% c("GAP 1", "GAP 2"))$shape_area) / sum(NPS$shape_area) * 100
+sum(filter(NPS_unique, gap_status %in% c("GAP 1", "GAP 2"))$shape_area) / sum(NPS_unique$shape_area) * 100
 #99.69799
 
 # median HFP
-median(NPS$HFP_median, na.rm = TRUE) # 15.9064
+median(NPS[grepl("mod", NPS[, 'measure']), ]$value, na.rm = TRUE) # 1.237312
 
 # median strava
-median(NPS$gry_scl, na.rm = TRUE) #236.2128
+median(NPS[grepl("recreation", NPS[, 'measure']), ]$value, na.rm = TRUE) # 17.90872
 
 # median native species
-median(NPS$bio_mdn, na.rm = TRUE) #240
+median(NPS[grepl("bio", NPS[, 'measure']), ]$value, na.rm = TRUE)  #114
 
 # median rare
-median(NPS$rar_mdn, na.rm = TRUE) #8
+median(NPS[grepl("rare", NPS[, 'measure']), ]$value, na.rm = TRUE)  #2
 
 ## TNC
 
+length(unique(TNC$suid_nma)) #40
+
+TNC_unique = TNC %>% 
+  select(suid_nma, shape_area, gap_status) %>% 
+  distinct()
+
 # area managed
-sum(TNC$shape_area) / 1000000 #733.2876
+sum(TNC_unique$shape_area) / 1000000 #733.2876
 
 # percent in GAP 1/2
-sum(filter(TNC, gap_status %in% c("GAP 1", "GAP 2"))$shape_area) / sum(TNC$shape_area) * 100
-# 92.41046
+sum(filter(TNC_unique, gap_status %in% c("GAP 1", "GAP 2"))$shape_area) / sum(TNC_unique$shape_area) * 100
+#92.41046
 
 # median HFP
-median(TNC$HFP_median, na.rm = TRUE) # 5.800377
+median(TNC[grepl("mod", TNC[, 'measure']), ]$value, na.rm = TRUE) # 4.927719
 
 # median strava
-median(TNC$gry_scl, na.rm = TRUE) #76.98675
+median(TNC[grepl("recreation", TNC[, 'measure']), ]$value, na.rm = TRUE) # 70.23158
 
 # median native species
-median(TNC$bio_mdn, na.rm = TRUE) #217
+median(TNC[grepl("bio", TNC[, 'measure']), ]$value, na.rm = TRUE)  #218
 
 # median rare
-median(TNC$rar_mdn, na.rm = TRUE) #8
+median(TNC[grepl("rare", TNC[, 'measure']), ]$value, na.rm = TRUE)  #7
 
 ## USFS
 
+length(unique(UC$suid_nma)) #39
+
+UC_unique = UC %>% 
+  select(suid_nma, shape_area, gap_status) %>% 
+  distinct()
+
 # area managed
-sum(UC$shape_area) / 1000000 #84149.4
+sum(UC_unique$shape_area) / 1000000 #84149.4
 
 # percent in GAP 1/2
-sum(filter(UC, gap_status %in% c("GAP 1", "GAP 2"))$shape_area) / sum(UC$shape_area) * 100
-# 10.50222
+sum(filter(UC_unique, gap_status %in% c("GAP 1", "GAP 2"))$shape_area) / sum(UC_unique$shape_area) * 100
+#10.50222
 
 # median HFP
-median(UC$HFP_median, na.rm = TRUE) # 2.25208
+median(UC[grepl("mod", UC[, 'measure']), ]$value, na.rm = TRUE) # 1.567609
 
 # median strava
-median(UC$gry_scl, na.rm = TRUE) # 50.17051
+median(UC[grepl("recreation", UC[, 'measure']), ]$value, na.rm = TRUE) #  27.88435
 
 # median native species
-median(UC$bio_mdn, na.rm = TRUE) #211
+median(UC[grepl("bio", UC[, 'measure']), ]$value, na.rm = TRUE)  #208
 
 # median rare
-median(UC$rar_mdn, na.rm = TRUE) #6
+median(UC[grepl("rare", UC[, 'measure']), ]$value, na.rm = TRUE)  #5
 
 ## CDFW
 
+length(unique(CDFW$suid_nma)) #392
+
+CDFW_unique = CDFW %>% 
+  select(suid_nma, shape_area, gap_status) %>% 
+  distinct()
+
 # area managed
-sum(CDFW$shape_area) / 1000000 #3622.484
+sum(CDFW_unique$shape_area) / 1000000 #3622.484
 
 # percent in GAP 1/2
-sum(filter(CDFW, gap_status %in% c("GAP 1", "GAP 2"))$shape_area) / sum(CDFW$shape_area) * 100
-#94.13079 
+sum(filter(CDFW_unique, gap_status %in% c("GAP 1", "GAP 2"))$shape_area) / sum(CDFW_unique$shape_area) * 100
+#94.13079
 
 # median HFP
-median(CDFW$HFP_median, na.rm = TRUE) #8.13658
+median(CDFW[grepl("mod", CDFW[, 'measure']), ]$value, na.rm = TRUE) # 6.826514
 
 # median strava
-median(CDFW$gry_scl, na.rm = TRUE) #101.6765
+median(CDFW[grepl("recreation", CDFW[, 'measure']), ]$value, na.rm = TRUE) # 73.4608
 
 # median native species
-median(CDFW$bio_mdn, na.rm = TRUE) #222
+median(CDFW[grepl("bio", CDFW[, 'measure']), ]$value, na.rm = TRUE)  #217
 
 # median rare
-median(CDFW$rar_mdn, na.rm = TRUE) #7.5
+median(CDFW[grepl("rare", CDFW[, 'measure']), ]$value, na.rm = TRUE)  #7
 
 ## CDPR
 
+length(unique(CDPR$suid_nma)) #266
+
+CDPR_unique = CDPR %>% 
+  select(suid_nma, shape_area, gap_status) %>% 
+  distinct()
+
 # area managed
-sum(CDPR$shape_area) / 1000000 #6540.609
+sum(CDPR_unique$shape_area) / 1000000 #6540.609
 
 # percent in GAP 1/2
-sum(filter(CDPR, gap_status %in% c("GAP 1", "GAP 2"))$shape_area) / sum(CDPR$shape_area) * 100
+sum(filter(CDPR_unique, gap_status %in% c("GAP 1", "GAP 2"))$shape_area) / sum(CDPR_unique$shape_area) * 100
 #85.82902
 
 # median HFP
-median(CDPR$HFP_median, na.rm = TRUE) # 8.743242
+median(CDPR[grepl("mod", CDPR[, 'measure']), ]$value, na.rm = TRUE) # 6.585459
 
 # median strava
-median(CDPR$gry_scl, na.rm = TRUE) #161.8498
+median(CDPR[grepl("recreation", CDPR[, 'measure']), ]$value, na.rm = TRUE) # 130.2696
 
 # median native species
-median(CDPR$bio_mdn, na.rm = TRUE) #229
+median(CDPR[grepl("bio", CDPR[, 'measure']), ]$value, na.rm = TRUE)  #221
 
 # median rare
-median(CDPR$rar_mdn, na.rm = TRUE) #8.5
+median(CDPR[grepl("rare", CDPR[, 'measure']), ]$value, na.rm = TRUE)  #8
 
 # GAP Summary -------------------------------------------------------------
 
 # GAP 1
+
+length(unique(gap1$suid_nma)) #372
+
+gap1_unique = gap1 %>% 
+  select(suid_nma, shape_area, gap_status) %>% 
+  distinct()
+
 # area managed
-sum(gap1$shape_area) / 1000000 # 39428.07
+sum(gap1_unique$shape_area) / 1000000 #39428.07
 
 # median HFP
-median(gap1$HFP_median, na.rm = TRUE) #23.95025
+median(gap1[grepl("mod", gap1[, 'measure']), ]$value, na.rm = TRUE) # 1.413888
 
 # median strava
-median(gap1$gry_scl, na.rm = TRUE) #182.188
+median(gap1[grepl("recreation", gap1[, 'measure']), ]$value, na.rm = TRUE) # 26.52543
 
 # median native species
-median(gap1$bio_mdn, na.rm = TRUE) #222
+median(gap1[grepl("bio", gap1[, 'measure']), ]$value, na.rm = TRUE)  #136
 
 # median rare
-median(gap1$rar_mdn, na.rm = TRUE) #6.5
+median(gap1[grepl("rare", gap1[, 'measure']), ]$value, na.rm = TRUE)  #3
 
 # GAP 2
+
+length(unique(gap2$suid_nma)) #1674
+
+gap2_unique = gap2 %>% 
+  select(suid_nma, shape_area, gap_status) %>% 
+  distinct()
+
 # area managed
-sum(gap2$shape_area) / 1000000 #17983.81  
+sum(gap2_unique$shape_area) / 1000000 #17983.81
 
 # median HFP
-median(gap2$HFP_median, na.rm = TRUE) # 13.12623
+median(gap2[grepl("mod", gap2[, 'measure']), ]$value, na.rm = TRUE) # 9.556896
 
 # median strava
-median(gap2$gry_scl, na.rm = TRUE) #178.2995
+median(gap2[grepl("recreation", gap2[, 'measure']), ]$value, na.rm = TRUE) # 146.8858
 
 # median native species
-median(gap2$bio_mdn, na.rm = TRUE) #234
+median(gap2[grepl("bio", gap2[, 'measure']), ]$value, na.rm = TRUE)  #227
 
 # median rare
-median(gap2$rar_mdn, na.rm = TRUE) #10
+median(gap2[grepl("rare", gap2[, 'measure']), ]$value, na.rm = TRUE)  #9
 
 # GAP 3
+
+length(unique(gap3$suid_nma)) #334
+
+gap3_unique = gap3 %>% 
+  select(suid_nma, shape_area, gap_status) %>% 
+  distinct()
+
 # area managed
-sum(gap3$shape_area) / 1000000 #  137701.4
+sum(gap3_unique$shape_area) / 1000000 #137701.4
 
 # median HFP
-median(gap3$HFP_median, na.rm = TRUE) #7.795571
+median(gap3[grepl("mod", gap3[, 'measure']), ]$value, na.rm = TRUE) # 2.10075
 
 # median strava
-median(gap3$gry_scl, na.rm = TRUE) #137.3724
+median(gap3[grepl("recreation", gap3[, 'measure']), ]$value, na.rm = TRUE) # 22.55111
 
 # median native species
-median(gap3$bio_mdn, na.rm = TRUE) #221
+median(gap3[grepl("bio", gap3[, 'measure']), ]$value, na.rm = TRUE)  #198
 
 # median rare
-median(gap3$rar_mdn, na.rm = TRUE) #6
+median(gap3[grepl("rare", gap3[, 'measure']), ]$value, na.rm = TRUE)  #4
 
 # GAP 4
+
+length(unique(gap4$suid_nma)) #8211
+
+gap4_unique = gap4 %>% 
+  select(suid_nma, shape_area, gap_status) %>% 
+  distinct()
+
 # area managed
-sum(gap4$shape_area) / 1000000 #6344.215
+sum(gap4_unique$shape_area) / 1000000 #6344.215
 
 # median HFP
-median(gap4$HFP_median, na.rm = TRUE) #34.87178
+median(gap4[grepl("mod", gap4[, 'measure']), ]$value, na.rm = TRUE) # 28.62146
 
 # median strava
-median(gap4$gry_scl, na.rm = TRUE) # 238.4861
+median(gap4[grepl("recreation", gap4[, 'measure']), ]$value, na.rm = TRUE) #200.7714
 
 # median native species
-median(gap4$bio_mdn, na.rm = TRUE) #223
+median(gap4[grepl("bio", gap4[, 'measure']), ]$value, na.rm = TRUE)  #216
 
 # median rare
-median(gap4$rar_mdn, na.rm = TRUE) #7
+median(gap4[grepl("rare", gap4[, 'measure']), ]$value, na.rm = TRUE)  #5
 
 # Map ---------------------------------------------------------------------
 
@@ -455,14 +515,6 @@ ggsave(plot, file = paste0("figS1.pdf"), path = here::here("analysis", "figs"), 
 # Distributions -----------------------------------------------------------
 
 strava <- strava %>%
-  group_by(suid_nma) %>%
-  mutate(gap = max(gap1_acres, gap2_acres, gap3_acres, gap4_acres)) %>%
-  mutate(gap_status = case_when(
-    gap == gap1_acres ~ "GAP 1",
-    gap == gap2_acres ~ "GAP 2",
-    gap == gap3_acres ~ "GAP 3",
-    gap == gap4_acres ~ "GAP 4"
-  )) %>%
   mutate(gap_loc = case_when(
     loc == "Outside Protected Areas" ~ "Outside",
     gap_status == "GAP 1" ~ "GAP 1",
@@ -472,14 +524,6 @@ strava <- strava %>%
   ))
 
 hfp <- hfp %>%
-  group_by(suid_nma) %>%
-  mutate(gap = max(gap1_acres, gap2_acres, gap3_acres, gap4_acres)) %>%
-  mutate(gap_status = case_when(
-    gap == gap1_acres ~ "GAP 1",
-    gap == gap2_acres ~ "GAP 2",
-    gap == gap3_acres ~ "GAP 3",
-    gap == gap4_acres ~ "GAP 4"
-  )) %>%
   mutate(gap_loc = case_when(
     loc == "Outside Protected Areas" ~ "Outside",
     gap_status == "GAP 1" ~ "GAP 1",
@@ -489,14 +533,6 @@ hfp <- hfp %>%
   ))
 
 bio <- bio %>%
-  group_by(suid_nma) %>%
-  mutate(gap = max(gap1_acres, gap2_acres, gap3_acres, gap4_acres)) %>%
-  mutate(gap_status = case_when(
-    gap == gap1_acres ~ "GAP 1",
-    gap == gap2_acres ~ "GAP 2",
-    gap == gap3_acres ~ "GAP 3",
-    gap == gap4_acres ~ "GAP 4"
-  )) %>%
   mutate(gap_loc = case_when(
     loc == "Outside Protected Areas" ~ "Outside",
     gap_status == "GAP 1" ~ "GAP 1",
@@ -506,14 +542,6 @@ bio <- bio %>%
   ))
 
 rare <- rare %>%
-  group_by(suid_nma) %>%
-  mutate(gap = max(gap1_acres, gap2_acres, gap3_acres, gap4_acres)) %>%
-  mutate(gap_status = case_when(
-    gap == gap1_acres ~ "GAP 1",
-    gap == gap2_acres ~ "GAP 2",
-    gap == gap3_acres ~ "GAP 3",
-    gap == gap4_acres ~ "GAP 4"
-  )) %>%
   mutate(gap_loc = case_when(
     loc == "Outside Protected Areas" ~ "Outside",
     gap_status == "GAP 1" ~ "GAP 1",
@@ -737,14 +765,14 @@ breaks <- seq(min(c(strava_inside,strava_outside)), max(c(strava_inside,strava_o
 p1 <- hist(strava_inside, breaks = breaks, plot = FALSE)$counts / length(strava_inside)
 p2 <- hist(strava_outside, breaks = breaks, plot = FALSE)$counts / length(strava_outside)
 
-JSD(rbind(p1, p2), unit = "log2") #  0.1924401 bounded between 0 = same and 1
-# GAP 1/2  0.1062134
-# GAP 3/4 0.226426
+JSD(rbind(p1, p2), unit = "log2") # 0.1871658 bounded between 0 = same and 1
+# GAP 1/2  0.1092982 
+# GAP 3/4 0.2204127 
 
 hfp_inside <- hfp %>%
+  filter(loc == "Inside Protected Areas") %>% 
   # filter(gap_status %in% c("GAP 1", "GAP 2")) %>%
   # filter(gap_status %in% c("GAP 3", "GAP 4")) %>%
-  filter(loc == "Inside Protected Areas") %>% 
   filter(!is.na(HFP2009)) %>% 
   pull(HFP2009)
 
@@ -757,14 +785,14 @@ breaks <- seq(min(c(hfp_inside,hfp_outside)), max(c(hfp_inside,hfp_outside)), le
 p1 <- hist(hfp_inside, breaks = breaks, plot = FALSE)$counts / length(hfp_inside)
 p2 <- hist(hfp_outside, breaks = breaks, plot = FALSE)$counts / length(hfp_outside)
 
-JSD(rbind(p1, p2), unit = "log2") # 0.2506861  bounded between 0 = same and 1
-# GAP 1/2 0.1258098 
-# GAP 3/4 0.2990319 
+JSD(rbind(p1, p2), unit = "log2") # 0.2390168  bounded between 0 = same and 1
+# GAP 1/2 0.11747 
+# GAP 3/4 0.289343 
 
 bio_inside <- bio %>%
+  filter(loc == "Inside Protected Areas") %>% 
   # filter(gap_status %in% c("GAP 1", "GAP 2")) %>%
   # filter(gap_status %in% c("GAP 3", "GAP 4")) %>%
-  filter(loc == "Inside Protected Areas") %>% 
   pull(ntv_cnt)
 
 bio_outside <- bio %>%
@@ -775,14 +803,14 @@ breaks <- seq(min(c(bio_inside,bio_outside)), max(c(bio_inside,bio_outside)), le
 p1 <- hist(bio_inside, breaks = breaks, plot = FALSE)$counts / length(bio_inside)
 p2 <- hist(bio_outside, breaks = breaks, plot = FALSE)$counts / length(bio_outside)
 
-JSD(rbind(p1, p2), unit = "log2") #  0.07591866 
-# GAP 1/2 0.1098876 
-# GAP 3/4 0.07428793 
+JSD(rbind(p1, p2), unit = "log2") #  0.07686548
+# GAP 1/2 0.1081752 
+# GAP 3/4 0.07450112 
 
 rare_inside <- rare %>%
+  filter(loc == "Inside Protected Areas") %>% 
   # filter(gap_status %in% c("GAP 1", "GAP 2")) %>%
   # filter(gap_status %in% c("GAP 3", "GAP 4")) %>%
-  filter(loc == "Inside Protected Areas") %>%
   filter(rare_count > 0) %>% 
   pull(rare_count)
 
@@ -795,32 +823,24 @@ breaks <- seq(min(c(rare_inside,rare_outside)), max(c(rare_inside,rare_outside))
 p1 <- hist(rare_inside, breaks = breaks, plot = FALSE)$counts / length(rare_inside)
 p2 <- hist(rare_outside, breaks = breaks, plot = FALSE)$counts / length(rare_outside)
 
-JSD(rbind(p1, p2), unit = "log2") # 0.1106599 
-# GAP 1/2  0.1201862 
-# GAP 3/4   0.1083332 
+JSD(rbind(p1, p2), unit = "log2") # 0.1141226 
+# GAP 1/2  0.1284492 
+# GAP 3/4   0.1099759 
 
 # ANOVA -------------------------------------------------------------------
 
 strava_inside <- strava %>%
   filter(loc == "Inside Protected Areas") %>%
-  # filter(gap_status %in% c("GAP 1", "GAP 2")) %>%
-  # filter(gap_status %in% c("GAP 3", "GAP 4")) %>%
   filter(!is.na(gray_scale)) 
 
 hfp_inside <- hfp %>%
-  # filter(gap_status %in% c("GAP 1", "GAP 2")) %>%
-  # filter(gap_status %in% c("GAP 3", "GAP 4")) %>%
   filter(loc == "Inside Protected Areas") %>% 
   filter(!is.na(HFP2009))
 
 bio_inside <- bio %>%
-  # filter(gap_status %in% c("GAP 1", "GAP 2")) %>%
-  # filter(gap_status %in% c("GAP 3", "GAP 4")) %>%
   filter(loc == "Inside Protected Areas")
 
 rare_inside <- rare %>%
-  # filter(gap_status %in% c("GAP 1", "GAP 2")) %>%
-  # filter(gap_status %in% c("GAP 3", "GAP 4")) %>%
   filter(loc == "Inside Protected Areas") %>%
   filter(rare_count > 0)
 
@@ -930,7 +950,7 @@ cor_check <- human_sum %>%
   drop_na()
 
 cor(cor_check$HFP_median, cor_check$gry_scl)
-# 
+#0.7560691
 
 pca_prep_data <- human_sum %>%
   st_drop_geometry() %>%
@@ -1060,13 +1080,13 @@ p2 <- ggplot() +
     color = ""
   ) +
   theme(legend.position = "bottom") +
-  scale_color_viridis_d(end = 0.9) +
+  scale_color_manual(values = viridis::viridis(5, end = .9)[1:4]) +
   guides(color = guide_legend(nrow = 2, byrow = TRUE))
 
 ggsave(p2 + p1 + plot_annotation(tag_levels = "A"), file = paste0("fig2.pdf"), path = here::here("analysis", "figs"), height = 10, width = 25)
 
 # Spatial Analysis --------------------------------------------------------
-
+  
 spatial_data_sf <- spatial_data %>%
   st_as_sf(coords = c("x", "y"), crs = "EPSG:4326") %>%
   st_transform(crs = "EPSG:3310")
@@ -1079,11 +1099,7 @@ spatial_data$y <- st_coordinates(spatial_data_sf)[, 2] / 1000
 
 park_models <- spatial_data %>%
   select(gray_scale, suid_nma, HFP2009, y, x, mng_agncy, ntv_anm, rare_anm, shape_area) %>%
-  distinct() %>%
-  # na.omit() %>%
-  group_by(suid_nma) %>%
-  mutate(count = n()) %>%
-  filter(count >= 50)
+  distinct() 
 
 park_var <- park_models %>%
   group_by(suid_nma) %>%
@@ -1118,6 +1134,8 @@ park_models <- park_models %>%
     gray_scale = (gray_scale - mean_strava) / sd_strava
   ) %>%
   distinct()
+
+length(unique(park_models$suid_nma))
 
 beta_animal <- data.frame()
 
@@ -1155,10 +1173,7 @@ for (i in 1:length(unique(park_models$suid_nma))) {
 
 park_models <- spatial_data %>%
   select(gray_scale, suid_nma, HFP2009, y, x, mng_agncy, ntv_plnt, rar_plnt, shape_area) %>%
-  na.omit() %>%
-  group_by(suid_nma) %>%
-  mutate(count = n()) %>%
-  filter(count >= 50)
+  distinct() 
 
 park_var <- park_models %>%
   group_by(suid_nma) %>%
@@ -1192,11 +1207,9 @@ park_models <- park_models %>%
     rare_count = (rar_plnt - mean_rare_count) / sd_rare_count,
     gray_scale = (gray_scale - mean_strava) / sd_strava
   ) %>%
-  distinct() %>%
-  filter(suid_nma != 14013) %>%
-  filter(suid_nma != 14029) %>%
-  filter(suid_nma != 14172) %>%
-  filter(suid_nma != 14310)
+  distinct() 
+
+length(unique(park_models$suid_nma))
 
 beta_plant <- data.frame()
 
@@ -1226,7 +1239,7 @@ for (i in 1:length(unique(park_models$suid_nma))) {
   beta_plant <- rbind(beta_plant, coef)
 }
 
-beta <- full_join(beta_plant %>% mutate(type = "plant"), beta_animal %>% mutate(type = "animal")) %>%
+beta <- full_join(beta_plant %>% mutate(type = "Plant"), beta_animal %>% mutate(type = "Animal")) %>%
   mutate(type = case_when(
     model == "Landscape Modification and Recreation" ~ NA,
     TRUE ~ type
