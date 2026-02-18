@@ -1279,6 +1279,33 @@ beta <- full_join(beta_plant %>% mutate(type = "Plant"), beta_animal %>% mutate(
     TRUE ~ type
   ))
 
+t.test(beta %>% filter(model == "Native Species and Landscape Modification" & 
+                         type == "Animal") 
+       %>% pull(value))
+t.test(beta %>% filter(model == "Native Species and Recreation" & 
+                         type == "Animal") 
+       %>% pull(value))
+t.test(beta %>% filter(model == "Rare Species and Landscape Modification" & 
+                         type == "Animal") 
+       %>% pull(value))
+t.test(beta %>% filter(model == "Rare Species and Recreation" & 
+                         type == "Animal") 
+       %>% pull(value))
+t.test(beta %>% filter(model == "Native Species and Landscape Modification" & 
+                         type == "Plant") 
+       %>% pull(value))
+t.test(beta %>% filter(model == "Native Species and Recreation" & 
+                         type == "Plant") 
+       %>% pull(value))
+t.test(beta %>% filter(model == "Rare Species and Landscape Modification" & 
+                         type == "Plant") 
+       %>% pull(value))
+t.test(beta %>% filter(model == "Rare Species and Recreation" & 
+                         type == "Plant") 
+       %>% pull(value))
+t.test(beta %>% filter(model == "Landscape Modification and Recreation") 
+       %>% pull(value))
+
 beta_avg <- beta %>%
   group_by(type, model) %>%
   summarize(mean_b = mean(value, na.rm = TRUE))
