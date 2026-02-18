@@ -22,6 +22,7 @@ library(spdep)
 library(base64enc)
 library(grid)
 library(png)
+library(effectsize)
 
 # coastal is 8 km inland due to sea level rise projections
 
@@ -48,21 +49,7 @@ human <- list(hfp, bio, strava) %>%
 
 rm(hfp, bio, strava)
 
-# human = human %>%
-#   select(suid_nma, park_name, rar_mdn, bio_mdn, median_sg, HFP_median, gry_scl) %>%
-#   st_drop_geometry() %>%
-#   distinct() %>%
-#   rename(sg_median = median_sg,
-#          rare_median = rar_mdn,
-#          native_median = bio_mdn,
-#          strava_median = gry_scl) %>% 
-#   full_join(cpad_super) %>% 
-#   select(-ID)
-# 
-# write_csv(human %>% st_drop_geometry(), here::here("data", "cpad_updated.csv"))
-# st_write(human, here::here("data", "cpad_updated.shp"))
-
-# take out hoas
+# take out hoas and other protected areas
 
 human <- human %>%
   filter(shape_area >= 10000) %>%
@@ -175,11 +162,11 @@ rm(pixel_sum)
 
 spatial_data <- read_csv(here::here("data", "processed_data", "spatial_analysis.csv")) %>%
   filter(suid_nma %in% human$suid_nma) %>%            
-  full_join(human %>% select(suid_nma, gap_status, mng_agncy))  %>%
+  full_join(human%>% st_drop_geometry() %>% select(suid_nma, gap_status, mng_agncy, shape_area))  %>%
   group_by(suid_nma) %>%
   mutate(count = n()) %>%
-  filter(count >= 50) %>% 
-  select(-count) 
+  filter(count >= 30) %>% 
+  select(-count)  
 
 colors <- c(
   "United States National Park Service" = "#031D3A",
@@ -848,21 +835,25 @@ lm1 = lm(gray_scale ~ gap_status, data = strava_inside)
 anova(lm1)
 aov1 = aov(lm1)
 TukeyHSD(aov1)
+eta_squared(aov1, partial = TRUE) # gap_status | 0.61 | [0.60, 1.00]
 
 lm2 = lm(HFP2009 ~ gap_status, data = hfp_inside)
 anova(lm2)
 aov2 = aov(lm2)
 TukeyHSD(aov2)
+eta_squared(aov2, partial = TRUE) # gap_status | 0.66 | [0.66, 1.00]
 
 lm3 = lm(ntv_cnt ~ gap_status, data = bio_inside)
 anova(lm3)
 aov3 = aov(lm3)
 TukeyHSD(aov3)
+eta_squared(aov3, partial = TRUE) # gap_status | 0.29 | [0.28, 1.00]
 
 lm4 = lm(rare_count ~ gap_status, data = rare_inside)
 anova(lm4)
 aov4 = aov(lm4)
 TukeyHSD(aov4)
+eta_squared(aov4, partial = TRUE) # gap_status | 0.11 | [0.11, 1.00]
 
 strava_inside2 <- strava %>%
   filter(mng_agncy %in% c("United States National Park Service",
@@ -927,21 +918,25 @@ lm5 = lm(gray_scale ~ mng_agncy, data = strava_inside2)
 anova(lm5)
 aov5 = aov(lm5)
 TukeyHSD(aov5)
+eta_squared(aov5, partial = TRUE) # mng_agncy | 0.18 | [0.17, 1.00]
 
 lm6 = lm(HFP2009 ~ mng_agncy, data = hfp_inside2)
 anova(lm6)
 aov6 = aov(lm6)
 TukeyHSD(aov6)
+eta_squared(aov6, partial = TRUE) #mng_agncy | 0.24 | [0.23, 1.00]
 
 lm7 = lm(ntv_cnt ~ mng_agncy, data = bio_inside2)
 anova(lm7)
 aov7 = aov(lm7)
 TukeyHSD(aov7)
+eta_squared(aov7, partial = TRUE) #mng_agncy | 0.44 | [0.43, 1.00]
 
 lm8 = lm(rare_count ~ mng_agncy, data = rare_inside2)
 anova(lm8)
 aov8 = aov(lm8)
 TukeyHSD(aov8)
+eta_squared(aov8, partial = TRUE) #mng_agncy | 0.09 | [0.08, 1.00]
 
 # Scatter Plot/PCA ------------------------------------------------------------
 
