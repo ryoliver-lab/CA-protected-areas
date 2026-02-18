@@ -6,7 +6,7 @@ library(terra)
 
 cpad_super <- st_read(here::here("data", "raw_data", "CPAD_2023a_SuperUnits.shp")) %>%
   sf::st_transform("EPSG:4326") %>%
-  janitor::clean_names() %>% 
+  janitor::clean_names() %>%
   mutate(ID = row_number())
 
 strava_coarse <- rast(here::here("data", "raw_data", "strava_coarse.tif")) %>%
@@ -29,12 +29,12 @@ rm(hfp_cropped, hfp)
 
 bio <- st_read(here::here("data", "raw_data", "Terrestrial_Biodiversity_Summary_-_ACE_[ds2739].shp")) %>%
   sf::st_transform(crs(cpad_super)) %>%
-  select(NtvPlnt, RarPlnt, RarAmph, RarRept, RarBird, RarMamm, NtvAmph, NtvRept, NtvBird, NtvMamm) %>% 
+  select(NtvPlnt, RarPlnt, RarAmph, RarRept, RarBird, RarMamm, NtvAmph, NtvRept, NtvBird, NtvMamm) %>%
   mutate(
     ntv_anm = NtvAmph + NtvRept + NtvBird + NtvMamm,
     rare_anm = RarAmph + RarRept + RarBird + RarMamm
-  ) %>% 
-  select(-RarAmph, -RarRept, -RarBird, -RarMamm, -NtvAmph, -NtvRept, -NtvBird, -NtvMamm) %>% 
+  ) %>%
+  select(-RarAmph, -RarRept, -RarBird, -RarMamm, -NtvAmph, -NtvRept, -NtvBird, -NtvMamm) %>%
   janitor::clean_names()
 
 bio_anm_raster <- rasterize(bio, strava_coarse, field = "ntv_anm")
@@ -62,7 +62,7 @@ rm(
   bio_plt_cropped, bio_plt_raster, rare_plt_cropped, rare_plt_raster
 )
 
-hfp <- extract(hfp_masked, cpad_super, xy=TRUE)
+hfp <- extract(hfp_masked, cpad_super, xy = TRUE)
 strava <- extract(strava_coarse_masked, cpad_super) %>%
   select(-ID)
 bio_anm <- extract(bio_anm_masked, cpad_super) %>%
@@ -82,14 +82,13 @@ rm(
 
 # Combine Data ------------------------------------------------------------
 
-spatial_data <- list(hfp, strava,  bio_anm, rare_anm, bio_plt, rare_plt) %>%
+spatial_data <- list(hfp, strava, bio_anm, rare_anm, bio_plt, rare_plt) %>%
   reduce(cbind) %>%
   filter(!is.na(strava_coarse_1)) %>%
-  mutate(gray_scale = (0.299 * strava_coarse_1) + (0.587 * strava_coarse_2) + (0.114 * strava_coarse_3)) %>% 
-  select(-strava_coarse_1, -strava_coarse_2, -strava_coarse_3, -strava_coarse_4) %>% 
-  full_join(cpad_super) %>% 
+  mutate(gray_scale = (0.299 * strava_coarse_1) + (0.587 * strava_coarse_2) + (0.114 * strava_coarse_3)) %>%
+  select(-strava_coarse_1, -strava_coarse_2, -strava_coarse_3, -strava_coarse_4) %>%
+  full_join(cpad_super %>% select(ID, suid_nma)) %>%
   st_drop_geometry() %>%
   select(-ID, -geometry)
- 
 
 write_csv(spatial_data, here::here("data", "processed_data", "spatial_analysis.csv"))
