@@ -23,6 +23,7 @@ library(base64enc)
 library(grid)
 library(png)
 library(effectsize)
+library(colorspace)
 
 # coastal is 8 km inland due to sea level rise projections
 
@@ -437,7 +438,7 @@ mang_sub <- human %>%
 p11 <- ggplot() +
   geom_sf(data = human, aes(fill = gap_status), color = "transparent") +
   geom_sf(data = mang_sub, aes(color = mng_agncy, fill = gap_status), linewidth = .8) +
-  theme_bw(base_size = 16) +
+  theme_bw(base_size = 20) +
   labs(
     x = "",
     y = "",
@@ -567,7 +568,7 @@ rare_png <- here::here("icons", "kiwi-bird-solid-full.png")
 
 p1 <- ggplot(hfp) +
   geom_density_ridges(aes(x = HFP2009, y = gap_loc, fill = gap_loc), alpha = 0.5, scale = 3) +
-  theme_bw(base_size = 16) +
+  theme_bw(base_size = 20) +
   labs(
     x = paste0("Landscape Modification ", "<img src='", HFI_png, "' width='24'/>"),
     y = "",
@@ -582,7 +583,7 @@ p1 <- ggplot(hfp) +
 
 p2 <- ggplot(bio) +
   geom_density_ridges(aes(x = ntv_cnt, y = gap_loc, fill = gap_loc), alpha = 0.5, scale = 3) +
-  theme_bw(base_size = 16) +
+  theme_bw(base_size = 20) +
   labs(
     x = paste0("Native Species Count ", "<img src='", native_png, "' width='24'/>"),
     y = "",
@@ -597,7 +598,7 @@ p2 <- ggplot(bio) +
 
 p3 <- ggplot(rare) +
   geom_density_ridges(aes(x = rare_count, y = gap_loc, fill = gap_loc), alpha = 0.5, scale = 3) +
-  theme_bw(base_size = 16) +
+  theme_bw(base_size = 20) +
   labs(
     x = paste0("Rare Species Count ", "<img src='", rare_png, "' width='24'/>"),
     y = "",
@@ -614,7 +615,7 @@ p3 <- ggplot(rare) +
 
 p6 <- ggplot(strava) +
   geom_density_ridges(aes(x = gray_scale, y = gap_loc, fill = gap_loc), alpha = 0.5, scale = 3) +
-  theme_bw(base_size = 16) +
+  theme_bw(base_size = 20) +
   labs(
     x = paste0("Recreation ", "<img src='", strava_png, "' width='24'/>"),
     y = "",
@@ -695,7 +696,7 @@ rare_combine_sub <- rare %>%
 
 p7 <- ggplot(hfp_combine_sub) +
   geom_density_ridges(aes(x = HFP2009, y = mng_agncy, fill = mng_agncy), alpha = 0.5, scale = 3) +
-  theme_bw(base_size = 16) +
+  theme_bw(base_size = 20) +
   labs(
     x = paste0("Landscape Modification ", "<img src='", HFI_png, "' width='24'/>"),
     y = "",
@@ -710,7 +711,7 @@ p7 <- ggplot(hfp_combine_sub) +
 
 p8 <- ggplot(bio_combine_sub) +
   geom_density_ridges(aes(x = ntv_cnt, y = mng_agncy, fill = mng_agncy), alpha = 0.5, scale = 3) +
-  theme_bw(base_size = 16) +
+  theme_bw(base_size = 20) +
   labs(
     x = paste0("Native Species Count ", "<img src='", native_png, "' width='24'/>"),
     y = "",
@@ -725,7 +726,7 @@ p8 <- ggplot(bio_combine_sub) +
 
 p9 <- ggplot(rare_combine_sub) +
   geom_density_ridges(aes(x = rare_count, y = mng_agncy, fill = mng_agncy), alpha = 0.5, scale = 3) +
-  theme_bw(base_size = 16) +
+  theme_bw(base_size = 20) +
   labs(
     x = paste0("Rare Species Count ", "<img src='", rare_png, "' width='24'/>"),
     y = "",
@@ -740,7 +741,7 @@ p9 <- ggplot(rare_combine_sub) +
 
 p10 <- ggplot(strava_combine_sub) +
   geom_density_ridges(aes(x = gray_scale, y = mng_agncy, fill = mng_agncy), alpha = 0.5, scale = 3) +
-  theme_bw(base_size = 16) +
+  theme_bw(base_size = 20) +
   labs(
     x = paste0("Recreation ", "<img src='", strava_png, "' width='24'/>"),
     y = "",
@@ -1064,10 +1065,10 @@ readPNG_alpha <- function(png_path, alpha = 1, width_lines = 1.5, height_lines =
   rasterGrob(img, width = unit(width_lines, "lines"), height = unit(height_lines, "lines"))
 }
 
-HFI_grob <- readPNG_alpha(HFI_icon, .8)
-strava_grob <- readPNG_alpha(strava_icon, .8)
-native_grob <- readPNG_alpha(native_icon, .8)
-rare_grob <- readPNG_alpha(rare_icon, .8)
+HFI_grob <- readPNG_alpha(HFI_icon, 1)
+strava_grob <- readPNG_alpha(strava_icon, 1)
+native_grob <- readPNG_alpha(native_icon, 1)
+rare_grob <- readPNG_alpha(rare_icon, 1)
 
 rm(HFI_icon, strava_icon, native_icon, rare_icon)
 
@@ -1078,17 +1079,17 @@ p1 <- ggplot() +
   geom_point(data = NPS_components, aes(PC1, PC2, color = "United States National Park Service")) +
   geom_point(data = UC_components, aes(PC1, PC2, color = "United States Forest Service")) +
   geom_point(data = TNC_components, aes(PC1, PC2, color = "The Nature Conservancy")) +
-  stat_ellipse(data = CDFW_components, aes(PC1, PC2, color = "California Department of Fish and Wildlife"), level = 0.95, type = "t", alpha = 0.7) +
-  stat_ellipse(data = SP_components, aes(PC1, PC2, color = "California Department of Parks and Recreation"), level = 0.95, type = "t", alpha = 0.7) +
-  stat_ellipse(data = NPS_components, aes(PC1, PC2, color = "United States National Park Service"), level = 0.95, type = "t", alpha = 0.7) +
-  stat_ellipse(data = UC_components, aes(PC1, PC2, color = "United States Forest Service"), level = 0.95, type = "t", alpha = 0.7) +
-  stat_ellipse(data = TNC_components, aes(PC1, PC2, color = "The Nature Conservancy"), level = 0.95, type = "t", alpha = 0.7) +
+  stat_ellipse(data = CDFW_components, aes(PC1, PC2, color = "California Department of Fish and Wildlife"), level = 0.95, type = "t", alpha = 0.7, linewidth = 1.5) +
+  stat_ellipse(data = SP_components, aes(PC1, PC2, color = "California Department of Parks and Recreation"), level = 0.95, type = "t", alpha = 0.7, linewidth = 1.5) +
+  stat_ellipse(data = NPS_components, aes(PC1, PC2, color = "United States National Park Service"), level = 0.95, type = "t", alpha = 0.7, linewidth = 1.5) +
+  stat_ellipse(data = UC_components, aes(PC1, PC2, color = "United States Forest Service"), level = 0.95, type = "t", alpha = 0.7, linewidth = 1.5) +
+  stat_ellipse(data = TNC_components, aes(PC1, PC2, color = "The Nature Conservancy"), level = 0.95, type = "t", alpha = 0.7, linewidth = 1.5) +
   geom_segment(data = loadings, aes(x = 0, xend = rotation.PC1, y = 0, yend = rotation.PC2), arrow = arrow(length = unit(0.25, "cm")), linewidth = 0.5, colour = "grey20") +
   annotation_custom(strava_grob, xmin = loadings$rotation.PC1[1] - 0.2, xmax = loadings$rotation.PC1[1] - 0.2, ymin = loadings$rotation.PC2[1] + 0.3, ymax = loadings$rotation.PC2[1] + 0.3) +
   annotation_custom(HFI_grob, xmin = loadings$rotation.PC1[2] - 0.2, xmax = loadings$rotation.PC1[2] - 0.2, ymin = loadings$rotation.PC2[2], ymax = loadings$rotation.PC2[2]) +
   annotation_custom(native_grob, xmin = loadings$rotation.PC1[3] - .2, xmax = loadings$rotation.PC1[3] - 0.2, ymin = loadings$rotation.PC2[3] - 0.2, ymax = loadings$rotation.PC2[3] - 0.2) +
   annotation_custom(rare_grob, xmin = loadings$rotation.PC1[4] + .2, xmax = loadings$rotation.PC1[4] + 0.2, ymin = loadings$rotation.PC2[4] - 0.2, ymax = loadings$rotation.PC2[4] - 0.2) +
-  theme_bw(base_size = 16) +
+  theme_bw(base_size = 20) +
   labs(
     x = paste0("PC1 (", round(explained_variance_ratio[1], 2), "%)"),
     y = paste0("PC2 (", round(explained_variance_ratio[2], 2), "%)"),
@@ -1096,17 +1097,17 @@ p1 <- ggplot() +
   ) +
   theme(legend.position = "bottom") +
   scale_color_manual(values = colors) +
-  guides(color = guide_legend(nrow = 2, byrow = TRUE))
+  guides(color = guide_legend(nrow = 3, byrow = TRUE))
 
 p2 <- ggplot() +
   geom_point(data = components %>% filter(PC2 < 10), aes(PC1, PC2, color = gap_status), alpha = 0.5) +
-  stat_ellipse(data = components %>% filter(PC2 < 10), aes(PC1, PC2, color = gap_status), level = 0.95, type = "t", alpha = 0.7) +
+  stat_ellipse(data = components %>% filter(PC2 < 10), aes(PC1, PC2, color = gap_status), level = 0.95, type = "t", alpha = 0.7, linewidth = 1.5) +
   geom_segment(data = loadings, aes(x = 0, xend = rotation.PC1, y = 0, yend = rotation.PC2), arrow = arrow(length = unit(0.25, "cm")), linewidth = 0.5, colour = "grey20") +
   annotation_custom(strava_grob, xmin = loadings$rotation.PC1[1] - 0.2, xmax = loadings$rotation.PC1[1] - 0.2, ymin = loadings$rotation.PC2[1] + 0.3, ymax = loadings$rotation.PC2[1] + 0.3) +
   annotation_custom(HFI_grob, xmin = loadings$rotation.PC1[2] - 0.2, xmax = loadings$rotation.PC1[2] - 0.2, ymin = loadings$rotation.PC2[2], ymax = loadings$rotation.PC2[2]) +
   annotation_custom(native_grob, xmin = loadings$rotation.PC1[3] - .2, xmax = loadings$rotation.PC1[3] - 0.2, ymin = loadings$rotation.PC2[3] - 0.2, ymax = loadings$rotation.PC2[3] - 0.2) +
   annotation_custom(rare_grob, xmin = loadings$rotation.PC1[4] + .2, xmax = loadings$rotation.PC1[4] + 0.2, ymin = loadings$rotation.PC2[4] - 0.2, ymax = loadings$rotation.PC2[4] - 0.2) +
-  theme_bw(base_size = 16) +
+  theme_bw(base_size = 20) +
   labs(
     x = paste0("PC1 (", round(explained_variance_ratio[1], 2), "%)"),
     y = paste0("PC2 (", round(explained_variance_ratio[2], 2), "%)"),
@@ -1116,7 +1117,7 @@ p2 <- ggplot() +
   scale_color_manual(values = viridis::viridis(5, end = .9)[1:4]) +
   guides(color = guide_legend(nrow = 2, byrow = TRUE))
 
-ggsave(p2 + p1 + plot_annotation(tag_levels = "A"), file = paste0("fig2.pdf"), path = here::here("analysis", "figs"), height = 10, width = 25)
+ggsave(p2 / p1 + plot_annotation(tag_levels = "A"), file = paste0("fig2.pdf"), path = here::here("analysis", "figs"), height = 20, width = 12)
 
 # Spatial Analysis --------------------------------------------------------
 
@@ -1240,7 +1241,7 @@ park_models <- park_models %>%
     rare_count = (rar_plnt - mean_rare_count) / sd_rare_count,
     gray_scale = (gray_scale - mean_strava) / sd_strava
   ) %>%
-  distinct() %>% 
+  distinct() %>%
   filter(!(suid_nma %in% c(14013, 14029, 14047, 14172, 14248, 14310)))
 
 length(unique(park_models$suid_nma))
@@ -1279,47 +1280,90 @@ beta <- full_join(beta_plant %>% mutate(type = "Plant"), beta_animal %>% mutate(
     TRUE ~ type
   ))
 
-t.test(beta %>% filter(model == "Native Species and Landscape Modification" & 
-                         type == "Animal") 
-       %>% pull(value))
-t.test(beta %>% filter(model == "Native Species and Recreation" & 
-                         type == "Animal") 
-       %>% pull(value))
-t.test(beta %>% filter(model == "Rare Species and Landscape Modification" & 
-                         type == "Animal") 
-       %>% pull(value))
-t.test(beta %>% filter(model == "Rare Species and Recreation" & 
-                         type == "Animal") 
-       %>% pull(value))
-t.test(beta %>% filter(model == "Native Species and Landscape Modification" & 
-                         type == "Plant") 
-       %>% pull(value))
-t.test(beta %>% filter(model == "Native Species and Recreation" & 
-                         type == "Plant") 
-       %>% pull(value))
-t.test(beta %>% filter(model == "Rare Species and Landscape Modification" & 
-                         type == "Plant") 
-       %>% pull(value))
-t.test(beta %>% filter(model == "Rare Species and Recreation" & 
-                         type == "Plant") 
-       %>% pull(value))
-t.test(beta %>% filter(model == "Landscape Modification and Recreation") 
-       %>% pull(value))
+t.test(beta %>% filter(model == "Native Species and Landscape Modification" &
+  type == "Animal")
+%>% pull(value))
+t.test(beta %>% filter(model == "Native Species and Recreation" &
+  type == "Animal")
+%>% pull(value))
+t.test(beta %>% filter(model == "Rare Species and Landscape Modification" &
+  type == "Animal")
+%>% pull(value))
+t.test(beta %>% filter(model == "Rare Species and Recreation" &
+  type == "Animal")
+%>% pull(value))
+t.test(beta %>% filter(model == "Native Species and Landscape Modification" &
+  type == "Plant")
+%>% pull(value))
+t.test(beta %>% filter(model == "Native Species and Recreation" &
+  type == "Plant")
+%>% pull(value))
+t.test(beta %>% filter(model == "Rare Species and Landscape Modification" &
+  type == "Plant")
+%>% pull(value))
+t.test(beta %>% filter(model == "Rare Species and Recreation" &
+  type == "Plant")
+%>% pull(value))
+t.test(beta %>% filter(model == "Landscape Modification and Recreation")
+  %>% pull(value))
 
 beta_avg <- beta %>%
   group_by(type, model) %>%
   summarize(mean_b = mean(value, na.rm = TRUE))
 
-p1 <- ggplot(beta) +
-  geom_density_ridges(aes(x = value, y = model, fill = type), alpha = 0.7) +
+p1 <- ggplot(beta %>% filter(is.na(type))) +
+  geom_jitter(aes(x = value, y = model, color = value), height = .2, size = 2) +
+  geom_boxplot(aes(x = value, y = model), outliers = FALSE, fill = "transparent", linewidth = .5) +
   geom_vline(aes(xintercept = 0), linetype = "dashed") +
-  theme_bw(base_size = 16) +
+  theme_bw(base_size = 20) +
   labs(
     x = "Beta",
     y = "",
-    fill = ""
+    color = ""
   ) +
-  scale_fill_manual(values = c("lightblue", "lightgreen")) +
-  scale_y_discrete(limits = rev)
+  scale_y_discrete(limits = rev) +
+  scale_color_gradient2(low = "#762A83", mid = "darkgrey", high = "#1B7837", midpoint = 0, breaks = c(-.5, -0.25, 0, 0.25, 0.5, 0.75, 1)) +
+  theme(legend.position = "none") +
+  xlim(c(-.5, 1.1))
 
-ggsave(p1, file = paste0("fig3.pdf"), path = here::here("analysis", "figs"), height = 8, width = 12)
+p2 <- ggplot(beta %>% filter(type == "Animal")) +
+  geom_jitter(aes(x = value, y = model, color = value), height = .2, size = 2) +
+  geom_boxplot(aes(x = value, y = model), outliers = FALSE, fill = "transparent", linewidth = .5) +
+  geom_vline(aes(xintercept = 0), linetype = "dashed") +
+  theme_bw(base_size = 20) +
+  labs(
+    x = "Beta",
+    y = "",
+    color = ""
+  ) +
+  scale_y_discrete(limits = rev) +
+  scale_color_gradient2(low = "#762A83", mid = "darkgrey", high = "#1B7837", midpoint = 0, breaks = c(-.5, -0.25, 0, 0.25, 0.5, 0.75, 1)) +
+  theme(legend.position = "none") +
+  xlim(c(-.5, 1.1))
+
+p3 <- ggplot(beta %>% filter(type == "Plant")) +
+  geom_jitter(aes(x = value, y = model, color = value), height = .2, size = 2) +
+  geom_boxplot(aes(x = value, y = model), outliers = FALSE, fill = "transparent", linewidth = .5) +
+  geom_vline(aes(xintercept = 0), linetype = "dashed") +
+  theme_bw(base_size = 20) +
+  labs(
+    x = "Beta",
+    y = "",
+    color = ""
+  ) +
+  scale_y_discrete(limits = rev) +
+  scale_color_gradient2(low = "#762A83", mid = "darkgrey", high = "#1B7837", midpoint = 0, breaks = c(-.5, -0.25, 0, 0.25, 0.5, 0.75, 1)) +
+  theme(
+    legend.position = "none"
+  ) +
+  xlim(c(-.5, 1.1))
+
+layout <- "
+AAA
+BBB
+BBB
+CCC
+CCC
+"
+
+ggsave(p1 / p2 / p3 + plot_annotation(tag_levels = "A") + plot_layout(design = layout), file = paste0("fig3.pdf"), path = here::here("analysis", "figs"), height = 8, width = 12)
