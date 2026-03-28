@@ -24,8 +24,8 @@ library(grid)
 library(png)
 library(effectsize)
 library(colorspace)
-
-# coastal is 8 km inland due to sea level rise projections
+library(lme4)
+library(lmerTest)
 
 sf_use_s2(FALSE)
 
@@ -127,7 +127,7 @@ rare <- st_read(here::here("data", "processed_data", "in_out_rare.shp")) %>%
   select(-ID)
 
 pixel_sum <- list(
-  strava %>% rename(value = gray_scale) %>% mutate(measure = "recreation"),
+  strava %>% rename(value = gray_scale) %>% mutate(measure = "hm"),
   hfp %>% rename(value = HFP2009) %>% mutate(measure = "mod"),
   bio %>% rename(value = ntv_cnt) %>% mutate(measure = "bio"),
   rare %>% rename(value = rare_count) %>% mutate(measure = "rare")
@@ -207,7 +207,7 @@ sum(filter(NPS_unique, gap_status %in% c("GAP 1", "GAP 2"))$shape_area) / sum(NP
 median(NPS[grepl("mod", NPS[, "measure"]), ]$value, na.rm = TRUE) # 1.237312
 
 # median strava
-median(NPS[grepl("recreation", NPS[, "measure"]), ]$value, na.rm = TRUE) # 17.90872
+median(NPS[grepl("hm", NPS[, "measure"]), ]$value, na.rm = TRUE) # 17.90872
 
 # median native species
 median(NPS[grepl("bio", NPS[, "measure"]), ]$value, na.rm = TRUE) # 114
@@ -234,7 +234,7 @@ sum(filter(TNC_unique, gap_status %in% c("GAP 1", "GAP 2"))$shape_area) / sum(TN
 median(TNC[grepl("mod", TNC[, "measure"]), ]$value, na.rm = TRUE) # 4.927719
 
 # median strava
-median(TNC[grepl("recreation", TNC[, "measure"]), ]$value, na.rm = TRUE) # 70.23158
+median(TNC[grepl("hm", TNC[, "measure"]), ]$value, na.rm = TRUE) # 70.23158
 
 # median native species
 median(TNC[grepl("bio", TNC[, "measure"]), ]$value, na.rm = TRUE) # 218
@@ -261,7 +261,7 @@ sum(filter(UC_unique, gap_status %in% c("GAP 1", "GAP 2"))$shape_area) / sum(UC_
 median(UC[grepl("mod", UC[, "measure"]), ]$value, na.rm = TRUE) # 1.567609
 
 # median strava
-median(UC[grepl("recreation", UC[, "measure"]), ]$value, na.rm = TRUE) #  27.88435
+median(UC[grepl("hm", UC[, "measure"]), ]$value, na.rm = TRUE) #  27.88435
 
 # median native species
 median(UC[grepl("bio", UC[, "measure"]), ]$value, na.rm = TRUE) # 208
@@ -288,7 +288,7 @@ sum(filter(CDFW_unique, gap_status %in% c("GAP 1", "GAP 2"))$shape_area) / sum(C
 median(CDFW[grepl("mod", CDFW[, "measure"]), ]$value, na.rm = TRUE) # 6.826514
 
 # median strava
-median(CDFW[grepl("recreation", CDFW[, "measure"]), ]$value, na.rm = TRUE) # 73.4608
+median(CDFW[grepl("hm", CDFW[, "measure"]), ]$value, na.rm = TRUE) # 73.4608
 
 # median native species
 median(CDFW[grepl("bio", CDFW[, "measure"]), ]$value, na.rm = TRUE) # 217
@@ -315,7 +315,7 @@ sum(filter(CDPR_unique, gap_status %in% c("GAP 1", "GAP 2"))$shape_area) / sum(C
 median(CDPR[grepl("mod", CDPR[, "measure"]), ]$value, na.rm = TRUE) # 6.585459
 
 # median strava
-median(CDPR[grepl("recreation", CDPR[, "measure"]), ]$value, na.rm = TRUE) # 130.2696
+median(CDPR[grepl("hm", CDPR[, "measure"]), ]$value, na.rm = TRUE) # 130.2696
 
 # median native species
 median(CDPR[grepl("bio", CDPR[, "measure"]), ]$value, na.rm = TRUE) # 221
@@ -340,7 +340,7 @@ sum(gap1_unique$shape_area) / 1000000 # 39428.07
 median(gap1[grepl("mod", gap1[, "measure"]), ]$value, na.rm = TRUE) # 1.413888
 
 # median strava
-median(gap1[grepl("recreation", gap1[, "measure"]), ]$value, na.rm = TRUE) # 26.52543
+median(gap1[grepl("hm", gap1[, "measure"]), ]$value, na.rm = TRUE) # 26.52543
 
 # median native species
 median(gap1[grepl("bio", gap1[, "measure"]), ]$value, na.rm = TRUE) # 136
@@ -363,7 +363,7 @@ sum(gap2_unique$shape_area) / 1000000 # 17983.81
 median(gap2[grepl("mod", gap2[, "measure"]), ]$value, na.rm = TRUE) # 9.556896
 
 # median strava
-median(gap2[grepl("recreation", gap2[, "measure"]), ]$value, na.rm = TRUE) # 146.8858
+median(gap2[grepl("hm", gap2[, "measure"]), ]$value, na.rm = TRUE) # 146.8858
 
 # median native species
 median(gap2[grepl("bio", gap2[, "measure"]), ]$value, na.rm = TRUE) # 227
@@ -386,7 +386,7 @@ sum(gap3_unique$shape_area) / 1000000 # 137701.4
 median(gap3[grepl("mod", gap3[, "measure"]), ]$value, na.rm = TRUE) # 2.10075
 
 # median strava
-median(gap3[grepl("recreation", gap3[, "measure"]), ]$value, na.rm = TRUE) # 22.55111
+median(gap3[grepl("hm", gap3[, "measure"]), ]$value, na.rm = TRUE) # 22.55111
 
 # median native species
 median(gap3[grepl("bio", gap3[, "measure"]), ]$value, na.rm = TRUE) # 198
@@ -409,7 +409,7 @@ sum(gap4_unique$shape_area) / 1000000 # 6344.215
 median(gap4[grepl("mod", gap4[, "measure"]), ]$value, na.rm = TRUE) # 28.62146
 
 # median strava
-median(gap4[grepl("recreation", gap4[, "measure"]), ]$value, na.rm = TRUE) # 200.7714
+median(gap4[grepl("hm", gap4[, "measure"]), ]$value, na.rm = TRUE) # 200.7714
 
 # median native species
 median(gap4[grepl("bio", gap4[, "measure"]), ]$value, na.rm = TRUE) # 216
@@ -510,7 +510,7 @@ p6 <- ggplot() +
     x = "",
     y = "",
     color = "",
-    fill = "Median Recreation"
+    fill = "Median Human Mobility"
   ) +
   scale_fill_viridis_c(end = 0.9, na.value = "white")
 
@@ -574,7 +574,7 @@ p1 <- ggplot(hfp) +
     y = "",
     fill = ""
   ) +
-  scale_fill_viridis_d(end = .9, na.value = "#fde725") +
+  scale_fill_manual(values = c(viridis::viridis(5, end = .9)[1:4], "#fde725")) +
   scale_color_manual(values = c("black", "grey")) +
   theme(
     legend.position = "none",
@@ -589,7 +589,7 @@ p2 <- ggplot(bio) +
     y = "",
     fill = ""
   ) +
-  scale_fill_viridis_d(end = .9, na.value = "#fde725") +
+  scale_fill_manual(values = c(viridis::viridis(5, end = .9)[1:4], "#fde725")) +
   scale_color_manual(values = c("black", "grey")) +
   theme(
     legend.position = "none",
@@ -604,11 +604,9 @@ p3 <- ggplot(rare) +
     y = "",
     fill = ""
   ) +
-  scale_fill_viridis_d(end = .9, na.value = "#fde725") +
+  scale_fill_manual(values = c(viridis::viridis(5, end = .9)[1:4], "#fde725")) +
   scale_color_manual(values = c("black", "grey")) +
   theme(
-    axis.text.y = element_blank(),
-    axis.ticks.y = element_blank(),
     legend.position = "none",
     axis.title.x = element_markdown()
   )
@@ -617,16 +615,15 @@ p6 <- ggplot(strava) +
   geom_density_ridges(aes(x = gray_scale, y = gap_loc, fill = gap_loc), alpha = 0.5, scale = 3) +
   theme_bw(base_size = 20) +
   labs(
-    x = paste0("Recreation ", "<img src='", strava_png, "' width='24'/>"),
+    x = paste0("Human Mobility ", "<img src='", strava_png, "' width='24'/>"),
     y = "",
     fill = ""
   ) +
-  scale_fill_viridis_d(end = .9, na.value = "#fde725") +
+  scale_fill_manual(values = c(viridis::viridis(5, end = .9)[1:4], "#fde725")) +
   scale_color_manual(values = c("black", "grey")) +
   theme(
-    axis.text.y = element_blank(),
-    axis.ticks.y = element_blank(),
-    axis.title.x = element_markdown()
+    axis.title.x = element_markdown(),
+    legend.position = "none"
   )
 
 strava_combine_sub <- strava %>%
@@ -743,7 +740,7 @@ p10 <- ggplot(strava_combine_sub) +
   geom_density_ridges(aes(x = gray_scale, y = mng_agncy, fill = mng_agncy), alpha = 0.5, scale = 3) +
   theme_bw(base_size = 20) +
   labs(
-    x = paste0("Recreation ", "<img src='", strava_png, "' width='24'/>"),
+    x = paste0("Human Mobility ", "<img src='", strava_png, "' width='24'/>"),
     y = "",
     fill = ""
   ) +
@@ -862,29 +859,25 @@ rare_inside <- rare %>%
   filter(loc == "Inside Protected Areas") %>%
   filter(rare_count > 0)
 
-lm1 <- lm(gray_scale ~ gap_status, data = strava_inside)
+lm1 <- lmer(gray_scale ~ gap_status + (1 | suid_nma), data = strava_inside)
+summary(lm1)
 anova(lm1)
-aov1 <- aov(lm1)
-TukeyHSD(aov1)
-eta_squared(aov1, partial = TRUE) # gap_status | 0.61 | [0.60, 1.00]
+eta_squared(lm1, partial = TRUE) # gap_status | 0.20 | [0.19, 1.00]
 
-lm2 <- lm(HFP2009 ~ gap_status, data = hfp_inside)
+lm2 <- lmer(HFP2009 ~ gap_status + (1 | suid_nma), data = hfp_inside)
+summary(lm2)
 anova(lm2)
-aov2 <- aov(lm2)
-TukeyHSD(aov2)
-eta_squared(aov2, partial = TRUE) # gap_status | 0.66 | [0.66, 1.00]
+eta_squared(lm2, partial = TRUE) # gap_status |0.32 | [0.31, 1.00]
 
-lm3 <- lm(ntv_cnt ~ gap_status, data = bio_inside)
+lm3 <- lmer(ntv_cnt ~ gap_status + (1 | suid_nma), data = bio_inside)
+summary(lm3)
 anova(lm3)
-aov3 <- aov(lm3)
-TukeyHSD(aov3)
-eta_squared(aov3, partial = TRUE) # gap_status | 0.29 | [0.28, 1.00]
+eta_squared(lm3, partial = TRUE) # gap_status |0.01 | [0.01, 1.00]
 
-lm4 <- lm(rare_count ~ gap_status, data = rare_inside)
+lm4 <- lmer(rare_count ~ gap_status + (1 | suid_nma), data = rare_inside)
 anova(lm4)
-aov4 <- aov(lm4)
-TukeyHSD(aov4)
-eta_squared(aov4, partial = TRUE) # gap_status | 0.11 | [0.11, 1.00]
+summary(lm4)
+eta_squared(lm4, partial = TRUE) # gap_status | 0.01 | [0.01, 1.00]
 
 strava_inside2 <- strava %>%
   filter(mng_agncy %in% c(
@@ -953,29 +946,25 @@ rare_inside2 <- rare %>%
   )) %>%
   filter(rare_count > 0)
 
-lm5 <- lm(gray_scale ~ mng_agncy, data = strava_inside2)
+lm5 <- lmer(gray_scale ~ mng_agncy + (1 | suid_nma), data = strava_inside2)
 anova(lm5)
-aov5 <- aov(lm5)
-TukeyHSD(aov5)
-eta_squared(aov5, partial = TRUE) # mng_agncy | 0.18 | [0.17, 1.00]
+summary(lm5)
+eta_squared(lm5, partial = TRUE) # mng_agncy | 0.12 | [0.08, 1.00]
 
-lm6 <- lm(HFP2009 ~ mng_agncy, data = hfp_inside2)
+lm6 <- lmer(HFP2009 ~ mng_agncy + (1 | suid_nma), data = hfp_inside2)
 anova(lm6)
-aov6 <- aov(lm6)
-TukeyHSD(aov6)
-eta_squared(aov6, partial = TRUE) # mng_agncy | 0.24 | [0.23, 1.00]
+summary(lm6)
+eta_squared(lm6, partial = TRUE) # mng_agncy |  0.05 | [0.02, 1.00]
 
-lm7 <- lm(ntv_cnt ~ mng_agncy, data = bio_inside2)
+lm7 <- lmer(ntv_cnt ~ mng_agncy + (1 | suid_nma), data = bio_inside2)
 anova(lm7)
-aov7 <- aov(lm7)
-TukeyHSD(aov7)
-eta_squared(aov7, partial = TRUE) # mng_agncy | 0.44 | [0.43, 1.00]
+summary(lm7)
+eta_squared(lm7, partial = TRUE) # mng_agncy |  0.04 | [0.02, 1.00]
 
-lm8 <- lm(rare_count ~ mng_agncy, data = rare_inside2)
+lm8 <- lmer(rare_count ~ mng_agncy + (1 | suid_nma), data = rare_inside2)
 anova(lm8)
-aov8 <- aov(lm8)
-TukeyHSD(aov8)
-eta_squared(aov8, partial = TRUE) # mng_agncy | 0.09 | [0.08, 1.00]
+summary(lm8)
+eta_squared(lm8, partial = TRUE) # mng_agncy | 0.02 | [0.00, 1.00]
 
 # Scatter Plot/PCA ------------------------------------------------------------
 
@@ -1017,19 +1006,39 @@ names(components) <- c(
 )
 
 NPS_components <- components %>%
-  filter(mng_agncy == "United States National Park Service")
+  filter(mng_agncy == "United States National Park Service") %>%
+  mutate(
+    centroid1 = mean(PC1),
+    centroid2 = mean(PC2)
+  )
 
 TNC_components <- components %>%
-  filter(mng_agncy == "The Nature Conservancy")
+  filter(mng_agncy == "The Nature Conservancy") %>%
+  mutate(
+    centroid1 = mean(PC1),
+    centroid2 = mean(PC2)
+  )
 
 UC_components <- components %>%
-  filter(mng_agncy == "United States Forest Service")
+  filter(mng_agncy == "United States Forest Service") %>%
+  mutate(
+    centroid1 = mean(PC1),
+    centroid2 = mean(PC2)
+  )
 
 CDFW_components <- components %>%
-  filter(mng_agncy == "California Department of Fish and Wildlife")
+  filter(mng_agncy == "California Department of Fish and Wildlife") %>%
+  mutate(
+    centroid1 = mean(PC1),
+    centroid2 = mean(PC2)
+  )
 
 SP_components <- components %>%
-  filter(mng_agncy == "California Department of Parks and Recreation")
+  filter(mng_agncy == "California Department of Parks and Recreation") %>%
+  mutate(
+    centroid1 = mean(PC1),
+    centroid2 = mean(PC2)
+  )
 
 components <- components %>%
   filter(PC2 > -10)
@@ -1044,12 +1053,19 @@ loadings <- loadings %>%
     row.names(loadings) == "rar_mdn" ~ ""
   ))
 
+gap_mean <- components %>%
+  group_by(gap_status) %>%
+  summarize(
+    centroid1 = mean(PC1),
+    centroid2 = mean(PC2)
+  )
+
 HFI_icon <- rsvg_png(here::here("icons", "building-regular-full.svg"))
 strava_icon <- rsvg_png(here::here("icons", "person-running-solid-full.svg"))
 native_icon <- rsvg_png(here::here("icons", "seedling-solid-full.svg"))
 rare_icon <- rsvg_png(here::here("icons", "kiwi-bird-solid-full.svg"))
 
-readPNG_alpha <- function(png_path, alpha = 1, width_lines = 1.5, height_lines = 1.5) {
+readPNG_alpha <- function(png_path, alpha = 1, width_lines = 4, height_lines = 4) {
   img <- readPNG(png_path)
 
   # If PNG has no alpha channel, add one
@@ -1084,11 +1100,6 @@ p1 <- ggplot() +
   stat_ellipse(data = NPS_components, aes(PC1, PC2, color = "United States National Park Service"), level = 0.95, type = "t", alpha = 0.7, linewidth = 1.5) +
   stat_ellipse(data = UC_components, aes(PC1, PC2, color = "United States Forest Service"), level = 0.95, type = "t", alpha = 0.7, linewidth = 1.5) +
   stat_ellipse(data = TNC_components, aes(PC1, PC2, color = "The Nature Conservancy"), level = 0.95, type = "t", alpha = 0.7, linewidth = 1.5) +
-  geom_segment(data = loadings, aes(x = 0, xend = rotation.PC1, y = 0, yend = rotation.PC2), arrow = arrow(length = unit(0.25, "cm")), linewidth = 0.5, colour = "grey20") +
-  annotation_custom(strava_grob, xmin = loadings$rotation.PC1[1] - 0.2, xmax = loadings$rotation.PC1[1] - 0.2, ymin = loadings$rotation.PC2[1] + 0.3, ymax = loadings$rotation.PC2[1] + 0.3) +
-  annotation_custom(HFI_grob, xmin = loadings$rotation.PC1[2] - 0.2, xmax = loadings$rotation.PC1[2] - 0.2, ymin = loadings$rotation.PC2[2], ymax = loadings$rotation.PC2[2]) +
-  annotation_custom(native_grob, xmin = loadings$rotation.PC1[3] - .2, xmax = loadings$rotation.PC1[3] - 0.2, ymin = loadings$rotation.PC2[3] - 0.2, ymax = loadings$rotation.PC2[3] - 0.2) +
-  annotation_custom(rare_grob, xmin = loadings$rotation.PC1[4] + .2, xmax = loadings$rotation.PC1[4] + 0.2, ymin = loadings$rotation.PC2[4] - 0.2, ymax = loadings$rotation.PC2[4] - 0.2) +
   theme_bw(base_size = 20) +
   labs(
     x = paste0("PC1 (", round(explained_variance_ratio[1], 2), "%)"),
@@ -1099,14 +1110,25 @@ p1 <- ggplot() +
   scale_color_manual(values = colors) +
   guides(color = guide_legend(nrow = 3, byrow = TRUE))
 
+p3 <- ggplot() +
+  geom_segment(data = loadings, aes(x = 0, xend = rotation.PC1, y = 0, yend = rotation.PC2), arrow = arrow(length = unit(0.25, "cm")), linewidth = 2, colour = "grey20") +
+  annotation_custom(strava_grob, xmin = loadings$rotation.PC1[1] - 0.04, xmax = loadings$rotation.PC1[1], ymin = loadings$rotation.PC2[1], ymax = loadings$rotation.PC2[1]) +
+  annotation_custom(HFI_grob, xmin = loadings$rotation.PC1[2] - 0.04, xmax = loadings$rotation.PC1[2], ymin = loadings$rotation.PC2[2], ymax = loadings$rotation.PC2[2]) +
+  annotation_custom(native_grob, xmin = loadings$rotation.PC1[3], xmax = loadings$rotation.PC1[3], ymin = loadings$rotation.PC2[3], ymax = loadings$rotation.PC2[3] - 0.19) +
+  annotation_custom(rare_grob, xmin = loadings$rotation.PC1[4] - 0.03, xmax = loadings$rotation.PC1[4], ymin = loadings$rotation.PC2[4], ymax = loadings$rotation.PC2[4] - 0.17) +
+  theme_bw(base_size = 20) +
+  labs(
+    x = paste0("PC1 (", round(explained_variance_ratio[1], 2), "%)"),
+    y = paste0("PC2 (", round(explained_variance_ratio[2], 2), "%)"),
+    color = ""
+  ) +
+  theme(legend.position = "none") +
+  ylim(c(-0.8, 0.5)) +
+  xlim(c(-0.7, 0.1))
+
 p2 <- ggplot() +
   geom_point(data = components %>% filter(PC2 < 10), aes(PC1, PC2, color = gap_status), alpha = 0.5) +
   stat_ellipse(data = components %>% filter(PC2 < 10), aes(PC1, PC2, color = gap_status), level = 0.95, type = "t", alpha = 0.7, linewidth = 1.5) +
-  geom_segment(data = loadings, aes(x = 0, xend = rotation.PC1, y = 0, yend = rotation.PC2), arrow = arrow(length = unit(0.25, "cm")), linewidth = 0.5, colour = "grey20") +
-  annotation_custom(strava_grob, xmin = loadings$rotation.PC1[1] - 0.2, xmax = loadings$rotation.PC1[1] - 0.2, ymin = loadings$rotation.PC2[1] + 0.3, ymax = loadings$rotation.PC2[1] + 0.3) +
-  annotation_custom(HFI_grob, xmin = loadings$rotation.PC1[2] - 0.2, xmax = loadings$rotation.PC1[2] - 0.2, ymin = loadings$rotation.PC2[2], ymax = loadings$rotation.PC2[2]) +
-  annotation_custom(native_grob, xmin = loadings$rotation.PC1[3] - .2, xmax = loadings$rotation.PC1[3] - 0.2, ymin = loadings$rotation.PC2[3] - 0.2, ymax = loadings$rotation.PC2[3] - 0.2) +
-  annotation_custom(rare_grob, xmin = loadings$rotation.PC1[4] + .2, xmax = loadings$rotation.PC1[4] + 0.2, ymin = loadings$rotation.PC2[4] - 0.2, ymax = loadings$rotation.PC2[4] - 0.2) +
   theme_bw(base_size = 20) +
   labs(
     x = paste0("PC1 (", round(explained_variance_ratio[1], 2), "%)"),
@@ -1117,7 +1139,7 @@ p2 <- ggplot() +
   scale_color_manual(values = viridis::viridis(5, end = .9)[1:4]) +
   guides(color = guide_legend(nrow = 2, byrow = TRUE))
 
-ggsave(p2 / p1 + plot_annotation(tag_levels = "A"), file = paste0("fig2.pdf"), path = here::here("analysis", "figs"), height = 20, width = 12)
+ggsave((p2 + p1) / (p3) + plot_annotation(tag_levels = "A"), file = paste0("fig2.pdf"), path = here::here("analysis", "figs"), height = 15, width = 22)
 
 # Spatial Analysis --------------------------------------------------------
 
@@ -1167,7 +1189,9 @@ park_models <- park_models %>%
     rare_count = (rare_anm - mean_rare_count) / sd_rare_count,
     gray_scale = (gray_scale - mean_strava) / sd_strava
   ) %>%
-  distinct()
+  distinct() %>%
+  group_by(suid_nma) %>%
+  mutate(count = n())
 
 length(unique(park_models$suid_nma))
 
@@ -1176,34 +1200,67 @@ beta_animal <- data.frame()
 for (i in 1:length(unique(park_models$suid_nma))) {
   gam1 <- gam(gray_scale ~ HFP2009 + s(x, y, bs = "gp", m = 1, k = 25), data = park_models %>% filter(suid_nma == unique(park_models$suid_nma)[i]))
 
-  coef <- data.frame(value = gam1$coefficients[2], suid_nma = unique(park_models$suid_nma)[i], model = "Landscape Modification and Recreation")
+  est <- summary(gam1)$p.table["HFP2009", "Estimate"]
+  se <- summary(gam1)$p.table["HFP2009", "Std. Error"]
+
+  upper <- est + (1.96 * se)
+  lower <- est - (1.96 * se)
+
+  coef <- data.frame(value = est, upper = upper, lower = lower, suid_nma = unique(park_models$suid_nma)[i], model = "Landscape Modification and Human Mobility")
 
   beta_animal <- rbind(beta_animal, coef)
 
   gam1 <- gam(native_count ~ HFP2009 + s(x, y, bs = "gp", m = 1, k = 25), data = park_models %>% filter(suid_nma == unique(park_models$suid_nma)[i]))
 
-  coef <- data.frame(value = gam1$coefficients[2], suid_nma = unique(park_models$suid_nma)[i], model = "Native Species and Landscape Modification")
+  est <- summary(gam1)$p.table["HFP2009", "Estimate"]
+  se <- summary(gam1)$p.table["HFP2009", "Std. Error"]
+
+  upper <- est + (1.96 * se)
+  lower <- est - (1.96 * se)
+
+  coef <- data.frame(value = est, upper = upper, lower = lower, suid_nma = unique(park_models$suid_nma)[i], model = "Native Species and Landscape Modification")
 
   beta_animal <- rbind(beta_animal, coef)
 
   gam1 <- gam(native_count ~ gray_scale + s(x, y, bs = "gp", m = 1, k = 25), data = park_models %>% filter(suid_nma == unique(park_models$suid_nma)[i]))
 
-  coef <- data.frame(value = gam1$coefficients[2], suid_nma = unique(park_models$suid_nma)[i], model = "Native Species and Recreation")
+  est <- summary(gam1)$p.table["gray_scale", "Estimate"]
+  se <- summary(gam1)$p.table["gray_scale", "Std. Error"]
+
+  upper <- est + (1.96 * se)
+  lower <- est - (1.96 * se)
+
+  coef <- data.frame(value = est, upper = upper, lower = lower, suid_nma = unique(park_models$suid_nma)[i], model = "Native Species and Human Mobility")
 
   beta_animal <- rbind(beta_animal, coef)
 
   gam1 <- gam(rare_count ~ HFP2009 + s(x, y, bs = "gp", m = 1, k = 25), data = park_models %>% filter(suid_nma == unique(park_models$suid_nma)[i]))
 
-  coef <- data.frame(value = gam1$coefficients[2], suid_nma = unique(park_models$suid_nma)[i], model = "Rare Species and Landscape Modification")
+  est <- summary(gam1)$p.table["HFP2009", "Estimate"]
+  se <- summary(gam1)$p.table["HFP2009", "Std. Error"]
+
+  upper <- est + (1.96 * se)
+  lower <- est - (1.96 * se)
+
+  coef <- data.frame(value = est, upper = upper, lower = lower, suid_nma = unique(park_models$suid_nma)[i], model = "Rare Species and Landscape Modification")
 
   beta_animal <- rbind(beta_animal, coef)
 
   gam1 <- gam(rare_count ~ gray_scale + s(x, y, bs = "gp", m = 1, k = 25), data = park_models %>% filter(suid_nma == unique(park_models$suid_nma)[i]))
 
-  coef <- data.frame(value = gam1$coefficients[2], suid_nma = unique(park_models$suid_nma)[i], model = "Rare Species and Recreation")
+  est <- summary(gam1)$p.table["gray_scale", "Estimate"]
+  se <- summary(gam1)$p.table["gray_scale", "Std. Error"]
+
+  upper <- est + (1.96 * se)
+  lower <- est - (1.96 * se)
+
+  coef <- data.frame(value = est, upper = upper, lower = lower, suid_nma = unique(park_models$suid_nma)[i], model = "Rare Species and Human Mobility")
 
   beta_animal <- rbind(beta_animal, coef)
 }
+
+beta_animal <- full_join(beta_animal, park_models %>% select(suid_nma, count)) %>%
+  distinct()
 
 park_models <- spatial_data %>%
   select(gray_scale, suid_nma, HFP2009, y, x, mng_agncy, ntv_plnt, rar_plnt, shape_area) %>%
@@ -1242,7 +1299,9 @@ park_models <- park_models %>%
     gray_scale = (gray_scale - mean_strava) / sd_strava
   ) %>%
   distinct() %>%
-  filter(!(suid_nma %in% c(14013, 14029, 14047, 14172, 14248, 14310)))
+  filter(!(suid_nma %in% c(14013, 14029, 14047, 14172, 14248, 14310))) %>%
+  group_by(suid_nma) %>%
+  mutate(count = n())
 
 length(unique(park_models$suid_nma))
 
@@ -1251,70 +1310,104 @@ beta_plant <- data.frame()
 for (i in 1:length(unique(park_models$suid_nma))) {
   gam1 <- gam(native_count ~ HFP2009 + s(x, y, bs = "gp", m = 1, k = 10), data = park_models %>% filter(suid_nma == unique(park_models$suid_nma)[i]))
 
-  coef <- data.frame(value = gam1$coefficients[2], suid_nma = unique(park_models$suid_nma)[i], model = "Native Species and Landscape Modification")
+  est <- summary(gam1)$p.table["HFP2009", "Estimate"]
+  se <- summary(gam1)$p.table["HFP2009", "Std. Error"]
+
+  upper <- est + (1.96 * se)
+  lower <- est - (1.96 * se)
+
+  coef <- data.frame(value = est, upper = upper, lower = lower, suid_nma = unique(park_models$suid_nma)[i], model = "Native Species and Landscape Modification")
 
   beta_plant <- rbind(beta_plant, coef)
 
   gam1 <- gam(native_count ~ gray_scale + s(x, y, bs = "gp", m = 1, k = 10), data = park_models %>% filter(suid_nma == unique(park_models$suid_nma)[i]))
 
-  coef <- data.frame(value = gam1$coefficients[2], suid_nma = unique(park_models$suid_nma)[i], model = "Native Species and Recreation")
+  est <- summary(gam1)$p.table["gray_scale", "Estimate"]
+  se <- summary(gam1)$p.table["gray_scale", "Std. Error"]
+
+  upper <- est + (1.96 * se)
+  lower <- est - (1.96 * se)
+
+  coef <- data.frame(value = est, upper = upper, lower = lower, suid_nma = unique(park_models$suid_nma)[i], model = "Native Species and Human Mobility")
 
   beta_plant <- rbind(beta_plant, coef)
 
   gam1 <- gam(rare_count ~ HFP2009 + s(x, y, bs = "gp", m = 1, k = 10), data = park_models %>% filter(suid_nma == unique(park_models$suid_nma)[i]))
 
-  coef <- data.frame(value = gam1$coefficients[2], suid_nma = unique(park_models$suid_nma)[i], model = "Rare Species and Landscape Modification")
+  est <- summary(gam1)$p.table["HFP2009", "Estimate"]
+  se <- summary(gam1)$p.table["HFP2009", "Std. Error"]
+
+  upper <- est + (1.96 * se)
+  lower <- est - (1.96 * se)
+
+  coef <- data.frame(value = est, upper = upper, lower = lower, suid_nma = unique(park_models$suid_nma)[i], model = "Rare Species and Landscape Modification")
 
   beta_plant <- rbind(beta_plant, coef)
 
   gam1 <- gam(rare_count ~ gray_scale + s(x, y, bs = "gp", m = 1, k = 10), data = park_models %>% filter(suid_nma == unique(park_models$suid_nma)[i]))
 
-  coef <- data.frame(value = gam1$coefficients[2], suid_nma = unique(park_models$suid_nma)[i], model = "Rare Species and Recreation")
+  est <- summary(gam1)$p.table["gray_scale", "Estimate"]
+  se <- summary(gam1)$p.table["gray_scale", "Std. Error"]
+
+  upper <- est + (1.96 * se)
+  lower <- est - (1.96 * se)
+
+  coef <- data.frame(value = est, upper = upper, lower = lower, suid_nma = unique(park_models$suid_nma)[i], model = "Rare Species and Human Mobility")
 
   beta_plant <- rbind(beta_plant, coef)
 }
 
+beta_plant <- full_join(beta_plant, park_models %>% select(suid_nma, count)) %>%
+  distinct()
+
 beta <- full_join(beta_plant %>% mutate(type = "Plant"), beta_animal %>% mutate(type = "Animal")) %>%
   mutate(type = case_when(
-    model == "Landscape Modification and Recreation" ~ NA,
+    model == "Landscape Modification and Human Mobility" ~ NA,
     TRUE ~ type
+  )) %>%
+  mutate(suid_nma = fct_reorder(interaction(model, suid_nma, lex.order = TRUE), value)) %>%
+  mutate(sig = case_when(
+    upper > 0 & lower > 0 ~ "Positive Significant",
+    upper < 0 & lower < 0 ~ "Negative Significant",
+    TRUE ~ "Not Significant"
   ))
 
 t.test(beta %>% filter(model == "Native Species and Landscape Modification" &
-  type == "Animal")
+  type == "Animal") # p-value = 0.0003105
 %>% pull(value))
-t.test(beta %>% filter(model == "Native Species and Recreation" &
-  type == "Animal")
+t.test(beta %>% filter(model == "Native Species and Human Mobility" &
+  type == "Animal") # 0.01859
 %>% pull(value))
 t.test(beta %>% filter(model == "Rare Species and Landscape Modification" &
-  type == "Animal")
+  type == "Animal") # 2.115e-07
 %>% pull(value))
-t.test(beta %>% filter(model == "Rare Species and Recreation" &
-  type == "Animal")
+t.test(beta %>% filter(model == "Rare Species and Human Mobility" &
+  type == "Animal") # 3.798e-12
 %>% pull(value))
 t.test(beta %>% filter(model == "Native Species and Landscape Modification" &
-  type == "Plant")
+  type == "Plant") # p-value = 0.0003686
 %>% pull(value))
-t.test(beta %>% filter(model == "Native Species and Recreation" &
-  type == "Plant")
+t.test(beta %>% filter(model == "Native Species and Human Mobility" &
+  type == "Plant") # p-value = 0.2905
 %>% pull(value))
 t.test(beta %>% filter(model == "Rare Species and Landscape Modification" &
-  type == "Plant")
+  type == "Plant") # p-value = 0.1004
 %>% pull(value))
-t.test(beta %>% filter(model == "Rare Species and Recreation" &
-  type == "Plant")
+t.test(beta %>% filter(model == "Rare Species and Human Mobility" &
+  type == "Plant") # , p-value = 8.944e-09
 %>% pull(value))
-t.test(beta %>% filter(model == "Landscape Modification and Recreation")
-  %>% pull(value))
+t.test(beta %>% filter(model == "Landscape Modification and Human Mobility")
+  %>% pull(value)) # p-value = 3.228e-14
 
 beta_avg <- beta %>%
   group_by(type, model) %>%
-  summarize(mean_b = mean(value, na.rm = TRUE))
+  summarize(mean_b = weighted.mean(value, count, na.rm = TRUE))
 
 p1 <- ggplot(beta %>% filter(is.na(type))) +
-  geom_jitter(aes(x = value, y = model, color = value), height = .2, size = 2) +
-  geom_boxplot(aes(x = value, y = model), outliers = FALSE, fill = "transparent", linewidth = .5) +
-  geom_vline(aes(xintercept = 0), linetype = "dashed") +
+  geom_segment(aes(x = lower, xend = upper, y = suid_nma)) +
+  geom_point(aes(x = value, y = suid_nma, color = sig), size = 2) +
+  geom_vline(aes(xintercept = 0), linetype = "dashed", alpha = 0.3) +
+  geom_vline(data = beta_avg %>% filter(is.na(type)), aes(xintercept = mean_b), linetype = "dashed", color = "red", alpha = 0.3) +
   theme_bw(base_size = 20) +
   labs(
     x = "Beta",
@@ -1322,14 +1415,22 @@ p1 <- ggplot(beta %>% filter(is.na(type))) +
     color = ""
   ) +
   scale_y_discrete(limits = rev) +
-  scale_color_gradient2(low = "#762A83", mid = "darkgrey", high = "#1B7837", midpoint = 0, breaks = c(-.5, -0.25, 0, 0.25, 0.5, 0.75, 1)) +
-  theme(legend.position = "none") +
-  xlim(c(-.5, 1.1))
+  scale_color_manual(values = c("darkgrey", "#1B7837")) +
+  # scale_color_gradient2(low = "#762A83", mid = "darkgrey", high = "#1B7837", midpoint = 0, breaks = c(-.5, -0.25, 0, 0.25, 0.5, 0.75, 1)) +
+  theme(
+    legend.position = "none",
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    strip.background = element_rect(fill = "white", color = "white")
+  ) +
+  xlim(c(-.9, 1.6)) +
+  facet_wrap(~model, scales = "free_y", ncol = 4, strip.position = "left")
 
 p2 <- ggplot(beta %>% filter(type == "Animal")) +
-  geom_jitter(aes(x = value, y = model, color = value), height = .2, size = 2) +
-  geom_boxplot(aes(x = value, y = model), outliers = FALSE, fill = "transparent", linewidth = .5) +
-  geom_vline(aes(xintercept = 0), linetype = "dashed") +
+  geom_segment(aes(x = lower, xend = upper, y = suid_nma)) +
+  geom_point(aes(x = value, y = suid_nma, color = sig), size = 2) +
+  geom_vline(aes(xintercept = 0), linetype = "dashed", alpha = 0.3) +
+  geom_vline(data = beta_avg %>% filter(type == "Animal"), aes(xintercept = mean_b), linetype = "dashed", color = "red", alpha = 0.3) +
   theme_bw(base_size = 20) +
   labs(
     x = "Beta",
@@ -1337,14 +1438,22 @@ p2 <- ggplot(beta %>% filter(type == "Animal")) +
     color = ""
   ) +
   scale_y_discrete(limits = rev) +
-  scale_color_gradient2(low = "#762A83", mid = "darkgrey", high = "#1B7837", midpoint = 0, breaks = c(-.5, -0.25, 0, 0.25, 0.5, 0.75, 1)) +
-  theme(legend.position = "none") +
-  xlim(c(-.5, 1.1))
+  scale_color_manual(values = c("#762A83", "darkgrey", "#1B7837")) +
+  # scale_color_gradient2(low = "#762A83", mid = "darkgrey", high = "#1B7837", midpoint = 0, breaks = c(-.5, -0.25, 0, 0.25, 0.5, 0.75, 1)) +
+  theme(
+    legend.position = "none",
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    strip.background = element_rect(fill = "white", color = "white")
+  ) +
+  xlim(c(-.9, 1.6)) +
+  facet_wrap(~model, scales = "free_y", ncol = 4, strip.position = "left")
 
 p3 <- ggplot(beta %>% filter(type == "Plant")) +
-  geom_jitter(aes(x = value, y = model, color = value), height = .2, size = 2) +
-  geom_boxplot(aes(x = value, y = model), outliers = FALSE, fill = "transparent", linewidth = .5) +
-  geom_vline(aes(xintercept = 0), linetype = "dashed") +
+  geom_segment(aes(x = lower, xend = upper, y = suid_nma)) +
+  geom_point(aes(x = value, y = suid_nma, color = sig), size = 2) +
+  geom_vline(aes(xintercept = 0), linetype = "dashed", alpha = 0.3) +
+  geom_vline(data = beta_avg %>% filter(type == "Plant"), aes(xintercept = mean_b), linetype = "dashed", color = "red", alpha = 0.3) +
   theme_bw(base_size = 20) +
   labs(
     x = "Beta",
@@ -1352,18 +1461,15 @@ p3 <- ggplot(beta %>% filter(type == "Plant")) +
     color = ""
   ) +
   scale_y_discrete(limits = rev) +
-  scale_color_gradient2(low = "#762A83", mid = "darkgrey", high = "#1B7837", midpoint = 0, breaks = c(-.5, -0.25, 0, 0.25, 0.5, 0.75, 1)) +
+  scale_color_manual(values = c("#762A83", "darkgrey", "#1B7837")) +
+  # scale_color_gradient2(low = "#762A83", mid = "darkgrey", high = "#1B7837", midpoint = 0, breaks = c(-.5, -0.25, 0, 0.25, 0.5, 0.75, 1)) +
   theme(
-    legend.position = "none"
+    legend.position = "none",
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    strip.background = element_rect(fill = "white", color = "white")
   ) +
-  xlim(c(-.5, 1.1))
+  xlim(c(-.9, 1.6)) +
+  facet_wrap(~model, scales = "free_y", ncol = 4, strip.position = "left")
 
-layout <- "
-AAA
-BBB
-BBB
-CCC
-CCC
-"
-
-ggsave(p1 / p2 / p3 + plot_annotation(tag_levels = "A") + plot_layout(design = layout), file = paste0("fig3.pdf"), path = here::here("analysis", "figs"), height = 8, width = 12)
+ggsave(p1 / p2 / p3 + plot_annotation(tag_levels = "A"), file = paste0("fig3.pdf"), path = here::here("analysis", "figs"), height = 20, width = 20)
