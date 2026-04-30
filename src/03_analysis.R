@@ -515,6 +515,8 @@ p6 <- ggplot() +
   ) +
   scale_fill_viridis_c(end = 0.9, na.value = "white")
 
+ggsave(plot = p11, filename = paste0("fig1.pdf"), path = here::here("analysis", "figs"), height = 10, width = 8)
+
 plot <- (p1 + p2) / (p3 + p4) / (p5 + p6) + plot_annotation(tag_levels = "A")
 
 ggsave(plot, file = paste0("figS1.pdf"), path = here::here("analysis", "figs"), height = 15, width = 19)
@@ -643,163 +645,6 @@ anova(lm8)
 summary(lm8)
 eta_squared(lm8, partial = TRUE) # mng_agncy | 0.02 | [0.00, 1.00]
 
-# rsvg_png(here::here("icons", "building-regular-full.svg"), file = here::here("icons", "building-regular-full.png"))
-# rsvg_png(here::here("icons", "kiwi-bird-solid-full.svg"), file = here::here("icons", "kiwi-bird-solid-full.png"))
-# rsvg_png(here::here("icons", "person-running-solid-full.svg"), file = here::here("icons", "person-running-solid-full.png"))
-# rsvg_png(here::here("icons", "seedling-solid-full.svg"), file = here::here("icons", "seedling-solid-full.png"))
-
-HFI_png <- here::here("icons", "building-regular-full.png")
-strava_png <- here::here("icons", "person-running-solid-full.png")
-native_png <- here::here("icons", "seedling-solid-full.png")
-rare_png <- here::here("icons", "kiwi-bird-solid-full.png")
-
-lm1_terms = coef(summary(lm1)) %>% 
-  as.data.frame() %>% 
-  janitor::clean_names() %>% 
-  select(estimate, std_error, pr_t) %>% 
-  mutate(term = rownames(lm1_terms)) %>% 
-  filter(term != "(Intercept)") %>% 
-  mutate(sig = case_when(
-    pr_t >= 0.05 ~ "Not Significant",
-    pr_t < 0.05 & estimate > 0 ~ "Positive Significant",
-    pr_t < 0.05 & estimate < 0 ~ "Negative Significant"
-  ))
-
-lm1_terms$term = c("GAP 2", "GAP 3", "GAP 4")
-
-lm1_re = ranef(lm1)[["suid_nma"]] %>% 
-  as.data.frame() %>% 
-  mutate(suid_nma = as.numeric(rownames(lm1_re))) %>% 
-  full_join(human %>% select(gap_status, suid_nma)) %>% 
-  janitor::clean_names() 
-
-p1 <- ggplot(lm1_terms) +
-  geom_segment(aes(x = estimate-std_error, xend = estimate+std_error, y = term), linewidth = 1) +
-  geom_point(aes(x = estimate, y = term, color = sig), size = 4) +
-  geom_vline(aes(xintercept = 0), linetype = "dashed", alpha = 0.3, color = "red") +
-  theme_bw(base_size = 20) +
-  labs(
-    x = paste0("Landscape Modification Estimate ", "<img src='", HFI_png, "' width='24'/>"),
-    y = "",
-    fill = ""
-  ) +
-  scale_color_manual(values = c("#762A83", "darkgrey", "#1B7837")) +
-  theme(
-    legend.position = "none",
-    axis.title.x = element_markdown()
-  )
-
-p1.1 = ggplot(lm1_re) +
-  geom_density_ridges(aes(x = intercept, y = gap_status, fill = gap_status)) + 
-  theme_bw(base_size = 20) +
-  geom_vline(aes(xintercept = 0), linetype = "dashed", alpha = 0.3, color = "red") +
-  labs(
-    x = paste0("Landscape Modification Random Intercept ", "<img src='", HFI_png, "' width='24'/>"),
-    y = "",
-    fill = ""
-  ) +
-  scale_fill_manual(values = c(viridis::viridis(5, end = .9)[1:4])) +
-  theme(
-    legend.position = "none",
-    axis.title.x = element_markdown()
-  )
-  
-
-p2 <- ggplot(bio_gap) +
-  theme_bw(base_size = 20) +
-  labs(
-    x = paste0("Native Species Count ", "<img src='", native_png, "' width='24'/>"),
-    y = "",
-    fill = ""
-  ) +
-  theme(
-    legend.position = "none",
-    axis.title.x = element_markdown()
-  )
-
-p3 <- ggplot(rare_gap) +
-  theme_bw(base_size = 20) +
-  labs(
-    x = paste0("Rare Species Count ", "<img src='", rare_png, "' width='24'/>"),
-    y = "",
-    fill = ""
-  ) +
-  theme(
-    legend.position = "none",
-    axis.title.x = element_markdown()
-  )
-
-p6 <- ggplot(strava_gap) +
-  theme_bw(base_size = 20) +
-  labs(
-    x = paste0("Human Mobility ", "<img src='", strava_png, "' width='24'/>"),
-    y = "",
-    fill = ""
-  ) +
-  theme(
-    axis.title.x = element_markdown(),
-    legend.position = "none"
-  )
-
-p7 <- ggplot(hfp_manage) +
-  theme_bw(base_size = 20) +
-  labs(
-    x = paste0("Landscape Modification ", "<img src='", HFI_png, "' width='24'/>"),
-    y = "",
-    fill = ""
-  ) +
-  theme(
-    legend.position = "none",
-    axis.title.x = element_markdown()
-  )
-
-p8 <- ggplot(bio_manage) +
-  theme_bw(base_size = 20) +
-  labs(
-    x = paste0("Native Species Count ", "<img src='", native_png, "' width='24'/>"),
-    y = "",
-    fill = ""
-  ) +
-  theme(
-    legend.position = "none",
-    axis.title.x = element_markdown()
-  )
-
-p9 <- ggplot(rare_manage) +
-  theme_bw(base_size = 20) +
-  labs(
-    x = paste0("Rare Species Count ", "<img src='", rare_png, "' width='24'/>"),
-    y = "",
-    fill = ""
-  ) +
-  theme(
-    legend.position = "none",
-    axis.title.x = element_markdown()
-  )
-
-p10 <- ggplot(strava_manage) +
-  theme_bw(base_size = 20) +
-  labs(
-    x = paste0("Human Mobility ", "<img src='", strava_png, "' width='24'/>"),
-    y = "",
-    fill = ""
-  ) +
-  theme(
-    legend.position = "none",
-    axis.title.x = element_markdown()
-  )
-
-
-layout <- "
-AABF
-AACG
-AADH
-AAEI
-"
-
-plot <- p11 + p2 + p3 + p1 + p6 + p8 + p9 + p7 + p10 + plot_annotation(tag_levels = "A") + plot_layout(design = layout)
-
-ggsave(plot = plot, filename = paste0("fig1.pdf"), path = here::here("analysis", "figs"), height = 15, width = 30, device = cairo_pdf)
 
 # Scatter Plot/PCA ------------------------------------------------------------
 
@@ -974,7 +819,7 @@ p2 <- ggplot() +
   scale_color_manual(values = viridis::viridis(5, end = .9)[1:4]) +
   guides(color = guide_legend(nrow = 2, byrow = TRUE))
 
-ggsave((p2 + p1) / (p3) + plot_annotation(tag_levels = "A"), file = paste0("fig2.pdf"), path = here::here("analysis", "figs"), height = 15, width = 22)
+ggsave((p3) / (p2 + p1) + plot_annotation(tag_levels = "A"), file = paste0("fig2.pdf"), path = here::here("analysis", "figs"), height = 15, width = 22)
 
 # Spatial Analysis --------------------------------------------------------
 
