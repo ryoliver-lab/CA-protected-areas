@@ -26,7 +26,7 @@ library(effectsize)
 library(colorspace)
 library(lme4)
 library(lmerTest)
-library(sjPlot)
+library(sjstats)
 
 sf_use_s2(FALSE)
 
@@ -515,11 +515,11 @@ p6 <- ggplot() +
   ) +
   scale_fill_viridis_c(end = 0.9, na.value = "white")
 
-ggsave(plot = p11, filename = paste0("fig1.pdf"), path = here::here("analysis", "figs"), height = 10, width = 8)
+ggsave(plot = p11, filename = paste0("fig1.pdf"), path = here::here("analysis", "figs"), height = 7, width = 8, device = cairo_pdf)
 
 plot <- (p1 + p2) / (p3 + p4) / (p5 + p6) + plot_annotation(tag_levels = "A")
 
-ggsave(plot, file = paste0("figS1.pdf"), path = here::here("analysis", "figs"), height = 15, width = 19)
+ggsave(plot, file = paste0("figS1.pdf"), path = here::here("analysis", "figs"), height = 15, width = 19, device = cairo_pdf)
 
 # ANOVA -------------------------------------------------------------------
 
@@ -1052,50 +1052,35 @@ beta <- full_join(beta_plant %>% mutate(type = "Plant"), beta_animal %>% mutate(
     TRUE ~ "Not Significant"
   ))
 
-t.test(beta %>% filter(model == "Native Species and Landscape Modification" &
-  type == "Animal") # p-value = 0.0003105
-%>% pull(value))
-t.test(beta %>% filter(model == "Native Species and Human Mobility" &
-  type == "Animal") # 0.01859
-%>% pull(value))
-t.test(beta %>% filter(model == "Rare Species and Landscape Modification" &
-  type == "Animal") # 2.115e-07
-%>% pull(value))
-t.test(beta %>% filter(model == "Rare Species and Human Mobility" &
-  type == "Animal") # 3.798e-12
-%>% pull(value))
-t.test(beta %>% filter(model == "Native Species and Landscape Modification" &
-  type == "Plant") # p-value = 0.0003686
-%>% pull(value))
-t.test(beta %>% filter(model == "Native Species and Human Mobility" &
-  type == "Plant") # p-value = 0.2905
-%>% pull(value))
-t.test(beta %>% filter(model == "Rare Species and Landscape Modification" &
-  type == "Plant") # p-value = 0.1004
-%>% pull(value))
-t.test(beta %>% filter(model == "Rare Species and Human Mobility" &
-  type == "Plant") # , p-value = 8.944e-09
-%>% pull(value))
-t.test(beta %>% filter(model == "Landscape Modification and Human Mobility")
-  %>% pull(value)) # p-value = 3.228e-14
+t_test(beta %>% filter(model == "Native Species and Landscape Modification" &
+  type == "Animal"), "value", weights = "count", alternative = "greater")
+# p-value < .001
 
-beta_avg <- beta %>%
-  group_by(type, model) %>%
-  summarize(mean_b = weighted.mean(value, count, na.rm = TRUE))
+limits1 <- ifelse(max(abs(beta %>% filter(model == "Native Species and Landscape Modification" &
+  type == "Animal") %>% pull(upper)))
+>
+  max(abs(beta %>% filter(model == "Native Species and Landscape Modification" &
+    type == "Animal") %>% pull(lower))),
+max(abs(beta %>% filter(model == "Native Species and Landscape Modification" &
+  type == "Animal") %>% pull(upper))),
+max(abs(beta %>% filter(model == "Native Species and Landscape Modification" &
+  type == "Animal") %>% pull(lower)))
+)
 
-p1 <- ggplot(beta %>% filter(is.na(type))) +
-  geom_segment(aes(x = lower, xend = upper, y = suid_nma)) +
-  geom_point(aes(x = value, y = suid_nma, color = sig), size = 2) +
+p1 <- ggplot(beta %>% filter(model == "Native Species and Landscape Modification" &
+  type == "Animal") %>% mutate(suid_nma = fct_reorder(suid_nma, value))) +
+  geom_segment(aes(x = lower, xend = upper, y = suid_nma, color = sig)) +
+  geom_point(aes(x = value, y = suid_nma, color = sig), size = 3) +
   geom_vline(aes(xintercept = 0), linetype = "dashed", alpha = 0.3) +
-  geom_vline(data = beta_avg %>% filter(is.na(type)), aes(xintercept = mean_b), linetype = "dashed", color = "red", alpha = 0.3) +
+  geom_vline(aes(xintercept = 0.14), linetype = "dashed", alpha = 0.3, color = "red") +
   theme_bw(base_size = 20) +
   labs(
     x = "Beta",
-    y = "",
+    y = "Animal \nNative Species and Landscape Modification",
     color = ""
   ) +
   scale_y_discrete(limits = rev) +
-  scale_color_manual(values = c("darkgrey", "#1B7837")) +
+  scale_color_manual(values = c("#D01C8B", "darkgrey", "#1B9E77")) +
   # scale_color_gradient2(low = "#762A83", mid = "darkgrey", high = "#1B7837", midpoint = 0, breaks = c(-.5, -0.25, 0, 0.25, 0.5, 0.75, 1)) +
   theme(
     legend.position = "none",
@@ -1103,22 +1088,37 @@ p1 <- ggplot(beta %>% filter(is.na(type))) +
     axis.ticks.y = element_blank(),
     strip.background = element_rect(fill = "white", color = "white")
   ) +
-  xlim(c(-.9, 1.6)) +
-  facet_wrap(~model, scales = "free_y", ncol = 4, strip.position = "left")
+  xlim(c(-limits1, limits1))
 
-p2 <- ggplot(beta %>% filter(type == "Animal")) +
-  geom_segment(aes(x = lower, xend = upper, y = suid_nma)) +
-  geom_point(aes(x = value, y = suid_nma, color = sig), size = 2) +
+t_test(beta %>% filter(model == "Native Species and Human Mobility" &
+  type == "Animal"), "value", weights = "count", alternative = "greater")
+# < .001
+
+limits2 <- ifelse(max(abs(beta %>% filter(model == "Native Species and Human Mobility" &
+  type == "Animal") %>% pull(upper)))
+>
+  max(abs(beta %>% filter(model == "Native Species and Human Mobility" &
+    type == "Animal") %>% pull(lower))),
+max(abs(beta %>% filter(model == "Native Species and Human Mobility" &
+  type == "Animal") %>% pull(upper))),
+max(abs(beta %>% filter(model == "Native Species and Human Mobility" &
+  type == "Animal") %>% pull(lower)))
+)
+
+p2 <- ggplot(beta %>% filter(model == "Native Species and Human Mobility" &
+  type == "Animal") %>% mutate(suid_nma = fct_reorder(suid_nma, value))) +
+  geom_segment(aes(x = lower, xend = upper, y = suid_nma, color = sig)) +
+  geom_point(aes(x = value, y = suid_nma, color = sig), size = 3) +
   geom_vline(aes(xintercept = 0), linetype = "dashed", alpha = 0.3) +
-  geom_vline(data = beta_avg %>% filter(type == "Animal"), aes(xintercept = mean_b), linetype = "dashed", color = "red", alpha = 0.3) +
+  geom_vline(aes(xintercept = 0.11), linetype = "dashed", alpha = 0.3, color = "red") +
   theme_bw(base_size = 20) +
   labs(
     x = "Beta",
-    y = "",
+    y = "Animal \nNative Species and Human Mobility",
     color = ""
   ) +
   scale_y_discrete(limits = rev) +
-  scale_color_manual(values = c("#762A83", "darkgrey", "#1B7837")) +
+  scale_color_manual(values = c("darkgrey", "#1B9E77")) +
   # scale_color_gradient2(low = "#762A83", mid = "darkgrey", high = "#1B7837", midpoint = 0, breaks = c(-.5, -0.25, 0, 0.25, 0.5, 0.75, 1)) +
   theme(
     legend.position = "none",
@@ -1126,22 +1126,37 @@ p2 <- ggplot(beta %>% filter(type == "Animal")) +
     axis.ticks.y = element_blank(),
     strip.background = element_rect(fill = "white", color = "white")
   ) +
-  xlim(c(-.9, 1.6)) +
-  facet_wrap(~model, scales = "free_y", ncol = 4, strip.position = "left")
+  xlim(c(-limits2, limits2))
 
-p3 <- ggplot(beta %>% filter(type == "Plant")) +
-  geom_segment(aes(x = lower, xend = upper, y = suid_nma)) +
-  geom_point(aes(x = value, y = suid_nma, color = sig), size = 2) +
+t_test(beta %>% filter(model == "Rare Species and Landscape Modification" &
+  type == "Animal"), "value", weights = "count", alternative = "greater")
+# < .001
+
+limits3 <- ifelse(max(abs(beta %>% filter(model == "Rare Species and Landscape Modification" &
+  type == "Animal") %>% pull(upper)))
+>
+  max(abs(beta %>% filter(model == "Rare Species and Landscape Modification" &
+    type == "Animal") %>% pull(lower))),
+max(abs(beta %>% filter(model == "Rare Species and Landscape Modification" &
+  type == "Animal") %>% pull(upper))),
+max(abs(beta %>% filter(model == "Rare Species and Landscape Modification" &
+  type == "Animal") %>% pull(lower)))
+)
+
+p3 <- ggplot(beta %>% filter(model == "Rare Species and Landscape Modification" &
+  type == "Animal") %>% mutate(suid_nma = fct_reorder(suid_nma, value))) +
+  geom_segment(aes(x = lower, xend = upper, y = suid_nma, color = sig)) +
+  geom_point(aes(x = value, y = suid_nma, color = sig), size = 3) +
   geom_vline(aes(xintercept = 0), linetype = "dashed", alpha = 0.3) +
-  geom_vline(data = beta_avg %>% filter(type == "Plant"), aes(xintercept = mean_b), linetype = "dashed", color = "red", alpha = 0.3) +
+  geom_vline(aes(xintercept = 0.21), linetype = "dashed", alpha = 0.3, color = "red") +
   theme_bw(base_size = 20) +
   labs(
     x = "Beta",
-    y = "",
+    y = "Animal \nRare Species and Landscape Modification",
     color = ""
   ) +
   scale_y_discrete(limits = rev) +
-  scale_color_manual(values = c("#762A83", "darkgrey", "#1B7837")) +
+  scale_color_manual(values = c("darkgrey", "#1B9E77")) +
   # scale_color_gradient2(low = "#762A83", mid = "darkgrey", high = "#1B7837", midpoint = 0, breaks = c(-.5, -0.25, 0, 0.25, 0.5, 0.75, 1)) +
   theme(
     legend.position = "none",
@@ -1149,7 +1164,241 @@ p3 <- ggplot(beta %>% filter(type == "Plant")) +
     axis.ticks.y = element_blank(),
     strip.background = element_rect(fill = "white", color = "white")
   ) +
-  xlim(c(-.9, 1.6)) +
-  facet_wrap(~model, scales = "free_y", ncol = 4, strip.position = "left")
+  xlim(c(-limits3, limits3))
 
-ggsave(p1 / p2 / p3 + plot_annotation(tag_levels = "A"), file = paste0("fig3.pdf"), path = here::here("analysis", "figs"), height = 20, width = 20)
+t_test(beta %>% filter(model == "Rare Species and Human Mobility" &
+  type == "Animal"), "value", weights = "count", alternative = "greater")
+# < .001
+
+limits4 <- ifelse(max(abs(beta %>% filter(model == "Rare Species and Human Mobility" &
+  type == "Animal") %>% pull(upper)))
+>
+  max(abs(beta %>% filter(model == "Rare Species and Human Mobility" &
+    type == "Animal") %>% pull(lower))),
+max(abs(beta %>% filter(model == "Rare Species and Human Mobility" &
+  type == "Animal") %>% pull(upper))),
+max(abs(beta %>% filter(model == "Rare Species and Human Mobility" &
+  type == "Animal") %>% pull(lower)))
+)
+
+p4 <- ggplot(beta %>% filter(model == "Rare Species and Human Mobility" &
+  type == "Animal") %>% mutate(suid_nma = fct_reorder(suid_nma, value))) +
+  geom_segment(aes(x = lower, xend = upper, y = suid_nma, color = sig)) +
+  geom_point(aes(x = value, y = suid_nma, color = sig), size = 3) +
+  geom_vline(aes(xintercept = 0), linetype = "dashed", alpha = 0.3) +
+  geom_vline(aes(xintercept = 0.26), linetype = "dashed", alpha = 0.3, color = "red") +
+  theme_bw(base_size = 20) +
+  labs(
+    x = "Beta",
+    y = "Animal \nRare Species and Human Mobility",
+    color = ""
+  ) +
+  scale_y_discrete(limits = rev) +
+  scale_color_manual(values = c("darkgrey", "#1B9E77")) +
+  # scale_color_gradient2(low = "#762A83", mid = "darkgrey", high = "#1B7837", midpoint = 0, breaks = c(-.5, -0.25, 0, 0.25, 0.5, 0.75, 1)) +
+  theme(
+    legend.position = "none",
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    strip.background = element_rect(fill = "white", color = "white")
+  ) +
+  xlim(c(-limits4, limits4))
+
+t_test(beta %>% filter(model == "Native Species and Landscape Modification" &
+  type == "Plant"), "value", weights = "count", alternative = "greater")
+# p-value > .999
+
+limits5 <- ifelse(max(abs(beta %>% filter(model == "Native Species and Landscape Modification" &
+  type == "Plant") %>% pull(upper)))
+>
+  max(abs(beta %>% filter(model == "Native Species and Landscape Modification" &
+    type == "Plant") %>% pull(lower))),
+max(abs(beta %>% filter(model == "Native Species and Landscape Modification" &
+  type == "Plant") %>% pull(upper))),
+max(abs(beta %>% filter(model == "Native Species and Landscape Modification" &
+  type == "Plant") %>% pull(lower)))
+)
+
+p5 <- ggplot(beta %>% filter(model == "Native Species and Landscape Modification" &
+  type == "Plant") %>% mutate(suid_nma = fct_reorder(suid_nma, value))) +
+  geom_segment(aes(x = lower, xend = upper, y = suid_nma, color = sig)) +
+  geom_point(aes(x = value, y = suid_nma, color = sig), size = 3) +
+  geom_vline(aes(xintercept = 0), linetype = "dashed", alpha = 0.3) +
+  geom_vline(aes(xintercept = -0.07), linetype = "dashed", alpha = 0.3, color = "red") +
+  theme_bw(base_size = 20) +
+  labs(
+    x = "Beta",
+    y = "Plant \nNative Species and Landscape Modification",
+    color = ""
+  ) +
+  scale_y_discrete(limits = rev) +
+  scale_color_manual(values = c("#D01C8B", "darkgrey", "#1B9E77")) +
+  # scale_color_gradient2(low = "#762A83", mid = "darkgrey", high = "#1B7837", midpoint = 0, breaks = c(-.5, -0.25, 0, 0.25, 0.5, 0.75, 1)) +
+  theme(
+    legend.position = "none",
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    strip.background = element_rect(fill = "white", color = "white")
+  ) +
+  xlim(c(-limits5, limits5))
+
+t_test(beta %>% filter(model == "Native Species and Human Mobility" &
+  type == "Plant"), "value", weights = "count", alternative = "greater")
+# p-value = 0.343
+
+limits6 <- ifelse(max(abs(beta %>% filter(model == "Native Species and Human Mobility" &
+  type == "Plant") %>% pull(upper)))
+>
+  max(abs(beta %>% filter(model == "Native Species and Human Mobility" &
+    type == "Plant") %>% pull(lower))),
+max(abs(beta %>% filter(model == "Native Species and Human Mobility" &
+  type == "Plant") %>% pull(upper))),
+max(abs(beta %>% filter(model == "Native Species and Human Mobility" &
+  type == "Plant") %>% pull(lower)))
+)
+
+p6 <- ggplot(beta %>% filter(model == "Native Species and Human Mobility" &
+  type == "Plant") %>% mutate(suid_nma = fct_reorder(suid_nma, value))) +
+  geom_segment(aes(x = lower, xend = upper, y = suid_nma, color = sig)) +
+  geom_point(aes(x = value, y = suid_nma, color = sig), size = 3) +
+  geom_vline(aes(xintercept = 0), linetype = "dashed", alpha = 0.3) +
+  geom_vline(aes(xintercept = 0.01), linetype = "dashed", alpha = 0.3, color = "red") +
+  theme_bw(base_size = 20) +
+  labs(
+    x = "Beta",
+    y = "Plant \nNative Species and Human Mobility",
+    color = ""
+  ) +
+  scale_y_discrete(limits = rev) +
+  scale_color_manual(values = c("#D01C8B", "darkgrey", "#1B9E77")) +
+  # scale_color_gradient2(low = "#762A83", mid = "darkgrey", high = "#1B7837", midpoint = 0, breaks = c(-.5, -0.25, 0, 0.25, 0.5, 0.75, 1)) +
+  theme(
+    legend.position = "none",
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    strip.background = element_rect(fill = "white", color = "white")
+  ) +
+  xlim(c(-limits6, limits6))
+
+
+t_test(beta %>% filter(model == "Rare Species and Landscape Modification" &
+  type == "Plant"), "value", weights = "count", alternative = "greater")
+# p-value = 0.004
+
+limits7 <- ifelse(max(abs(beta %>% filter(model == "Rare Species and Landscape Modification" &
+  type == "Plant") %>% pull(upper)))
+>
+  max(abs(beta %>% filter(model == "Rare Species and Landscape Modification" &
+    type == "Plant") %>% pull(lower))),
+max(abs(beta %>% filter(model == "Rare Species and Landscape Modification" &
+  type == "Plant") %>% pull(upper))),
+max(abs(beta %>% filter(model == "Rare Species and Landscape Modification" &
+  type == "Plant") %>% pull(lower)))
+)
+
+p7 <- ggplot(beta %>% filter(model == "Rare Species and Landscape Modification" &
+  type == "Plant") %>% mutate(suid_nma = fct_reorder(suid_nma, value))) +
+  geom_segment(aes(x = lower, xend = upper, y = suid_nma, color = sig)) +
+  geom_point(aes(x = value, y = suid_nma, color = sig), size = 3) +
+  geom_vline(aes(xintercept = 0), linetype = "dashed", alpha = 0.3) +
+  geom_vline(aes(xintercept = 0.06), linetype = "dashed", alpha = 0.3, color = "red") +
+  theme_bw(base_size = 20) +
+  labs(
+    x = "Beta",
+    y = "Plant \nRare Species and Landscape Modification",
+    color = ""
+  ) +
+  scale_y_discrete(limits = rev) +
+  scale_color_manual(values = c("#D01C8B", "darkgrey", "#1B9E77")) +
+  # scale_color_gradient2(low = "#762A83", mid = "darkgrey", high = "#1B7837", midpoint = 0, breaks = c(-.5, -0.25, 0, 0.25, 0.5, 0.75, 1)) +
+  theme(
+    legend.position = "none",
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    strip.background = element_rect(fill = "white", color = "white")
+  ) +
+  xlim(c(-limits7, limits7))
+
+t_test(beta %>% filter(model == "Rare Species and Human Mobility" &
+  type == "Plant"), "value", weights = "count", alternative = "greater")
+# p-value < .001
+
+limits8 <- ifelse(max(abs(beta %>% filter(model == "Rare Species and Human Mobility" &
+  type == "Plant") %>% pull(upper)))
+>
+  max(abs(beta %>% filter(model == "Rare Species and Human Mobility" &
+    type == "Plant") %>% pull(lower))),
+max(abs(beta %>% filter(model == "Rare Species and Human Mobility" &
+  type == "Plant") %>% pull(upper))),
+max(abs(beta %>% filter(model == "Rare Species and Human Mobility" &
+  type == "Plant") %>% pull(lower)))
+)
+
+p8 <- ggplot(beta %>% filter(model == "Rare Species and Human Mobility" &
+  type == "Plant") %>% mutate(suid_nma = fct_reorder(suid_nma, value))) +
+  geom_segment(aes(x = lower, xend = upper, y = suid_nma, color = sig)) +
+  geom_point(aes(x = value, y = suid_nma, color = sig), size = 3) +
+  geom_vline(aes(xintercept = 0), linetype = "dashed", alpha = 0.3) +
+  geom_vline(aes(xintercept = 0.18), linetype = "dashed", alpha = 0.3, color = "red") +
+  theme_bw(base_size = 20) +
+  labs(
+    x = "Beta",
+    y = "Plant \nRare Species and Human Mobility",
+    color = ""
+  ) +
+  scale_y_discrete(limits = rev) +
+  scale_color_manual(values = c("darkgrey", "#1B9E77")) +
+  # scale_color_gradient2(low = "#762A83", mid = "darkgrey", high = "#1B7837", midpoint = 0, breaks = c(-.5, -0.25, 0, 0.25, 0.5, 0.75, 1)) +
+  theme(
+    legend.position = "none",
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    strip.background = element_rect(fill = "white", color = "white")
+  ) +
+  xlim(c(-limits8, limits8))
+
+t_test(beta %>% filter(model == "Landscape Modification and Human Mobility"),
+  "value",
+  weights = "count", alternative = "greater"
+)
+# p-value < .001
+
+limits9 <- ifelse(max(abs(beta %>% filter(model == "Landscape Modification and Human Mobility") %>% pull(upper)))
+>
+  max(abs(beta %>% filter(model == "Landscape Modification and Human Mobility") %>% pull(lower))),
+max(abs(beta %>% filter(model == "Landscape Modification and Human Mobility") %>% pull(upper))),
+max(abs(beta %>% filter(model == "Landscape Modification and Human Mobility") %>% pull(lower)))
+)
+
+p9 <- ggplot(beta %>% filter(is.na(type)) %>% mutate(suid_nma = fct_reorder(suid_nma, value))) +
+  geom_segment(aes(x = lower, xend = upper, y = suid_nma, color = sig)) +
+  geom_point(aes(x = value, y = suid_nma, color = sig), size = 3) +
+  geom_vline(aes(xintercept = 0), linetype = "dashed", alpha = 0.3) +
+  geom_vline(aes(xintercept = 0.36), linetype = "dashed", alpha = 0.3, color = "red") +
+  theme_bw(base_size = 20) +
+  labs(
+    x = "Beta",
+    y = "\nLandscape Modification and Human Mobility",
+    color = ""
+  ) +
+  scale_y_discrete(limits = rev) +
+  scale_color_manual(values = c("darkgrey", "#1B9E77")) +
+  # scale_color_gradient2(low = "#762A83", mid = "darkgrey", high = "#1B7837", midpoint = 0, breaks = c(-.5, -0.25, 0, 0.25, 0.5, 0.75, 1)) +
+  theme(
+    legend.position = "none",
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    strip.background = element_rect(fill = "white", color = "white")
+  ) +
+  xlim(c(-limits9, limits9))
+
+layout <- "
+ABCD
+EFGH
+"
+
+plot <- (p1 + p3 + p7 + p8) / (p2 + p4 + p9 + plot_spacer()) + plot_annotation(tag_levels = "A") + plot_layout(design = layout)
+
+ggsave(plot, file = paste0("fig3.pdf"), path = here::here("analysis", "figs"), height = 25, width = 35)
+
+ggsave(p5 / p6 + plot_annotation(tag_levels = "A"), file = paste0("figS2.pdf"), path = here::here("analysis", "figs"), height = 12, width = 10)
