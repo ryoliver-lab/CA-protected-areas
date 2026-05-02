@@ -33,25 +33,15 @@ strava_sum <- cpad_strava_coarse_values %>%
     mean_1 = median(strava_coarse_1, na.rm = TRUE),
     mean_2 = median(strava_coarse_2, na.rm = TRUE),
     mean_3 = median(strava_coarse_3, na.rm = TRUE),
-    max_1 = max(strava_coarse_1, na.rm = TRUE),
-    max_2 = max(strava_coarse_2, na.rm = TRUE),
-    max_3 = max(strava_coarse_3, na.rm = TRUE),
-    min_1 = min(strava_coarse_1, na.rm = TRUE),
-    min_2 = min(strava_coarse_2, na.rm = TRUE),
-    min_3 = min(strava_coarse_3, na.rm = TRUE)
   ) %>%
   distinct() %>%
-  filter(!is.na(mean_1))
-
-strava_sum <- strava_sum %>%
+  filter(!is.na(mean_1)) %>%
   mutate(gray_scale = (0.299 * mean_1) + (0.587 * mean_2) + (0.114 * mean_3)) %>%
   select(ID, gray_scale)
 
-cpad_strava <- full_join(cpad_super, strava_sum) %>%
-  select(-ID) %>%
-  st_drop_geometry() %>%
-  distinct() %>%
-  full_join(cpad_super)
+cpad_strava <- full_join(cpad_super %>% select(ID, suid_nma), strava_sum) %>%
+  select(-ID) %>% 
+  distinct() 
 
 st_write(cpad_strava, here::here("data", "processed_data", "cpad_strava.shp"), append = FALSE)
 
@@ -73,28 +63,11 @@ cpad_hfp_values <- terra::extract(x = hfp_masked, y = cpad_super)
 
 hfp <- extract(hfp_masked, cpad_super, xy = TRUE)
 
-cpad_hfp_summary <- cpad_hfp_values %>%
+cpad_hfp <- cpad_hfp_values %>%
   rename(HFP = HFP2009) %>%
   group_by(ID) %>%
-  summarize(across(HFP, list(min = min, mean = mean, max = max, median = median, sd = sd))) %>%
-  mutate(HFP_sd = case_when(
-    !is.na(HFP_sd) ~ HFP_sd,
-    is.na(HFP_sd) ~ 0
-  ))
-
-cpad_hfp <- full_join(cpad_super, cpad_hfp_summary) %>%
-  mutate(
-    HFP_range = HFP_max - HFP_min,
-    HFP_cv = HFP_sd / HFP_mean
-  ) %>%
-  mutate(HFP_sd = case_when(
-    !is.na(HFP_sd) ~ HFP_sd,
-    is.na(HFP_sd) ~ 0
-  )) %>%
-  mutate(HFP_cv = case_when(
-    !is.na(HFP_cv) ~ HFP_cv,
-    is.na(HFP_cv) ~ 0
-  ))
+  summarize(across(HFP, list(median = median))) %>%
+  full_join(cpad_super) 
 
 st_write(cpad_hfp, here::here("data", "processed_data", "cpad_hfp.shp"), append = FALSE)
 
@@ -138,39 +111,31 @@ rm(
 )
 
 cpad_bio_anm <- terra::extract(x = bio_masked_anm, y = cpad_super, ID = TRUE)
-cpad_rare_anm <- terra::extract(x = rare_masked_anm, y = cpad_super, ID = TRUE)
-cpad_bio_plt <- terra::extract(x = bio_masked_plt, y = cpad_super, ID = TRUE)
-cpad_rare_plt <- terra::extract(x = rare_masked_plt, y = cpad_super, ID = TRUE)
+cpad_rare_anm <- terra::extract(x = rare_masked_anm, y = cpad_super, ID = TRUE)%>%
+  select(-ID)
+cpad_bio_plt <- terra::extract(x = bio_masked_plt, y = cpad_super, ID = TRUE) %>%
+  select(-ID)
+cpad_rare_plt <- terra::extract(x = rare_masked_plt, y = cpad_super, ID = TRUE)%>%
+  select(-ID)
 
 rm(bio_masked_anm, rare_masked_anm, bio_masked_plt, rare_masked_plt)
 
 bio_anm <- cpad_bio_anm %>%
   select(-ID)
-rare_anm <- cpad_rare_anm %>%
-  select(-ID)
-bio_plt <- cpad_bio_plt %>%
-  select(-ID)
-rare_plt <- cpad_rare_plt %>%
-  select(-ID)
+rare_anm <- cpad_rare_anm 
+bio_plt <- cpad_bio_plt
+rare_plt <- cpad_rare_plt
 
-cpad_bio_anm <- cpad_bio_anm %>%
+cpad_bio = list(cpad_bio_plt, cpad_rare_plt, cpad_bio_anm, cpad_rare_anm) %>% 
+  reduce(cbind) %>%
+  mutate(native = ntv_anm + ntv_plnt,
+         rare = rar_plnt + rare_anm) %>% 
   group_by(ID) %>%
-  summarize(across(ntv_anm, list(min = min, mean = mean, max = max, median = median)))
-
-cpad_rare_anm <- cpad_rare_anm %>%
-  group_by(ID) %>%
-  summarize(across(rare_anm, list(min = min, mean = mean, max = max, median = median)))
-
-cpad_bio_plt <- cpad_bio_plt %>%
-  group_by(ID) %>%
-  summarize(across(ntv_plnt, list(min = min, mean = mean, max = max, median = median)))
-
-cpad_rare_plt <- cpad_rare_plt %>%
-  group_by(ID) %>%
-  summarize(across(rar_plnt, list(min = min, mean = mean, max = max, median = median)))
-
-cpad_bio = list(cpad_bio_plt, cpad_rare_plt, cpad_bio_anm, cpad_rare_anm, cpad_super %>% select(suid_nma, ID)) %>% 
-  reduce(full_join)
+  summarize(ntv_med = median(native, na.rm=TRUE),
+            rare_med = median(rare, na.rm=TRUE)) %>% 
+  full_join(cpad_super %>% select(suid_nma, ID)) %>% 
+  select(-ID) %>% 
+  st_as_sf() 
 
 st_write(cpad_bio, here::here("data", "processed_data", "cpad_bio.shp"), append = FALSE)
 
