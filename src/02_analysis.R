@@ -12,25 +12,6 @@ library(sjstats)
 
 sf_use_s2(FALSE)
 
-library(nnet)
-library(gtsummary)
-library(broom)
-# To plot predicted values
-library(marginaleffects)
-library(ggrepel)
-library(ggridges)
-library(ggExtra)
-library(gghalves)
-library(ggtext)
-library(ggimage)
-library(geosphere)
-library(ggfortify)
-library(ggpmisc)
-library(philentropy)
-library(spdep)
-library(base64enc)
-library(colorspace)
-
 # Data Input --------------------------------------------------------------
 
 cpad_super <- st_read(here::here("data", "raw_data", "CPAD_2023a_SuperUnits.shp")) %>%
