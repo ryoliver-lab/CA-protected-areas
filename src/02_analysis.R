@@ -1,12 +1,17 @@
 library(tidyverse)
+library(sf)
+library(patchwork)
+
+sf_use_s2(FALSE)
+
 library(nnet)
 library(gtsummary)
 library(broom)
 # To plot predicted values
 library(marginaleffects)
 library(mgcv)
-library(patchwork)
-library(sf)
+
+
 library(ggrepel)
 library(ggridges)
 library(ggExtra)
@@ -28,7 +33,7 @@ library(lme4)
 library(lmerTest)
 library(sjstats)
 
-sf_use_s2(FALSE)
+
 
 # Data Input --------------------------------------------------------------
 
@@ -37,23 +42,9 @@ cpad_super <- st_read(here::here("data", "raw_data", "CPAD_2023a_SuperUnits.shp"
   janitor::clean_names() %>%
   mutate(ID = row_number())
 
-strava <- st_read(here::here("data", "processed_data", "cpad_strava.shp")) %>%
-  sf::st_transform(crs = st_crs(cpad_super))
-hfp <- st_read(here::here("data", "processed_data", "cpad_hfp.shp")) %>%
+human  <- st_read(here::here("data", "processed_data", "human.shp")) %>%
   sf::st_transform(crs = st_crs(cpad_super)) %>%
-  st_drop_geometry()
-bio <- st_read(here::here("data", "processed_data", "cpad_bio.shp")) %>%
-  sf::st_transform(crs = st_crs(cpad_super))
-
-human <- list(hfp, bio, strava) %>%
-  reduce(full_join) %>%
-  st_as_sf()
-
-rm(hfp, bio, strava)
-
 # take out hoas and other protected areas
-
-human <- human %>%
   filter(shape_area >= 10000) %>%
   filter(!grepl("cemet", park_name, ignore.case = TRUE)) %>%
   filter(!grepl("sport", park_name, ignore.case = TRUE)) %>%
@@ -88,89 +79,36 @@ human_sum <- human %>%
   st_drop_geometry() %>%
   distinct()
 
-cpad_no_geom <- cpad_super %>%
-  st_drop_geometry()
-
-strava <- st_read(here::here("data", "processed_data", "in_out_strava.shp")) %>%
-  st_drop_geometry() %>%
-  filter(!is.na(gray_scale)) %>%
-  mutate(loc = fct_relevel(as.factor(loc), c("Outside Protected Areas", "Inside Protected Areas"))) %>%
-  full_join(cpad_no_geom %>% select(ID, suid_nma)) %>%
-  filter(suid_nma %in% human$suid_nma) %>%
-  full_join(human %>% select(suid_nma, gap_status, mng_agncy, shape_area)) %>%
-  select(-ID)
-
-hfp <- st_read(here::here("data", "processed_data", "in_out_hfp.shp")) %>%
-  st_drop_geometry() %>%
-  filter(!is.na(HFP2009)) %>%
-  mutate(loc = fct_relevel(as.factor(loc), c("Outside Protected Areas", "Inside Protected Areas"))) %>%
-  full_join(cpad_no_geom %>% select(ID, suid_nma)) %>%
-  filter(suid_nma %in% human$suid_nma) %>%
-  full_join(human %>% select(suid_nma, gap_status, mng_agncy, shape_area)) %>%
-  select(-ID)
-
-bio <- st_read(here::here("data", "processed_data", "in_out_bio.shp")) %>%
-  st_drop_geometry() %>%
-  filter(!is.na(ntv_cnt)) %>%
-  mutate(loc = fct_relevel(as.factor(loc), c("Outside Protected Areas", "Inside Protected Areas"))) %>%
-  full_join(cpad_no_geom %>% select(ID, suid_nma)) %>%
-  filter(suid_nma %in% human$suid_nma) %>%
-  full_join(human %>% select(suid_nma, gap_status, mng_agncy, shape_area)) %>%
-  select(-ID)
-
-rare <- st_read(here::here("data", "processed_data", "in_out_rare.shp")) %>%
-  st_drop_geometry() %>%
-  filter(!is.na(rare_count)) %>%
-  mutate(loc = fct_relevel(as.factor(loc), c("Outside Protected Areas", "Inside Protected Areas"))) %>%
-  full_join(cpad_no_geom %>% select(ID, suid_nma)) %>%
-  filter(suid_nma %in% human$suid_nma) %>%
-  full_join(human %>% select(suid_nma, gap_status, mng_agncy, shape_area)) %>%
-  select(-ID)
-
-pixel_sum <- list(
-  strava %>% rename(value = gray_scale) %>% mutate(measure = "hm"),
-  hfp %>% rename(value = HFP2009) %>% mutate(measure = "mod"),
-  bio %>% rename(value = ntv_cnt) %>% mutate(measure = "bio"),
-  rare %>% rename(value = rare_count) %>% mutate(measure = "rare")
-) %>%
-  reduce(rbind)
-
-NPS <- pixel_sum %>%
-  filter(mng_agncy == "United States National Park Service")
-
-TNC <- pixel_sum %>%
-  filter(mng_agncy == "The Nature Conservancy")
-
-UC <- pixel_sum %>%
-  filter(mng_agncy == "United States Forest Service")
-
-CDFW <- pixel_sum %>%
-  filter(mng_agncy == "California Department of Fish and Wildlife")
-
-CDPR <- pixel_sum %>%
-  filter(mng_agncy == "California Department of Parks and Recreation")
-
-gap1 <- pixel_sum %>%
-  filter(gap_status == "GAP 1")
-
-gap2 <- pixel_sum %>%
-  filter(gap_status == "GAP 2")
-
-gap3 <- pixel_sum %>%
-  filter(gap_status == "GAP 3")
-
-gap4 <- pixel_sum %>%
-  filter(gap_status == "GAP 4")
-
-rm(pixel_sum)
-
 spatial_data <- read_csv(here::here("data", "processed_data", "spatial_analysis.csv")) %>%
   filter(suid_nma %in% human$suid_nma) %>%
-  full_join(human %>% st_drop_geometry() %>% select(suid_nma, gap_status, mng_agncy, shape_area)) %>%
-  group_by(suid_nma) %>%
-  mutate(count = n()) %>%
-  filter(count >= 30) %>%
-  select(-count)
+  full_join(human %>% st_drop_geometry() %>% select(suid_nma, gap_status, mng_agncy, shape_area)) 
+
+NPS <- spatial_data %>%
+  filter(mng_agncy == "United States National Park Service")
+
+TNC <- spatial_data %>%
+  filter(mng_agncy == "The Nature Conservancy")
+
+UC <- spatial_data %>%
+  filter(mng_agncy == "United States Forest Service")
+
+CDFW <- spatial_data %>%
+  filter(mng_agncy == "California Department of Fish and Wildlife")
+
+CDPR <- spatial_data %>%
+  filter(mng_agncy == "California Department of Parks and Recreation")
+
+gap1 <- spatial_data %>%
+  filter(gap_status == "GAP 1")
+
+gap2 <- spatial_data %>%
+  filter(gap_status == "GAP 2")
+
+gap3 <- spatial_data %>%
+  filter(gap_status == "GAP 3")
+
+gap4 <- spatial_data %>%
+  filter(gap_status == "GAP 4")
 
 colors <- c(
   "United States National Park Service" = "#031D3A",
@@ -205,16 +143,16 @@ sum(filter(NPS_unique, gap_status %in% c("GAP 1", "GAP 2"))$shape_area) / sum(NP
 # 99.69799
 
 # median HFP
-median(NPS[grepl("mod", NPS[, "measure"]), ]$value, na.rm = TRUE) # 1.237312
+median(NPS$HFP2009, na.rm = TRUE) # 1.237312
 
 # median strava
-median(NPS[grepl("hm", NPS[, "measure"]), ]$value, na.rm = TRUE) # 17.90872
+median(NPS$gray_scale, na.rm = TRUE) # 17.90872
 
 # median native species
-median(NPS[grepl("bio", NPS[, "measure"]), ]$value, na.rm = TRUE) # 114
+median(NPS %>% mutate(native = ntv_anm + ntv_plnt) %>% pull(native), na.rm = TRUE) # 1096
 
 # median rare
-median(NPS[grepl("rare", NPS[, "measure"]), ]$value, na.rm = TRUE) # 2
+median(NPS %>% mutate(rare = rare_anm + rar_plnt) %>% pull(rare), na.rm = TRUE) # 2
 
 ## TNC
 
@@ -232,13 +170,13 @@ sum(filter(TNC_unique, gap_status %in% c("GAP 1", "GAP 2"))$shape_area) / sum(TN
 # 92.41046
 
 # median HFP
-median(TNC[grepl("mod", TNC[, "measure"]), ]$value, na.rm = TRUE) # 4.927719
+median(TNC$HFP2009, na.rm = TRUE) # 4.94236
 
 # median strava
-median(TNC[grepl("hm", TNC[, "measure"]), ]$value, na.rm = TRUE) # 70.23158
+median(TNC$gray_scale, na.rm = TRUE) # 70.23158
 
 # median native species
-median(TNC[grepl("bio", TNC[, "measure"]), ]$value, na.rm = TRUE) # 218
+median(TNC %>% mutate(native = ntv_anm + ntv_plnt) %>% pull(native), na.rm = TRUE) # 1256
 
 # median rare
 median(TNC[grepl("rare", TNC[, "measure"]), ]$value, na.rm = TRUE) # 7
@@ -822,6 +760,12 @@ p2 <- ggplot() +
 ggsave((p3) / (p2 + p1) + plot_annotation(tag_levels = "A"), file = paste0("fig2.pdf"), path = here::here("analysis", "figs"), height = 15, width = 22)
 
 # Spatial Analysis --------------------------------------------------------
+
+spatial_data = spatial_data %>%
+  group_by(suid_nma) %>%
+  mutate(count = n()) %>%
+  filter(count >= 30) %>%
+  select(-count)
 
 spatial_data_sf <- spatial_data %>%
   st_as_sf(coords = c("x", "y"), crs = "EPSG:4326") %>%
