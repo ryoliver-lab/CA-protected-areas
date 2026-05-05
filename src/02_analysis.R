@@ -1,6 +1,8 @@
 library(tidyverse)
 library(sf)
 library(patchwork)
+library(ggridges)
+library(ggtext)
 library(lme4)
 library(lmerTest)
 library(effectsize)
@@ -390,110 +392,7 @@ median(gap4$rar_plnt, na.rm = TRUE) #  2
 # median rare animal species
 median(gap4$rare_anm, na.rm = TRUE) #  5
 
-# Map ---------------------------------------------------------------------
-
-mang_sub <- human %>%
-  filter(mng_agncy %in% c(
-    "United States National Park Service",
-    "The Nature Conservancy",
-    "United States Forest Service",
-    "California Department of Parks and Recreation",
-    "California Department of Fish and Wildlife"
-  )) %>%
-  mutate(mng_agncy = case_when(
-    mng_agncy == "United States National Park Service" ~ "NPS",
-    mng_agncy == "The Nature Conservancy" ~ "TNC",
-    mng_agncy == "United States Forest Service" ~ "USFS",
-    mng_agncy == "California Department of Parks and Recreation" ~ "CDPR",
-    mng_agncy == "California Department of Fish and Wildlife" ~ "CDFW"
-  ))
-
-p11 <- ggplot() +
-  geom_sf(data = human, aes(fill = gap_status), color = "transparent") +
-  geom_sf(data = mang_sub, aes(color = mng_agncy, fill = gap_status), linewidth = .8) +
-  theme_bw(base_size = 20) +
-  labs(
-    x = "",
-    y = "",
-    color = "",
-    fill = ""
-  ) +
-  scale_color_manual(values = colors2) +
-  scale_fill_viridis_d(end = 0.9, na.value = "white")
-
-p1 <- ggplot() +
-  geom_sf(data = human, aes(fill = gap_status), color = "transparent") +
-  theme_bw(base_size = 16) +
-  labs(
-    x = "",
-    y = "",
-    color = "",
-    fill = ""
-  ) +
-  scale_fill_viridis_d(end = 0.9, na.value = "white")
-
-p2 <- ggplot() +
-  geom_sf(data = mang_sub, aes(fill = mng_agncy), color = "transparent") +
-  theme_bw(base_size = 16) +
-  labs(
-    x = "",
-    y = "",
-    color = "",
-    fill = ""
-  ) +
-  scale_fill_manual(values = colors2)
-
-p3 <- ggplot() +
-  geom_sf(data = human, aes(fill = ntv_med), color = "transparent") +
-  theme_bw(base_size = 16) +
-  labs(
-    x = "",
-    y = "",
-    color = "",
-    fill = "Median Native Species Count"
-  ) +
-  scale_fill_viridis_c(end = 0.9, na.value = "white")
-
-p4 <- ggplot() +
-  geom_sf(data = human, aes(fill = rare_med), color = "transparent") +
-  theme_bw(base_size = 16) +
-  labs(
-    x = "",
-    y = "",
-    color = "",
-    fill = "Median Rare Species Count"
-  ) +
-  scale_fill_viridis_c(end = 0.9, na.value = "white")
-
-p5 <- ggplot() +
-  geom_sf(data = human, aes(fill = HFP_median), color = "transparent") +
-  theme_bw(base_size = 16) +
-  labs(
-    x = "",
-    y = "",
-    color = "",
-    fill = "Median Landscape Modification"
-  ) +
-  scale_fill_viridis_c(end = 0.9, na.value = "white")
-
-p6 <- ggplot() +
-  geom_sf(data = human, aes(fill = gray_scale), color = "transparent") +
-  theme_bw(base_size = 16) +
-  labs(
-    x = "",
-    y = "",
-    color = "",
-    fill = "Median Human Mobility"
-  ) +
-  scale_fill_viridis_c(end = 0.9, na.value = "white")
-
-ggsave(plot = p11, filename = paste0("fig1.pdf"), path = here::here("analysis", "figs"), height = 7, width = 8, device = cairo_pdf)
-
-plot <- (p1 + p2) / (p3 + p4) / (p5 + p6) + plot_annotation(tag_levels = "A")
-
-ggsave(plot, file = paste0("figS1.pdf"), path = here::here("analysis", "figs"), height = 15, width = 19, device = cairo_pdf)
-
-# ANOVA -------------------------------------------------------------------
+# Distributions -----------------------------------------------------------
 
 strava_inside <- spatial_data %>%
   select(gray_scale, gap_status, suid_nma, mng_agncy) %>%
@@ -510,26 +409,6 @@ bio_inside <- spatial_data %>%
 rare_inside <- spatial_data %>%
   select(rare, gap_status, suid_nma, mng_agncy) %>%
   filter(!is.na(rare))
-
-lm1 <- lmer(gray_scale ~ gap_status + (1 | suid_nma), data = strava_inside)
-summary(lm1)
-anova(lm1)
-eta_squared(lm1, partial = TRUE) # gap_status | 0.20 | [0.19, 1.00]
-
-lm2 <- lmer(HFP2009 ~ gap_status + (1 | suid_nma), data = hfp_inside)
-summary(lm2)
-anova(lm2)
-eta_squared(lm2, partial = TRUE) # gap_status |0.32 | [0.31, 1.00]
-
-lm3 <- lmer(native ~ gap_status + (1 | suid_nma), data = bio_inside)
-summary(lm3)
-anova(lm3)
-eta_squared(lm3, partial = TRUE) # gap_status |           0.03 | [0.03, 1.00]
-
-lm4 <- lmer(rare ~ gap_status + (1 | suid_nma), data = rare_inside)
-anova(lm4)
-summary(lm4)
-eta_squared(lm4, partial = TRUE) # gap_status | 0.01 | [0.01, 1.00]
 
 strava_inside2 <- spatial_data %>%
   select(gray_scale, gap_status, suid_nma, mng_agncy) %>%
@@ -603,6 +482,267 @@ rare_inside2 <- spatial_data %>%
   )) %>%
   filter(rare > 0) %>%
   filter(!is.na(rare))
+
+# rsvg_png(here::here("icons", "building-regular-full.svg"), file = here::here("icons", "building-regular-full.png"))
+# rsvg_png(here::here("icons", "kiwi-bird-solid-full.svg"), file = here::here("icons", "kiwi-bird-solid-full.png"))
+# rsvg_png(here::here("icons", "person-running-solid-full.svg"), file = here::here("icons", "person-running-solid-full.png"))
+# rsvg_png(here::here("icons", "seedling-solid-full.svg"), file = here::here("icons", "seedling-solid-full.png"))
+
+HFI_png <- here::here("icons", "building-regular-full.png")
+strava_png <- here::here("icons", "person-running-solid-full.png")
+native_png <- here::here("icons", "seedling-solid-full.png")
+rare_png <- here::here("icons", "kiwi-bird-solid-full.png")
+
+p1 <- ggplot(hfp_inside) +
+  geom_density_ridges(aes(x = HFP2009, y = gap_status, fill = gap_status), alpha = 0.5, scale = 3) +
+  theme_bw(base_size = 20) +
+  labs(
+    x = paste0("Landscape Modification ", "<img src='", HFI_png, "' width='24'/>"),
+    y = "",
+    fill = ""
+  ) +
+  scale_fill_viridis_d(end = 0.9, na.value = "white") +
+  theme(
+    legend.position = "none",
+    axis.title.x = element_markdown()
+  )
+
+p2 <- ggplot(bio_inside) +
+  geom_density_ridges(aes(x = native, y = gap_status, fill = gap_status), alpha = 0.5, scale = 3) +
+  theme_bw(base_size = 20) +
+  labs(
+    x = paste0("Native Species Count ", "<img src='", native_png, "' width='24'/>"),
+    y = "",
+    fill = ""
+  ) +
+  scale_fill_viridis_d(end = 0.9, na.value = "white") +
+  theme(
+    legend.position = "none",
+    axis.title.x = element_markdown()
+  )
+
+p3 <- ggplot(rare_inside) +
+  geom_density_ridges(aes(x = rare, y = gap_status, fill = gap_status), alpha = 0.5, scale = 3) +
+  theme_bw(base_size = 20) +
+  labs(
+    x = paste0("Rare Species Count ", "<img src='", rare_png, "' width='24'/>"),
+    y = "",
+    fill = ""
+  ) +
+  scale_fill_viridis_d(end = 0.9, na.value = "white") +
+  theme(
+    legend.position = "none",
+    axis.title.x = element_markdown()
+  )
+
+p6 <- ggplot(strava_inside) +
+  geom_density_ridges(aes(x = gray_scale, y = gap_status, fill = gap_status), alpha = 0.5, scale = 3) +
+  theme_bw(base_size = 20) +
+  labs(
+    x = paste0("Human Mobility ", "<img src='", strava_png, "' width='24'/>"),
+    y = "",
+    fill = ""
+  ) +
+  scale_fill_viridis_d(end = 0.9, na.value = "white") +
+  theme(
+    axis.title.x = element_markdown(),
+    legend.position = "none"
+  )
+
+p7 <- ggplot(hfp_inside2) +
+  geom_density_ridges(aes(x = HFP2009, y = mng_agncy, fill = mng_agncy), alpha = 0.5, scale = 3) +
+  theme_bw(base_size = 20) +
+  labs(
+    x = paste0("Landscape Modification ", "<img src='", HFI_png, "' width='24'/>"),
+    y = "",
+    fill = ""
+  ) +
+  scale_fill_manual(values = colors2) +
+  scale_color_manual(values = c("black", "grey")) +
+  theme(
+    legend.position = "none",
+    axis.title.x = element_markdown()
+  )
+
+p8 <- ggplot(bio_inside2) +
+  geom_density_ridges(aes(x = native, y = mng_agncy, fill = mng_agncy), alpha = 0.5, scale = 3) +
+  theme_bw(base_size = 20) +
+  labs(
+    x = paste0("Native Species Count ", "<img src='", native_png, "' width='24'/>"),
+    y = "",
+    fill = ""
+  ) +
+  scale_fill_manual(values = colors2) +
+  scale_color_manual(values = c("black", "grey")) +
+  theme(
+    legend.position = "none",
+    axis.title.x = element_markdown()
+  )
+
+p9 <- ggplot(rare_inside2) +
+  geom_density_ridges(aes(x = rare, y = mng_agncy, fill = mng_agncy), alpha = 0.5, scale = 3) +
+  theme_bw(base_size = 20) +
+  labs(
+    x = paste0("Rare Species Count ", "<img src='", rare_png, "' width='24'/>"),
+    y = "",
+    fill = ""
+  ) +
+  scale_fill_manual(values = colors2) +
+  scale_color_manual(values = c("black", "grey")) +
+  theme(
+    legend.position = "none",
+    axis.title.x = element_markdown()
+  )
+
+p10 <- ggplot(strava_inside2) +
+  geom_density_ridges(aes(x = gray_scale, y = mng_agncy, fill = mng_agncy), alpha = 0.5, scale = 3) +
+  theme_bw(base_size = 20) +
+  labs(
+    x = paste0("Human Mobility ", "<img src='", strava_png, "' width='24'/>"),
+    y = "",
+    fill = ""
+  ) +
+  scale_fill_manual(values = colors2) +
+  scale_color_manual(values = c("black", "grey")) +
+  theme(
+    legend.position = "none",
+    axis.title.x = element_markdown()
+  )
+
+# Map ---------------------------------------------------------------------
+
+mang_sub <- human %>%
+  filter(mng_agncy %in% c(
+    "United States National Park Service",
+    "The Nature Conservancy",
+    "United States Forest Service",
+    "California Department of Parks and Recreation",
+    "California Department of Fish and Wildlife"
+  )) %>%
+  mutate(mng_agncy = case_when(
+    mng_agncy == "United States National Park Service" ~ "NPS",
+    mng_agncy == "The Nature Conservancy" ~ "TNC",
+    mng_agncy == "United States Forest Service" ~ "USFS",
+    mng_agncy == "California Department of Parks and Recreation" ~ "CDPR",
+    mng_agncy == "California Department of Fish and Wildlife" ~ "CDFW"
+  ))
+
+p11 <- ggplot() +
+  geom_sf(data = human, aes(fill = gap_status), color = "transparent") +
+  geom_sf(data = mang_sub, aes(color = mng_agncy, fill = gap_status), linewidth = .8) +
+  theme_bw(base_size = 20) +
+  labs(
+    x = "",
+    y = "",
+    color = "",
+    fill = ""
+  ) +
+  scale_color_manual(values = colors2) +
+  scale_fill_viridis_d(end = 0.9, na.value = "white")
+
+layout <- "
+AABF
+AACG
+AADH
+AAEI
+"
+
+plot <- p11 + p2 + p3 + p1 + p6 + p8 + p9 + p7 + p10 + plot_annotation(tag_levels = "A") + plot_layout(design = layout)
+
+ggsave(plot = plot, filename = paste0("fig1.pdf"), path = here::here("analysis", "figs"), height = 15, width = 30, device = cairo_pdf)
+
+p1 <- ggplot() +
+  geom_sf(data = human, aes(fill = gap_status), color = "transparent") +
+  theme_bw(base_size = 16) +
+  labs(
+    x = "",
+    y = "",
+    color = "",
+    fill = ""
+  ) +
+  scale_fill_viridis_d(end = 0.9, na.value = "white")
+
+p2 <- ggplot() +
+  geom_sf(data = mang_sub, aes(fill = mng_agncy), color = "transparent") +
+  theme_bw(base_size = 16) +
+  labs(
+    x = "",
+    y = "",
+    color = "",
+    fill = ""
+  ) +
+  scale_fill_manual(values = colors2)
+
+p3 <- ggplot() +
+  geom_sf(data = human, aes(fill = ntv_med), color = "transparent") +
+  theme_bw(base_size = 16) +
+  labs(
+    x = "",
+    y = "",
+    color = "",
+    fill = "Median Native Species Count"
+  ) +
+  scale_fill_viridis_c(end = 0.9, na.value = "white")
+
+p4 <- ggplot() +
+  geom_sf(data = human, aes(fill = rare_med), color = "transparent") +
+  theme_bw(base_size = 16) +
+  labs(
+    x = "",
+    y = "",
+    color = "",
+    fill = "Median Rare Species Count"
+  ) +
+  scale_fill_viridis_c(end = 0.9, na.value = "white")
+
+p5 <- ggplot() +
+  geom_sf(data = human, aes(fill = HFP_median), color = "transparent") +
+  theme_bw(base_size = 16) +
+  labs(
+    x = "",
+    y = "",
+    color = "",
+    fill = "Median Landscape Modification"
+  ) +
+  scale_fill_viridis_c(end = 0.9, na.value = "white")
+
+p6 <- ggplot() +
+  geom_sf(data = human, aes(fill = gray_scale), color = "transparent") +
+  theme_bw(base_size = 16) +
+  labs(
+    x = "",
+    y = "",
+    color = "",
+    fill = "Median Human Mobility"
+  ) +
+  scale_fill_viridis_c(end = 0.9, na.value = "white")
+
+
+plot <- (p1 + p2) / (p3 + p4) / (p5 + p6) + plot_annotation(tag_levels = "A")
+
+ggsave(plot, file = paste0("figS1.pdf"), path = here::here("analysis", "figs"), height = 15, width = 19, device = cairo_pdf)
+
+# ANOVA -------------------------------------------------------------------
+
+lm1 <- lmer(gray_scale ~ gap_status + (1 | suid_nma), data = strava_inside)
+summary(lm1)
+anova(lm1)
+eta_squared(lm1, partial = TRUE) # gap_status | 0.20 | [0.19, 1.00]
+
+lm2 <- lmer(HFP2009 ~ gap_status + (1 | suid_nma), data = hfp_inside)
+summary(lm2)
+anova(lm2)
+eta_squared(lm2, partial = TRUE) # gap_status |0.32 | [0.31, 1.00]
+
+lm3 <- lmer(native ~ gap_status + (1 | suid_nma), data = bio_inside)
+summary(lm3)
+anova(lm3)
+eta_squared(lm3, partial = TRUE) # gap_status |           0.03 | [0.03, 1.00]
+
+lm4 <- lmer(rare ~ gap_status + (1 | suid_nma), data = rare_inside)
+anova(lm4)
+summary(lm4)
+eta_squared(lm4, partial = TRUE) # gap_status | 0.01 | [0.01, 1.00]
 
 lm5 <- lmer(gray_scale ~ mng_agncy + (1 | suid_nma), data = strava_inside2)
 anova(lm5)
@@ -1053,7 +1193,8 @@ p1 <- ggplot(beta %>% filter(model == "Native Species and Landscape Modification
   theme_bw(base_size = 20) +
   labs(
     x = "Beta",
-    y = "Animal \nNative Species and Landscape Modification",
+    title = "Animal \nNative Species and Landscape Modification",
+    y = "",
     color = ""
   ) +
   scale_y_discrete(limits = rev) +
@@ -1091,7 +1232,8 @@ p2 <- ggplot(beta %>% filter(model == "Native Species and Human Mobility" &
   theme_bw(base_size = 20) +
   labs(
     x = "Beta",
-    y = "Animal \nNative Species and Human Mobility",
+    y = "",
+    title = "Animal \nNative Species and Human Mobility",
     color = ""
   ) +
   scale_y_discrete(limits = rev) +
@@ -1129,7 +1271,8 @@ p3 <- ggplot(beta %>% filter(model == "Rare Species and Landscape Modification" 
   theme_bw(base_size = 20) +
   labs(
     x = "Beta",
-    y = "Animal \nRare Species and Landscape Modification",
+    y = "",
+    title = "Animal \nRare Species and Landscape Modification",
     color = ""
   ) +
   scale_y_discrete(limits = rev) +
@@ -1167,7 +1310,8 @@ p4 <- ggplot(beta %>% filter(model == "Rare Species and Human Mobility" &
   theme_bw(base_size = 20) +
   labs(
     x = "Beta",
-    y = "Animal \nRare Species and Human Mobility",
+    title = "Animal \nRare Species and Human Mobility",
+    y = "",
     color = ""
   ) +
   scale_y_discrete(limits = rev) +
@@ -1205,7 +1349,8 @@ p5 <- ggplot(beta %>% filter(model == "Native Species and Landscape Modification
   theme_bw(base_size = 20) +
   labs(
     x = "Beta",
-    y = "Plant \nNative Species and Landscape Modification",
+    y = "",
+    title = "Plant \nNative Species and Landscape Modification",
     color = ""
   ) +
   scale_y_discrete(limits = rev) +
@@ -1243,7 +1388,8 @@ p6 <- ggplot(beta %>% filter(model == "Native Species and Human Mobility" &
   theme_bw(base_size = 20) +
   labs(
     x = "Beta",
-    y = "Plant \nNative Species and Human Mobility",
+    y = "",
+    title = "Plant \nNative Species and Human Mobility",
     color = ""
   ) +
   scale_y_discrete(limits = rev) +
@@ -1282,7 +1428,8 @@ p7 <- ggplot(beta %>% filter(model == "Rare Species and Landscape Modification" 
   theme_bw(base_size = 20) +
   labs(
     x = "Beta",
-    y = "Plant \nRare Species and Landscape Modification",
+    y = "",
+    title = "Plant \nRare Species and Landscape Modification",
     color = ""
   ) +
   scale_y_discrete(limits = rev) +
@@ -1320,7 +1467,8 @@ p8 <- ggplot(beta %>% filter(model == "Rare Species and Human Mobility" &
   theme_bw(base_size = 20) +
   labs(
     x = "Beta",
-    y = "Plant \nRare Species and Human Mobility",
+    y = "",
+    title = "Plant \nRare Species and Human Mobility",
     color = ""
   ) +
   scale_y_discrete(limits = rev) +
@@ -1355,7 +1503,8 @@ p9 <- ggplot(beta %>% filter(is.na(type)) %>% mutate(suid_nma = fct_reorder(suid
   theme_bw(base_size = 20) +
   labs(
     x = "Beta",
-    y = "\nLandscape Modification and Human Mobility",
+    y = "",
+    title = "\nLandscape Modification and Human Mobility",
     color = ""
   ) +
   scale_y_discrete(limits = rev) +
