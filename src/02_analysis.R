@@ -419,7 +419,7 @@ p11 <- ggplot() +
     fill = ""
   ) +
   scale_color_manual(values = colors2) +
-  scale_fill_manual(values = viridis::viridis(5, end = .9)[1:4])
+  scale_fill_viridis_d(end = 0.9, na.value = "white")
 
 p1 <- ggplot() +
   geom_sf(data = human, aes(fill = gap_status), color = "transparent") +
@@ -430,7 +430,7 @@ p1 <- ggplot() +
     color = "",
     fill = ""
   ) +
-  scale_fill_manual(values = viridis::viridis(5, end = .9)[1:4])
+  scale_fill_viridis_d(end = 0.9, na.value = "white")
 
 p2 <- ggplot() +
   geom_sf(data = mang_sub, aes(fill = mng_agncy), color = "transparent") +
@@ -787,7 +787,7 @@ p2 <- ggplot() +
     color = ""
   ) +
   theme(legend.position = "bottom") +
-  scale_color_manual(values = viridis::viridis(5, end = .9)[1:4]) +
+  scale_color_viridis_d(end = 0.9, na.value = "white") +
   guides(color = guide_legend(nrow = 2, byrow = TRUE))
 
 ggsave((p3) / (p2 + p1) + plot_annotation(tag_levels = "A"), file = paste0("fig2.pdf"), path = here::here("analysis", "figs"), height = 15, width = 22)
@@ -1369,13 +1369,8 @@ p9 <- ggplot(beta %>% filter(is.na(type)) %>% mutate(suid_nma = fct_reorder(suid
   ) +
   xlim(c(-limits9, limits9))
 
-layout <- "
-ABCD
-EFGH
-"
+plot <- p3 + p4 + p8 + p9 + plot_annotation(tag_levels = "A")
 
-plot <- (p1 + p3 + p7 + p8) / (p2 + p4 + p9 + plot_spacer()) + plot_annotation(tag_levels = "A") + plot_layout(design = layout)
+ggsave(plot, file = paste0("fig3.pdf"), path = here::here("analysis", "figs"), height = 15, width = 20)
 
-ggsave(plot, file = paste0("fig3.pdf"), path = here::here("analysis", "figs"), height = 25, width = 35)
-
-ggsave(p5 / p6 + plot_annotation(tag_levels = "A"), file = paste0("figS2.pdf"), path = here::here("analysis", "figs"), height = 12, width = 10)
+ggsave((p1 + p2 + plot_spacer()) / (p5 + p6 + p7) + plot_annotation(tag_levels = "A"), file = paste0("figS2.pdf"), path = here::here("analysis", "figs"), height = 12, width = 20)
