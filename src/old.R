@@ -1,3 +1,112 @@
+# Safegraph ---------------------------------------------------------------
+
+# cpad_census = st_intersection(census_blockgroup, cpad_super)
+
+cpad_census = st_read(here::here("data", "processed_data", "cpad_census.shp")) %>% 
+  mutate(cbg = id)
+
+list_of_files <- list.files(
+  path = here::here("data", "raw_data", "safegraph"),
+  recursive = TRUE,
+  pattern = "\\.txt$",
+  full.names = TRUE
+)
+
+safegraph <- read_csv(list_of_files, id = "file_name") %>%
+  mutate(file_name = str_replace(file_name, "C:/Users/acaug/Documents/School/PhD/CA-protected-areas/data/raw_data/safegraph/", "")) %>%
+  mutate(file_name = str_replace(file_name, "_cbg_daily.txt", "")) %>%
+  mutate(date = as.Date(file_name)) %>%
+  select(-file_name) %>%
+  rename(cbg = cpad_cbg) %>%
+  mutate(year = lubridate::year(date)) %>%
+  filter(!is.na(year)) %>%
+  mutate(cbg = as.factor(cbg))
+
+rm(list_of_files)
+
+### time series processing starting with safegraph
+
+safegraph_sum <- safegraph %>%
+  left_join(census_blockgroup) %>%
+  select(-value) %>%
+  select(-date) %>%
+  st_as_sf() %>%
+  st_drop_geometry() %>%
+  group_by(cbg, census_blockgroup_area, year) %>%
+  summarise(
+    mean_count = mean(device_count, na.rm = TRUE),
+    sd_count = sd(device_count, na.rm = TRUE),
+    max_count = max(device_count, na.rm = TRUE),
+    min_count = min(device_count, na.rm = TRUE),
+    cv_count = sd_count / mean_count,
+    median_count = median(device_count, na.rm = TRUE)
+  ) %>%
+  ungroup()
+
+rm(census_blockgroup, safegraph)
+
+safegraph_block <- safegraph_sum %>%
+  left_join(census_block) %>%
+  st_as_sf()
+
+rm(safegraph_sum, census_block)
+
+safegraph_block_sum <- safegraph_block %>%
+  mutate(block_percent = census_block_area / census_blockgroup_area) %>%
+  mutate(block_percent = case_when(
+    is.infinite(block_percent) ~ 100,
+    TRUE ~ block_percent
+  )) %>%
+  mutate(
+    pop_count = mean_count * block_percent,
+    median_count = median_count * block_percent
+  ) %>%
+  select(-census_blockgroup_area) %>%
+  mutate(
+    max_pop_count = max_count,
+    min_pop_count = min_count
+  ) %>%
+  select(-mean_count, -max_count, -min_count) %>%
+  distinct() %>%
+  mutate(cbg = substring(GEOID, 1, 12))
+
+rm(safegraph_block, block)
+
+cpad_safgraph <- full_join(safegraph_block_sum, cpad_census %>%
+                             st_drop_geometry())
+
+rm(safegraph_block_sum, cpad_census)
+
+safegraph_pa_sum <- cpad_safgraph %>%
+  mutate(percent_pa = census_block_area / shape_r)%>%
+
+    st_drop_geometry() %>%
+  filter(!is.na(year)) %>%
+  group_by(suid_nm, year) %>%
+  mutate(
+    sg = weighted.mean(pop_count, percent_pa, na.rm = TRUE),
+    max_sg = weighted.mean(max_pop_count, percent_pa, na.rm = TRUE),
+    min_sg = weighted.mean(min_pop_count, percent_pa, na.rm = TRUE),
+    outside_pop = weighted.mean(value, percent_pa, na.rm = TRUE),
+    med_sg = spatstat.geom::weighted.median(median_count, percent_pa, na.rm = TRUE)
+  ) %>%
+  select(
+    -GEOID, -pop_count, -min_pop_count, -max_pop_count,
+    -census_block_area, -block_percent, -combo_r, -percent_pa, -prcnt__,
+    -cbg, -sd_count, -cv_count, -censs_r, -value, -id, -median_count
+  ) %>%
+  distinct() %>%
+  group_by(suid_nm) %>%
+  mutate(mean_sg = mean(sg, na.rm = TRUE),
+         median_sg = median(med_sg, na.rm=TRUE))
+
+rm(cpad_safgraph)
+
+write_csv(safegraph_pa_sum, here::here("data", "processed_data", "cpad_sg.csv"))
+
+rm(safegraph_pa_sum)
+
+
 # # JSD Test ----------------------------------------------------------------
 # 
 # strava_inside <- strava %>%
@@ -116,75 +225,9 @@ rare <- rare %>%
     gap_status == "GAP 4" ~ "GAP 4"
   ))
 
-# rsvg_png(here::here("icons", "building-regular-full.svg"), file = here::here("icons", "building-regular-full.png"))
-# rsvg_png(here::here("icons", "kiwi-bird-solid-full.svg"), file = here::here("icons", "kiwi-bird-solid-full.png"))
-# rsvg_png(here::here("icons", "person-running-solid-full.svg"), file = here::here("icons", "person-running-solid-full.png"))
-# rsvg_png(here::here("icons", "seedling-solid-full.svg"), file = here::here("icons", "seedling-solid-full.png"))
 
-HFI_png <- here::here("icons", "building-regular-full.png")
-strava_png <- here::here("icons", "person-running-solid-full.png")
-native_png <- here::here("icons", "seedling-solid-full.png")
-rare_png <- here::here("icons", "kiwi-bird-solid-full.png")
 
-p1 <- ggplot(hfp) +
-  geom_density_ridges(aes(x = HFP2009, y = gap_loc, fill = gap_loc), alpha = 0.5, scale = 3) +
-  theme_bw(base_size = 20) +
-  labs(
-    x = paste0("Landscape Modification ", "<img src='", HFI_png, "' width='24'/>"),
-    y = "",
-    fill = ""
-  ) +
-  scale_fill_manual(values = c(viridis::viridis(5, end = .9)[1:4], "#fde725")) +
-  scale_color_manual(values = c("black", "grey")) +
-  theme(
-    legend.position = "none",
-    axis.title.x = element_markdown()
-  )
 
-p2 <- ggplot(bio) +
-  geom_density_ridges(aes(x = ntv_cnt, y = gap_loc, fill = gap_loc), alpha = 0.5, scale = 3) +
-  theme_bw(base_size = 20) +
-  labs(
-    x = paste0("Native Species Count ", "<img src='", native_png, "' width='24'/>"),
-    y = "",
-    fill = ""
-  ) +
-  scale_fill_manual(values = c(viridis::viridis(5, end = .9)[1:4], "#fde725")) +
-  scale_color_manual(values = c("black", "grey")) +
-  theme(
-    legend.position = "none",
-    axis.title.x = element_markdown()
-  )
-
-p3 <- ggplot(rare) +
-  geom_density_ridges(aes(x = rare_count, y = gap_loc, fill = gap_loc), alpha = 0.5, scale = 3) +
-  theme_bw(base_size = 20) +
-  labs(
-    x = paste0("Rare Species Count ", "<img src='", rare_png, "' width='24'/>"),
-    y = "",
-    fill = ""
-  ) +
-  scale_fill_manual(values = c(viridis::viridis(5, end = .9)[1:4], "#fde725")) +
-  scale_color_manual(values = c("black", "grey")) +
-  theme(
-    legend.position = "none",
-    axis.title.x = element_markdown()
-  )
-
-p6 <- ggplot(strava) +
-  geom_density_ridges(aes(x = gray_scale, y = gap_loc, fill = gap_loc), alpha = 0.5, scale = 3) +
-  theme_bw(base_size = 20) +
-  labs(
-    x = paste0("Human Mobility ", "<img src='", strava_png, "' width='24'/>"),
-    y = "",
-    fill = ""
-  ) +
-  scale_fill_manual(values = c(viridis::viridis(5, end = .9)[1:4], "#fde725")) +
-  scale_color_manual(values = c("black", "grey")) +
-  theme(
-    axis.title.x = element_markdown(),
-    legend.position = "none"
-  )
 
 strava_combine_sub <- strava %>%
   filter(mng_agncy %in% c(
@@ -251,73 +294,4 @@ rare_combine_sub <- rare %>%
     mng_agncy == "California Department of Parks and Recreation" ~ "CDPR"
   ))
 
-p7 <- ggplot(hfp_combine_sub) +
-  geom_density_ridges(aes(x = HFP2009, y = mng_agncy, fill = mng_agncy), alpha = 0.5, scale = 3) +
-  theme_bw(base_size = 20) +
-  labs(
-    x = paste0("Landscape Modification ", "<img src='", HFI_png, "' width='24'/>"),
-    y = "",
-    fill = ""
-  ) +
-  scale_fill_manual(values = colors2) +
-  scale_color_manual(values = c("black", "grey")) +
-  theme(
-    legend.position = "none",
-    axis.title.x = element_markdown()
-  )
 
-p8 <- ggplot(bio_combine_sub) +
-  geom_density_ridges(aes(x = ntv_cnt, y = mng_agncy, fill = mng_agncy), alpha = 0.5, scale = 3) +
-  theme_bw(base_size = 20) +
-  labs(
-    x = paste0("Native Species Count ", "<img src='", native_png, "' width='24'/>"),
-    y = "",
-    fill = ""
-  ) +
-  scale_fill_manual(values = colors2) +
-  scale_color_manual(values = c("black", "grey")) +
-  theme(
-    legend.position = "none",
-    axis.title.x = element_markdown()
-  )
-
-p9 <- ggplot(rare_combine_sub) +
-  geom_density_ridges(aes(x = rare_count, y = mng_agncy, fill = mng_agncy), alpha = 0.5, scale = 3) +
-  theme_bw(base_size = 20) +
-  labs(
-    x = paste0("Rare Species Count ", "<img src='", rare_png, "' width='24'/>"),
-    y = "",
-    fill = ""
-  ) +
-  scale_fill_manual(values = colors2) +
-  scale_color_manual(values = c("black", "grey")) +
-  theme(
-    legend.position = "none",
-    axis.title.x = element_markdown()
-  )
-
-p10 <- ggplot(strava_combine_sub) +
-  geom_density_ridges(aes(x = gray_scale, y = mng_agncy, fill = mng_agncy), alpha = 0.5, scale = 3) +
-  theme_bw(base_size = 20) +
-  labs(
-    x = paste0("Human Mobility ", "<img src='", strava_png, "' width='24'/>"),
-    y = "",
-    fill = ""
-  ) +
-  scale_fill_manual(values = colors2) +
-  scale_color_manual(values = c("black", "grey")) +
-  theme(
-    legend.position = "none",
-    axis.title.x = element_markdown()
-  )
-
-layout <- "
-AABF
-AACG
-AADH
-AAEI
-"
-
-plot <- p11 + p2 + p3 + p1 + p6 + p8 + p9 + p7 + p10 + plot_annotation(tag_levels = "A") + plot_layout(design = layout)
-
-ggsave(plot = plot, filename = paste0("fig1.pdf"), path = here::here("analysis", "figs"), height = 15, width = 30, device = cairo_pdf)
