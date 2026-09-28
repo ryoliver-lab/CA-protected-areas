@@ -351,13 +351,13 @@ sum(gap1_unique$shape_area) / 1000000 # 39428.07
 
 # median HFP
 median(gap1$HFP2009, na.rm = TRUE) # 1.414166
-quantile(gap1$HFP2009, na.rm = TRUE, probs = 0.25) # 0.2724519 
-quantile(gap1$HFP2009, na.rm = TRUE, probs = 0.75) # 3.981643 
+quantile(gap1$HFP2009, na.rm = TRUE, probs = 0.25) # 0.2724519
+quantile(gap1$HFP2009, na.rm = TRUE, probs = 0.75) # 3.981643
 
 # median strava
 median(gap1$gray_scale, na.rm = TRUE) # 26.52543
-quantile(gap1$gray_scale, na.rm = TRUE, probs = 0.25) # 5.080771 
-quantile(gap1$gray_scale, na.rm = TRUE, probs = 0.75) # 90.64981 
+quantile(gap1$gray_scale, na.rm = TRUE, probs = 0.25) # 5.080771
+quantile(gap1$gray_scale, na.rm = TRUE, probs = 0.75) # 90.64981
 
 # median native plant species
 median(gap1$ntv_plnt, na.rm = TRUE) #  1044
@@ -397,8 +397,8 @@ quantile(gap2$HFP2009, na.rm = TRUE, probs = 0.75) # 24.05953
 
 # median strava
 median(gap2$gray_scale, na.rm = TRUE) # 26.52543
-quantile(gap2$gray_scale, na.rm = TRUE, probs = 0.25) # 60.81407 
-quantile(gap2$gray_scale, na.rm = TRUE, probs = 0.75) # 222.9435 
+quantile(gap2$gray_scale, na.rm = TRUE, probs = 0.25) # 60.81407
+quantile(gap2$gray_scale, na.rm = TRUE, probs = 0.75) # 222.9435
 
 # median native plant species
 median(gap2$ntv_plnt, na.rm = TRUE) #  1224
@@ -433,8 +433,8 @@ sum(gap3_unique$shape_area) / 1000000 # 137701.4
 
 # median HFP
 median(gap3$HFP2009, na.rm = TRUE) # 2.100229
-quantile(gap3$HFP2009, na.rm = TRUE, probs = 0.25) # 1.032908 
-quantile(gap3$HFP2009, na.rm = TRUE, probs = 0.75) # 4.187536 
+quantile(gap3$HFP2009, na.rm = TRUE, probs = 0.25) # 1.032908
+quantile(gap3$HFP2009, na.rm = TRUE, probs = 0.75) # 4.187536
 
 # median strava
 median(gap3$gray_scale, na.rm = TRUE) # 22.55111
@@ -475,7 +475,7 @@ sum(gap4_unique$shape_area) / 1000000 # 6344.215
 # median HFP
 median(gap4$HFP2009, na.rm = TRUE) # 34.23607
 quantile(gap4$HFP2009, na.rm = TRUE, probs = 0.25) # 28.58263
-quantile(gap4$HFP2009, na.rm = TRUE, probs = 0.75) # 37.36599 
+quantile(gap4$HFP2009, na.rm = TRUE, probs = 0.75) # 37.36599
 
 # median strava
 median(gap4$gray_scale, na.rm = TRUE) # 236.4428
@@ -828,53 +828,61 @@ ggsave(plot, file = paste0("figS1.pdf"), path = here::here("analysis", "figs"), 
 # ANOVA -------------------------------------------------------------------
 
 lm1 <- lmer(gray_scale ~ gap_status + (1 | suid_nma), data = strava_inside)
+t.test(resid(lm1))
 summary(lm1)
 anova(lm1)
 eta_squared(lm1, partial = TRUE) # gap_status | 0.20 | [0.19, 1.00]
 r2(lm1)
 
 lm2 <- lmer(HFP2009 ~ gap_status + (1 | suid_nma), data = hfp_inside)
+t.test(resid(lm2))
 summary(lm2)
 anova(lm2)
 eta_squared(lm2, partial = TRUE) # gap_status |0.32 | [0.31, 1.00]
 r2(lm2)
 
 lm3 <- lmer(native ~ gap_status + (1 | suid_nma), data = bio_inside)
+t.test(resid(lm3))
+check_model(lm3)
 summary(lm3)
 anova(lm3)
 eta_squared(lm3, partial = TRUE) # gap_status |           0.03 | [0.03, 1.00]
 r2(lm3)
 
 lm4 <- lmer(rare ~ gap_status + (1 | suid_nma), data = rare_inside)
+t.test(resid(lm4))
 anova(lm4)
 summary(lm4)
 eta_squared(lm4, partial = TRUE) # gap_status | 0.01 | [0.01, 1.00]
 r2(lm4)
 
 lm5 <- lmer(gray_scale ~ mng_agncy + (1 | suid_nma), data = strava_inside2)
+t.test(resid(lm5))
 anova(lm5)
 summary(lm5)
 eta_squared(lm5, partial = TRUE) # mng_agncy | 0.12 | [0.08, 1.00]
 r2(lm5)
 
 lm6 <- lmer(HFP2009 ~ mng_agncy + (1 | suid_nma), data = hfp_inside2)
+t.test(resid(lm6))
 anova(lm6)
 summary(lm6)
 eta_squared(lm6, partial = TRUE) # mng_agncy |  0.05 | [0.02, 1.00]
 r2(lm6)
 
 lm7 <- lmer(native ~ mng_agncy + (1 | suid_nma), data = bio_inside2)
+t.test(resid(lm7))
 anova(lm7)
 summary(lm7)
 eta_squared(lm7, partial = TRUE) # mng_agncy |   0.11 | [0.08, 1.00]
 r2(lm7)
 
 lm8 <- lmer(rare ~ mng_agncy + (1 | suid_nma), data = rare_inside2)
+t.test(resid(lm8))
 anova(lm8)
 summary(lm8)
 eta_squared(lm8, partial = TRUE) # mng_agncy | 0.02 | [0.00, 1.00]
 r2(lm8)
-
 
 # Scatter Plot/PCA ------------------------------------------------------------
 
@@ -1106,83 +1114,123 @@ length(unique(park_models$suid_nma))
 beta_animal <- data.frame()
 
 for (i in 1:length(unique(park_models$suid_nma))) {
-  gam1 <- gam(gray_scale ~ HFP2009 + s(x, y, bs = "gp", m = 1, k = 25), data = park_models %>% filter(suid_nma == unique(park_models$suid_nma)[i]))
+  gam1 <- gam(gray_scale ~ HFP2009 + s(x, y, bs = "gp", m = 1, k = 30), data = park_models %>% filter(suid_nma == unique(park_models$suid_nma)[i]))
+
+  p_resid <- t.test(resid(gam1))$p.value
+
+  edf <- summary(gam1)$s.table[1]
 
   est <- summary(gam1)$p.table["HFP2009", "Estimate"]
   se <- summary(gam1)$p.table["HFP2009", "Std. Error"]
   t <- summary(gam1)$p.table["HFP2009", "t value"]
   p <- summary(gam1)$p.table["HFP2009", "Pr(>|t|)"]
-  
-  dev = summary(gam1)$dev.exp
+
+  dev <- summary(gam1)$dev.exp
 
   upper <- est + (t * se)
   lower <- est - (t * se)
 
-  coef <- data.frame(value = est, dev_exp = dev, t_value = t, p_value = p, se = se, upper = upper, lower = lower, suid_nma = unique(park_models$suid_nma)[i], model = "Landscape Modification and Human Mobility")
+  coef <- data.frame(
+    value = est, dev_exp = dev, t_value = t, p_value = p,
+    se = se, upper = upper, lower = lower, edf = edf, p_resid = p_resid,
+    suid_nma = unique(park_models$suid_nma)[i], model = "Landscape Modification and Human Mobility"
+  )
 
   beta_animal <- rbind(beta_animal, coef)
 
-  gam1 <- gam(native_count ~ HFP2009 + s(x, y, bs = "gp", m = 1, k = 25), data = park_models %>% filter(suid_nma == unique(park_models$suid_nma)[i]))
+  gam1 <- gam(native_count ~ HFP2009 + s(x, y, bs = "gp", m = 1, k = 30), data = park_models %>% filter(suid_nma == unique(park_models$suid_nma)[i]))
+
+  p_resid <- t.test(resid(gam1))$p.value
+
+  edf <- summary(gam1)$s.table[1]
 
   est <- summary(gam1)$p.table["HFP2009", "Estimate"]
   se <- summary(gam1)$p.table["HFP2009", "Std. Error"]
   t <- summary(gam1)$p.table["HFP2009", "t value"]
   p <- summary(gam1)$p.table["HFP2009", "Pr(>|t|)"]
-  
-  dev = summary(gam1)$dev.exp
+
+  dev <- summary(gam1)$dev.exp
 
   upper <- est + (t * se)
   lower <- est - (t * se)
 
-  coef <- data.frame(value = est, dev_exp = dev, t_value = t, p_value = p, se = se, upper = upper, lower = lower, suid_nma = unique(park_models$suid_nma)[i], model = "Native Species and Landscape Modification")
+  coef <- data.frame(
+    value = est, dev_exp = dev, t_value = t, p_value = p,
+    se = se, upper = upper, lower = lower, edf = edf, p_resid = p_resid,
+    suid_nma = unique(park_models$suid_nma)[i], model = "Native Species and Landscape Modification"
+  )
 
   beta_animal <- rbind(beta_animal, coef)
 
-  gam1 <- gam(native_count ~ gray_scale + s(x, y, bs = "gp", m = 1, k = 25), data = park_models %>% filter(suid_nma == unique(park_models$suid_nma)[i]))
+  gam1 <- gam(native_count ~ gray_scale + s(x, y, bs = "gp", m = 1, k = 30), data = park_models %>% filter(suid_nma == unique(park_models$suid_nma)[i]))
+
+  p_resid <- t.test(resid(gam1))$p.value
+
+  edf <- summary(gam1)$s.table[1]
 
   est <- summary(gam1)$p.table["gray_scale", "Estimate"]
   se <- summary(gam1)$p.table["gray_scale", "Std. Error"]
   t <- summary(gam1)$p.table["gray_scale", "t value"]
   p <- summary(gam1)$p.table["gray_scale", "Pr(>|t|)"]
-  
-  dev = summary(gam1)$dev.exp
+
+  dev <- summary(gam1)$dev.exp
 
   upper <- est + (t * se)
   lower <- est - (t * se)
 
-  coef <- data.frame(value = est, dev_exp = dev, t_value = t, p_value = p, se = se, upper = upper, lower = lower, suid_nma = unique(park_models$suid_nma)[i], model = "Native Species and Human Mobility")
+  coef <- data.frame(
+    value = est, dev_exp = dev, t_value = t, p_value = p,
+    se = se, upper = upper, lower = lower, edf = edf, p_resid = p_resid,
+    suid_nma = unique(park_models$suid_nma)[i], model = "Native Species and Human Mobility"
+  )
 
   beta_animal <- rbind(beta_animal, coef)
 
-  gam1 <- gam(rare_count ~ HFP2009 + s(x, y, bs = "gp", m = 1, k = 25), data = park_models %>% filter(suid_nma == unique(park_models$suid_nma)[i]))
+  gam1 <- gam(rare_count ~ HFP2009 + s(x, y, bs = "gp", m = 1, k = 30), data = park_models %>% filter(suid_nma == unique(park_models$suid_nma)[i]))
+
+  p_resid <- t.test(resid(gam1))$p.value
+
+  edf <- summary(gam1)$s.table[1]
 
   est <- summary(gam1)$p.table["HFP2009", "Estimate"]
   se <- summary(gam1)$p.table["HFP2009", "Std. Error"]
   t <- summary(gam1)$p.table["HFP2009", "t value"]
   p <- summary(gam1)$p.table["HFP2009", "Pr(>|t|)"]
-  
-  dev = summary(gam1)$dev.exp
+
+  dev <- summary(gam1)$dev.exp
 
   upper <- est + (t * se)
   lower <- est - (t * se)
 
-  coef <- data.frame(value = est, dev_exp = dev, t_value = t, p_value = p, se = se, upper = upper, lower = lower, suid_nma = unique(park_models$suid_nma)[i], model = "Rare Species and Landscape Modification")
+  coef <- data.frame(
+    value = est, dev_exp = dev, t_value = t, p_value = p,
+    se = se, upper = upper, lower = lower, edf = edf, p_resid = p_resid,
+    suid_nma = unique(park_models$suid_nma)[i], model = "Rare Species and Landscape Modification"
+  )
 
   beta_animal <- rbind(beta_animal, coef)
 
-  gam1 <- gam(rare_count ~ gray_scale + s(x, y, bs = "gp", m = 1, k = 25), data = park_models %>% filter(suid_nma == unique(park_models$suid_nma)[i]))
+  gam1 <- gam(rare_count ~ gray_scale + s(x, y, bs = "gp", m = 1, k = 30), data = park_models %>% filter(suid_nma == unique(park_models$suid_nma)[i]))
+
+  p_resid <- t.test(resid(gam1))$p.value
+
+  edf <- summary(gam1)$s.table[1]
 
   est <- summary(gam1)$p.table["gray_scale", "Estimate"]
   se <- summary(gam1)$p.table["gray_scale", "Std. Error"]
   t <- summary(gam1)$p.table["gray_scale", "t value"]
   p <- summary(gam1)$p.table["gray_scale", "Pr(>|t|)"]
-  
-  dev = summary(gam1)$dev.exp
+
+  dev <- summary(gam1)$dev.exp
 
   upper <- est + (t * se)
   lower <- est - (t * se)
 
-  coef <- data.frame(value = est, dev_exp = dev, t_value = t, p_value = p, se = se, upper = upper, lower = lower, suid_nma = unique(park_models$suid_nma)[i], model = "Rare Species and Human Mobility")
+  coef <- data.frame(
+    value = est, dev_exp = dev, t_value = t, p_value = p,
+    se = se, upper = upper, lower = lower, edf = edf, p_resid = p_resid,
+    suid_nma = unique(park_models$suid_nma)[i], model = "Rare Species and Human Mobility"
+  )
 
   beta_animal <- rbind(beta_animal, coef)
 }
@@ -1236,67 +1284,99 @@ length(unique(park_models$suid_nma))
 beta_plant <- data.frame()
 
 for (i in 1:length(unique(park_models$suid_nma))) {
-  gam1 <- gam(native_count ~ HFP2009 + s(x, y, bs = "gp", m = 1, k = 10), data = park_models %>% filter(suid_nma == unique(park_models$suid_nma)[i]))
+  gam1 <- gam(native_count ~ HFP2009 + s(x, y, bs = "gp", m = 1, k = 32), data = park_models %>% filter(suid_nma == unique(park_models$suid_nma)[i]))
+
+  p_resid <- t.test(resid(gam1))$p.value
+
+  edf <- summary(gam1)$s.table[1]
 
   est <- summary(gam1)$p.table["HFP2009", "Estimate"]
   se <- summary(gam1)$p.table["HFP2009", "Std. Error"]
   t <- summary(gam1)$p.table["HFP2009", "t value"]
   p <- summary(gam1)$p.table["HFP2009", "Pr(>|t|)"]
-  
-  dev = summary(gam1)$dev.exp
+
+  dev <- summary(gam1)$dev.exp
 
   upper <- est + (t * se)
   lower <- est - (t * se)
 
-  coef <- data.frame(value = est, dev_exp = dev, t_value = t, p_value = p, se = se, upper = upper, lower = lower, suid_nma = unique(park_models$suid_nma)[i], model = "Native Species and Landscape Modification")
+  coef <- data.frame(
+    value = est, dev_exp = dev, t_value = t, p_value = p,
+    se = se, upper = upper, lower = lower, edf = edf, p_resid = p_resid,
+    suid_nma = unique(park_models$suid_nma)[i], model = "Native Species and Landscape Modification"
+  )
 
   beta_plant <- rbind(beta_plant, coef)
 
-  gam1 <- gam(native_count ~ gray_scale + s(x, y, bs = "gp", m = 1, k = 10), data = park_models %>% filter(suid_nma == unique(park_models$suid_nma)[i]))
+  gam1 <- gam(native_count ~ gray_scale + s(x, y, bs = "gp", m = 1, k = 32), data = park_models %>% filter(suid_nma == unique(park_models$suid_nma)[i]))
+
+  p_resid <- t.test(resid(gam1))$p.value
+
+  edf <- summary(gam1)$s.table[1]
 
   est <- summary(gam1)$p.table["gray_scale", "Estimate"]
   se <- summary(gam1)$p.table["gray_scale", "Std. Error"]
   t <- summary(gam1)$p.table["gray_scale", "t value"]
   p <- summary(gam1)$p.table["gray_scale", "Pr(>|t|)"]
-  
-  dev = summary(gam1)$dev.exp
+
+  dev <- summary(gam1)$dev.exp
 
   upper <- est + (t * se)
   lower <- est - (t * se)
 
-  coef <- data.frame(value = est, dev_exp = dev, t_value = t, p_value = p, se = se, upper = upper, lower = lower, suid_nma = unique(park_models$suid_nma)[i], model = "Native Species and Human Mobility")
+  coef <- data.frame(
+    value = est, dev_exp = dev, t_value = t, p_value = p,
+    se = se, upper = upper, lower = lower, edf = edf, p_resid = p_resid,
+    suid_nma = unique(park_models$suid_nma)[i], model = "Native Species and Human Mobility"
+  )
 
   beta_plant <- rbind(beta_plant, coef)
 
-  gam1 <- gam(rare_count ~ HFP2009 + s(x, y, bs = "gp", m = 1, k = 10), data = park_models %>% filter(suid_nma == unique(park_models$suid_nma)[i]))
+  gam1 <- gam(rare_count ~ HFP2009 + s(x, y, bs = "gp", m = 1, k = 32), data = park_models %>% filter(suid_nma == unique(park_models$suid_nma)[i]))
+
+  p_resid <- t.test(resid(gam1))$p.value
+
+  edf <- summary(gam1)$s.table[1]
 
   est <- summary(gam1)$p.table["HFP2009", "Estimate"]
   se <- summary(gam1)$p.table["HFP2009", "Std. Error"]
   t <- summary(gam1)$p.table["HFP2009", "t value"]
   p <- summary(gam1)$p.table["HFP2009", "Pr(>|t|)"]
-  
-  dev = summary(gam1)$dev.exp
+
+  dev <- summary(gam1)$dev.exp
 
   upper <- est + (t * se)
   lower <- est - (t * se)
 
-  coef <- data.frame(value = est, dev_exp = dev, t_value = t, p_value = p, se = se, upper = upper, lower = lower, suid_nma = unique(park_models$suid_nma)[i], model = "Rare Species and Landscape Modification")
+  coef <- data.frame(
+    value = est, dev_exp = dev, t_value = t, p_value = p,
+    se = se, upper = upper, lower = lower, edf = edf, p_resid = p_resid,
+    suid_nma = unique(park_models$suid_nma)[i], model = "Rare Species and Landscape Modification"
+  )
 
   beta_plant <- rbind(beta_plant, coef)
 
-  gam1 <- gam(rare_count ~ gray_scale + s(x, y, bs = "gp", m = 1, k = 10), data = park_models %>% filter(suid_nma == unique(park_models$suid_nma)[i]))
+  gam1 <- gam(rare_count ~ gray_scale + s(x, y, bs = "gp", m = 1, k = 32), data = park_models %>% filter(suid_nma == unique(park_models$suid_nma)[i]))
+
+  p_resid <- t.test(resid(gam1))$p.value
+
+  edf <- summary(gam1)$s.table[1]
 
   est <- summary(gam1)$p.table["gray_scale", "Estimate"]
   se <- summary(gam1)$p.table["gray_scale", "Std. Error"]
   t <- summary(gam1)$p.table["gray_scale", "t value"]
   p <- summary(gam1)$p.table["gray_scale", "Pr(>|t|)"]
-  
-  dev = summary(gam1)$dev.exp
+
+  dev <- summary(gam1)$dev.exp
 
   upper <- est + (t * se)
   lower <- est - (t * se)
 
-  coef <- data.frame(value = est, dev_exp = dev, t_value = t, p_value = p, se = se, upper = upper, lower = lower, suid_nma = unique(park_models$suid_nma)[i], model = "Rare Species and Human Mobility")
+  coef <- data.frame(
+    value = est, dev_exp = dev, t_value = t, p_value = p,
+    se = se, upper = upper, lower = lower, edf = edf, p_resid = p_resid,
+    suid_nma = unique(park_models$suid_nma)[i], model = "Rare Species and Human Mobility"
+  )
 
   beta_plant <- rbind(beta_plant, coef)
 }
@@ -1339,17 +1419,17 @@ p4 <- t_test(beta %>% filter(model == "Rare Species and Human Mobility" &
 p5 <- t_test(beta %>% filter(model == "Native Species and Landscape Modification" &
   type == "Plant"), "value", weights = "count") %>%
   pull(p)
-# p-value > .999
+# p-value < .001
 
 p6 <- t_test(beta %>% filter(model == "Native Species and Human Mobility" &
   type == "Plant"), "value", weights = "count") %>%
   pull(p)
-# p-value = 0.343
+# p-value = 0.1485576
 
 p7 <- t_test(beta %>% filter(model == "Rare Species and Landscape Modification" &
   type == "Plant"), "value", weights = "count") %>%
   pull(p)
-# p-value = 0.004
+# p-value < .001
 
 p8 <- t_test(beta %>% filter(model == "Rare Species and Human Mobility" &
   type == "Plant"), "value", weights = "count") %>%
@@ -1387,8 +1467,10 @@ beta_sum <- beta_sum %>%
     p_value < 0.05 & value > 0 ~ "Positive Significant",
     p_value < 0.05 & value < 0 ~ "Negative Significant",
     p_value > 0.05 ~ "Not Significant"
-  )) %>% 
-  mutate(dev_exp = NA)
+  )) %>%
+  mutate(dev_exp = NA,
+         p_resid = NA,
+         edf = NA) 
 
 beta <- rbind(beta, beta_sum) %>%
   mutate(
