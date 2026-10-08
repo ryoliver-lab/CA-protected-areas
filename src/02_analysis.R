@@ -828,21 +828,18 @@ ggsave(plot, file = paste0("figS1.pdf"), path = here::here("analysis", "figs"), 
 # ANOVA -------------------------------------------------------------------
 
 lm1 <- lmer(gray_scale ~ gap_status + (1 | suid_nma), data = strava_inside)
-t.test(resid(lm1))
 summary(lm1)
 anova(lm1)
 eta_squared(lm1, partial = TRUE) # gap_status | 0.20 | [0.19, 1.00]
 r2(lm1)
 
 lm2 <- lmer(HFP2009 ~ gap_status + (1 | suid_nma), data = hfp_inside)
-t.test(resid(lm2))
 summary(lm2)
 anova(lm2)
 eta_squared(lm2, partial = TRUE) # gap_status |0.32 | [0.31, 1.00]
 r2(lm2)
 
 lm3 <- lmer(native ~ gap_status + (1 | suid_nma), data = bio_inside)
-t.test(resid(lm3))
 check_model(lm3)
 summary(lm3)
 anova(lm3)
@@ -850,35 +847,30 @@ eta_squared(lm3, partial = TRUE) # gap_status |           0.03 | [0.03, 1.00]
 r2(lm3)
 
 lm4 <- lmer(rare ~ gap_status + (1 | suid_nma), data = rare_inside)
-t.test(resid(lm4))
 anova(lm4)
 summary(lm4)
 eta_squared(lm4, partial = TRUE) # gap_status | 0.01 | [0.01, 1.00]
 r2(lm4)
 
 lm5 <- lmer(gray_scale ~ mng_agncy + (1 | suid_nma), data = strava_inside2)
-t.test(resid(lm5))
 anova(lm5)
 summary(lm5)
 eta_squared(lm5, partial = TRUE) # mng_agncy | 0.12 | [0.08, 1.00]
 r2(lm5)
 
 lm6 <- lmer(HFP2009 ~ mng_agncy + (1 | suid_nma), data = hfp_inside2)
-t.test(resid(lm6))
 anova(lm6)
 summary(lm6)
 eta_squared(lm6, partial = TRUE) # mng_agncy |  0.05 | [0.02, 1.00]
 r2(lm6)
 
 lm7 <- lmer(native ~ mng_agncy + (1 | suid_nma), data = bio_inside2)
-t.test(resid(lm7))
 anova(lm7)
 summary(lm7)
 eta_squared(lm7, partial = TRUE) # mng_agncy |   0.11 | [0.08, 1.00]
 r2(lm7)
 
 lm8 <- lmer(rare ~ mng_agncy + (1 | suid_nma), data = rare_inside2)
-t.test(resid(lm8))
 anova(lm8)
 summary(lm8)
 eta_squared(lm8, partial = TRUE) # mng_agncy | 0.02 | [0.00, 1.00]
@@ -1116,7 +1108,7 @@ beta_animal <- data.frame()
 for (i in 1:length(unique(park_models$suid_nma))) {
   gam1 <- gam(gray_scale ~ HFP2009 + s(x, y, bs = "gp", m = 1, k = 30), data = park_models %>% filter(suid_nma == unique(park_models$suid_nma)[i]))
 
-  p_resid <- t.test(resid(gam1))$p.value
+  p_resid <- shapiro.test(resid(gam1))$p.value
 
   edf <- summary(gam1)$s.table[1]
 
@@ -1140,7 +1132,7 @@ for (i in 1:length(unique(park_models$suid_nma))) {
 
   gam1 <- gam(native_count ~ HFP2009 + s(x, y, bs = "gp", m = 1, k = 30), data = park_models %>% filter(suid_nma == unique(park_models$suid_nma)[i]))
 
-  p_resid <- t.test(resid(gam1))$p.value
+  p_resid <- shapiro.test(resid(gam1))$p.value
 
   edf <- summary(gam1)$s.table[1]
 
@@ -1164,7 +1156,7 @@ for (i in 1:length(unique(park_models$suid_nma))) {
 
   gam1 <- gam(native_count ~ gray_scale + s(x, y, bs = "gp", m = 1, k = 30), data = park_models %>% filter(suid_nma == unique(park_models$suid_nma)[i]))
 
-  p_resid <- t.test(resid(gam1))$p.value
+  p_resid <- shapiro.test(resid(gam1))$p.value
 
   edf <- summary(gam1)$s.table[1]
 
@@ -1188,7 +1180,7 @@ for (i in 1:length(unique(park_models$suid_nma))) {
 
   gam1 <- gam(rare_count ~ HFP2009 + s(x, y, bs = "gp", m = 1, k = 30), data = park_models %>% filter(suid_nma == unique(park_models$suid_nma)[i]))
 
-  p_resid <- t.test(resid(gam1))$p.value
+  p_resid <- shapiro.test(resid(gam1))$p.value
 
   edf <- summary(gam1)$s.table[1]
 
@@ -1212,7 +1204,7 @@ for (i in 1:length(unique(park_models$suid_nma))) {
 
   gam1 <- gam(rare_count ~ gray_scale + s(x, y, bs = "gp", m = 1, k = 30), data = park_models %>% filter(suid_nma == unique(park_models$suid_nma)[i]))
 
-  p_resid <- t.test(resid(gam1))$p.value
+  p_resid <- shapiro.test(resid(gam1))$p.value
 
   edf <- summary(gam1)$s.table[1]
 
@@ -1286,7 +1278,7 @@ beta_plant <- data.frame()
 for (i in 1:length(unique(park_models$suid_nma))) {
   gam1 <- gam(native_count ~ HFP2009 + s(x, y, bs = "gp", m = 1, k = 32), data = park_models %>% filter(suid_nma == unique(park_models$suid_nma)[i]))
 
-  p_resid <- t.test(resid(gam1))$p.value
+  p_resid <- shapiro.test(resid(gam1))$p.value
 
   edf <- summary(gam1)$s.table[1]
 
@@ -1310,7 +1302,7 @@ for (i in 1:length(unique(park_models$suid_nma))) {
 
   gam1 <- gam(native_count ~ gray_scale + s(x, y, bs = "gp", m = 1, k = 32), data = park_models %>% filter(suid_nma == unique(park_models$suid_nma)[i]))
 
-  p_resid <- t.test(resid(gam1))$p.value
+  p_resid <- shapiro.test(resid(gam1))$p.value
 
   edf <- summary(gam1)$s.table[1]
 
@@ -1334,7 +1326,7 @@ for (i in 1:length(unique(park_models$suid_nma))) {
 
   gam1 <- gam(rare_count ~ HFP2009 + s(x, y, bs = "gp", m = 1, k = 32), data = park_models %>% filter(suid_nma == unique(park_models$suid_nma)[i]))
 
-  p_resid <- t.test(resid(gam1))$p.value
+  p_resid <- shapiro.test(resid(gam1))$p.value
 
   edf <- summary(gam1)$s.table[1]
 
@@ -1358,7 +1350,7 @@ for (i in 1:length(unique(park_models$suid_nma))) {
 
   gam1 <- gam(rare_count ~ gray_scale + s(x, y, bs = "gp", m = 1, k = 32), data = park_models %>% filter(suid_nma == unique(park_models$suid_nma)[i]))
 
-  p_resid <- t.test(resid(gam1))$p.value
+  p_resid <- shapiro.test(resid(gam1))$p.value
 
   edf <- summary(gam1)$s.table[1]
 
