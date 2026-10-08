@@ -4,6 +4,7 @@ library(patchwork)
 library(ggridges)
 library(ggtext)
 library(lme4)
+library(lmtest)
 library(lmerTest)
 library(performance)
 library(effectsize)
@@ -1106,11 +1107,13 @@ length(unique(park_models$suid_nma))
 beta_animal <- data.frame()
 
 for (i in 1:length(unique(park_models$suid_nma))) {
-  gam1 <- gam(gray_scale ~ HFP2009 + s(x, y, bs = "gp", m = 1, k = 30), data = park_models %>% filter(suid_nma == unique(park_models$suid_nma)[i]))
 
-  p_resid <- shapiro.test(resid(gam1))$p.value
+  gam1 <- gam(gray_scale ~ HFP2009 + s(x, y, bs = "gp", m = 1), data = park_models %>% filter(suid_nma == unique(park_models$suid_nma)[i]))
 
-  edf <- summary(gam1)$s.table[1]
+  p_resid <- as.numeric(bptest(gam1)$p.value)
+
+  edf <- k.check(gam1)[2]
+  k <- k.check(gam1)[1]
 
   est <- summary(gam1)$p.table["HFP2009", "Estimate"]
   se <- summary(gam1)$p.table["HFP2009", "Std. Error"]
@@ -1124,17 +1127,18 @@ for (i in 1:length(unique(park_models$suid_nma))) {
 
   coef <- data.frame(
     value = est, dev_exp = dev, t_value = t, p_value = p,
-    se = se, upper = upper, lower = lower, edf = edf, p_resid = p_resid,
+    se = se, upper = upper, lower = lower, k = k, edf=edf, p_resid = p_resid,
     suid_nma = unique(park_models$suid_nma)[i], model = "Landscape Modification and Human Mobility"
   )
 
   beta_animal <- rbind(beta_animal, coef)
 
-  gam1 <- gam(native_count ~ HFP2009 + s(x, y, bs = "gp", m = 1, k = 30), data = park_models %>% filter(suid_nma == unique(park_models$suid_nma)[i]))
+  gam1 <- gam(native_count ~ HFP2009 + s(x, y, bs = "gp", m = 1), data = park_models %>% filter(suid_nma == unique(park_models$suid_nma)[i]))
 
-  p_resid <- shapiro.test(resid(gam1))$p.value
+  p_resid <- as.numeric(bptest(gam1)$p.value)
 
-  edf <- summary(gam1)$s.table[1]
+  edf <- k.check(gam1)[2]
+  k <- k.check(gam1)[1]
 
   est <- summary(gam1)$p.table["HFP2009", "Estimate"]
   se <- summary(gam1)$p.table["HFP2009", "Std. Error"]
@@ -1148,17 +1152,18 @@ for (i in 1:length(unique(park_models$suid_nma))) {
 
   coef <- data.frame(
     value = est, dev_exp = dev, t_value = t, p_value = p,
-    se = se, upper = upper, lower = lower, edf = edf, p_resid = p_resid,
+    se = se, upper = upper, lower = lower, k = k, edf=edf, p_resid = p_resid,
     suid_nma = unique(park_models$suid_nma)[i], model = "Native Species and Landscape Modification"
   )
 
   beta_animal <- rbind(beta_animal, coef)
 
-  gam1 <- gam(native_count ~ gray_scale + s(x, y, bs = "gp", m = 1, k = 30), data = park_models %>% filter(suid_nma == unique(park_models$suid_nma)[i]))
+  gam1 <- gam(native_count ~ gray_scale + s(x, y, bs = "gp", m = 1), data = park_models %>% filter(suid_nma == unique(park_models$suid_nma)[i]))
 
-  p_resid <- shapiro.test(resid(gam1))$p.value
+  p_resid <- as.numeric(bptest(gam1)$p.value)
 
-  edf <- summary(gam1)$s.table[1]
+  edf <- k.check(gam1)[2]
+  k <- k.check(gam1)[1]
 
   est <- summary(gam1)$p.table["gray_scale", "Estimate"]
   se <- summary(gam1)$p.table["gray_scale", "Std. Error"]
@@ -1172,17 +1177,18 @@ for (i in 1:length(unique(park_models$suid_nma))) {
 
   coef <- data.frame(
     value = est, dev_exp = dev, t_value = t, p_value = p,
-    se = se, upper = upper, lower = lower, edf = edf, p_resid = p_resid,
+    se = se, upper = upper, lower = lower, k = k,edf=edf, p_resid = p_resid,
     suid_nma = unique(park_models$suid_nma)[i], model = "Native Species and Human Mobility"
   )
 
   beta_animal <- rbind(beta_animal, coef)
 
-  gam1 <- gam(rare_count ~ HFP2009 + s(x, y, bs = "gp", m = 1, k = 30), data = park_models %>% filter(suid_nma == unique(park_models$suid_nma)[i]))
+  gam1 <- gam(rare_count ~ HFP2009 + s(x, y, bs = "gp", m = 1), data = park_models %>% filter(suid_nma == unique(park_models$suid_nma)[i]))
 
-  p_resid <- shapiro.test(resid(gam1))$p.value
+  p_resid <- as.numeric(bptest(gam1)$p.value)
 
-  edf <- summary(gam1)$s.table[1]
+  edf <- k.check(gam1)[2]
+  k <- k.check(gam1)[1]
 
   est <- summary(gam1)$p.table["HFP2009", "Estimate"]
   se <- summary(gam1)$p.table["HFP2009", "Std. Error"]
@@ -1196,17 +1202,18 @@ for (i in 1:length(unique(park_models$suid_nma))) {
 
   coef <- data.frame(
     value = est, dev_exp = dev, t_value = t, p_value = p,
-    se = se, upper = upper, lower = lower, edf = edf, p_resid = p_resid,
+    se = se, upper = upper, lower = lower, k = k, edf=edf,p_resid = p_resid,
     suid_nma = unique(park_models$suid_nma)[i], model = "Rare Species and Landscape Modification"
   )
 
   beta_animal <- rbind(beta_animal, coef)
 
-  gam1 <- gam(rare_count ~ gray_scale + s(x, y, bs = "gp", m = 1, k = 30), data = park_models %>% filter(suid_nma == unique(park_models$suid_nma)[i]))
+  gam1 <- gam(rare_count ~ gray_scale + s(x, y, bs = "gp", m = 1), data = park_models %>% filter(suid_nma == unique(park_models$suid_nma)[i]))
 
-  p_resid <- shapiro.test(resid(gam1))$p.value
+  p_resid <- as.numeric(bptest(gam1)$p.value)
 
-  edf <- summary(gam1)$s.table[1]
+  edf <- k.check(gam1)[2]
+  k <- k.check(gam1)[1]
 
   est <- summary(gam1)$p.table["gray_scale", "Estimate"]
   se <- summary(gam1)$p.table["gray_scale", "Std. Error"]
@@ -1220,7 +1227,7 @@ for (i in 1:length(unique(park_models$suid_nma))) {
 
   coef <- data.frame(
     value = est, dev_exp = dev, t_value = t, p_value = p,
-    se = se, upper = upper, lower = lower, edf = edf, p_resid = p_resid,
+    se = se, upper = upper, lower = lower, k = k, edf=edf, p_resid = p_resid,
     suid_nma = unique(park_models$suid_nma)[i], model = "Rare Species and Human Mobility"
   )
 
@@ -1278,9 +1285,10 @@ beta_plant <- data.frame()
 for (i in 1:length(unique(park_models$suid_nma))) {
   gam1 <- gam(native_count ~ HFP2009 + s(x, y, bs = "gp", m = 1, k = 32), data = park_models %>% filter(suid_nma == unique(park_models$suid_nma)[i]))
 
-  p_resid <- shapiro.test(resid(gam1))$p.value
+  p_resid <- as.numeric(bptest(gam1)$p.value)
 
-  edf <- summary(gam1)$s.table[1]
+  edf <- k.check(gam1)[2]
+  k <- k.check(gam1)[1]
 
   est <- summary(gam1)$p.table["HFP2009", "Estimate"]
   se <- summary(gam1)$p.table["HFP2009", "Std. Error"]
@@ -1294,7 +1302,7 @@ for (i in 1:length(unique(park_models$suid_nma))) {
 
   coef <- data.frame(
     value = est, dev_exp = dev, t_value = t, p_value = p,
-    se = se, upper = upper, lower = lower, edf = edf, p_resid = p_resid,
+    se = se, upper = upper, lower = lower, k = k, edf=edf, p_resid = p_resid,
     suid_nma = unique(park_models$suid_nma)[i], model = "Native Species and Landscape Modification"
   )
 
@@ -1302,9 +1310,10 @@ for (i in 1:length(unique(park_models$suid_nma))) {
 
   gam1 <- gam(native_count ~ gray_scale + s(x, y, bs = "gp", m = 1, k = 32), data = park_models %>% filter(suid_nma == unique(park_models$suid_nma)[i]))
 
-  p_resid <- shapiro.test(resid(gam1))$p.value
+  p_resid <- as.numeric(bptest(gam1)$p.value)
 
-  edf <- summary(gam1)$s.table[1]
+  edf <- k.check(gam1)[2]
+  k <- k.check(gam1)[1]
 
   est <- summary(gam1)$p.table["gray_scale", "Estimate"]
   se <- summary(gam1)$p.table["gray_scale", "Std. Error"]
@@ -1318,7 +1327,7 @@ for (i in 1:length(unique(park_models$suid_nma))) {
 
   coef <- data.frame(
     value = est, dev_exp = dev, t_value = t, p_value = p,
-    se = se, upper = upper, lower = lower, edf = edf, p_resid = p_resid,
+    se = se, upper = upper, lower = lower, k = k,edf=edf,  p_resid = p_resid,
     suid_nma = unique(park_models$suid_nma)[i], model = "Native Species and Human Mobility"
   )
 
@@ -1326,9 +1335,10 @@ for (i in 1:length(unique(park_models$suid_nma))) {
 
   gam1 <- gam(rare_count ~ HFP2009 + s(x, y, bs = "gp", m = 1, k = 32), data = park_models %>% filter(suid_nma == unique(park_models$suid_nma)[i]))
 
-  p_resid <- shapiro.test(resid(gam1))$p.value
+  p_resid <- as.numeric(bptest(gam1)$p.value)
 
-  edf <- summary(gam1)$s.table[1]
+  edf <- k.check(gam1)[2]
+  k <- k.check(gam1)[1]
 
   est <- summary(gam1)$p.table["HFP2009", "Estimate"]
   se <- summary(gam1)$p.table["HFP2009", "Std. Error"]
@@ -1342,7 +1352,7 @@ for (i in 1:length(unique(park_models$suid_nma))) {
 
   coef <- data.frame(
     value = est, dev_exp = dev, t_value = t, p_value = p,
-    se = se, upper = upper, lower = lower, edf = edf, p_resid = p_resid,
+    se = se, upper = upper, lower = lower, k = k,edf=edf, p_resid = p_resid,
     suid_nma = unique(park_models$suid_nma)[i], model = "Rare Species and Landscape Modification"
   )
 
@@ -1350,9 +1360,10 @@ for (i in 1:length(unique(park_models$suid_nma))) {
 
   gam1 <- gam(rare_count ~ gray_scale + s(x, y, bs = "gp", m = 1, k = 32), data = park_models %>% filter(suid_nma == unique(park_models$suid_nma)[i]))
 
-  p_resid <- shapiro.test(resid(gam1))$p.value
+  p_resid <- as.numeric(bptest(gam1)$p.value)
 
-  edf <- summary(gam1)$s.table[1]
+  edf <- k.check(gam1)[2]
+  k <- k.check(gam1)[1]
 
   est <- summary(gam1)$p.table["gray_scale", "Estimate"]
   se <- summary(gam1)$p.table["gray_scale", "Std. Error"]
@@ -1366,7 +1377,7 @@ for (i in 1:length(unique(park_models$suid_nma))) {
 
   coef <- data.frame(
     value = est, dev_exp = dev, t_value = t, p_value = p,
-    se = se, upper = upper, lower = lower, edf = edf, p_resid = p_resid,
+    se = se, upper = upper, lower = lower, k = k, edf=edf, p_resid = p_resid,
     suid_nma = unique(park_models$suid_nma)[i], model = "Rare Species and Human Mobility"
   )
 
@@ -1462,7 +1473,8 @@ beta_sum <- beta_sum %>%
   )) %>%
   mutate(dev_exp = NA,
          p_resid = NA,
-         edf = NA) 
+         edf = NA,
+         k = NA) 
 
 beta <- rbind(beta, beta_sum) %>%
   mutate(
@@ -1544,7 +1556,7 @@ p2 <- ggplot(beta %>% filter(model == "Native Species and Human Mobility" &
   ) +
   scale_size_manual(values = c(5, rep(3, 36))) +
   scale_y_discrete(limits = rev) +
-  scale_color_manual(values = c("darkgrey", "#1B9E77")) +
+  scale_color_manual(values = c("#D01C8B", "darkgrey", "#1B9E77")) +
   # scale_color_gradient2(low = "#762A83", mid = "darkgrey", high = "#1B7837", midpoint = 0, breaks = c(-.5, -0.25, 0, 0.25, 0.5, 0.75, 1)) +
   theme(
     legend.position = "none",
@@ -1631,7 +1643,7 @@ p4 <- ggplot(beta %>% filter(model == "Rare Species and Human Mobility" &
   ) +
   scale_size_manual(values = c(5, rep(3, 36))) +
   scale_y_discrete(limits = rev) +
-  scale_color_manual(values = c("darkgrey", "#1B9E77")) +
+  scale_color_manual(values = c("#D01C8B", "darkgrey", "#1B9E77")) +
   # scale_color_gradient2(low = "#762A83", mid = "darkgrey", high = "#1B7837", midpoint = 0, breaks = c(-.5, -0.25, 0, 0.25, 0.5, 0.75, 1)) +
   theme(
     legend.position = "none",
@@ -1859,3 +1871,26 @@ plot <- p3 + p4 + p8 + p9 + plot_annotation(tag_levels = "A")
 ggsave(plot, file = paste0("fig3.pdf"), path = here::here("analysis", "figs"), height = 15, width = 20)
 
 ggsave((p1 + p2 + plot_spacer()) / (p5 + p6 + p7) + plot_annotation(tag_levels = "A"), file = paste0("figS2.pdf"), path = here::here("analysis", "figs"), height = 12, width = 25)
+
+p_resid_sum = beta %>% 
+  filter(suid_nma != "global") %>% 
+  mutate(residual_hetero = case_when(
+    p_resid >= 0.05 ~ "yes",
+    p_resid < 0.05 ~ "no"
+  )) %>% 
+  group_by(residual_hetero) %>% 
+  dplyr::summarize(count = n())
+ 
+
+edf_sum = beta %>% 
+  filter(suid_nma != "global") %>% 
+  mutate(edf_good = case_when(
+    type == "Animal" & k < 32 ~ "no",
+    type == "Animal" & k >= 32 ~ "yes",
+    type == "Plant" & k < 31 ~ "no",
+    type == "Plant" & k >= 31 ~ "yes",
+    is.na(type) & k < 32 ~ "no", 
+    is.na(type) & k >= 32 ~ "yes"
+  )) %>% 
+  group_by(edf_good) %>% 
+  dplyr::summarize(count = n())
