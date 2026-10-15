@@ -37,18 +37,28 @@ Please ignore folders/data/scripts no listed here
 
 # R Version
 
-All code was run using R version 4.1.3
+All code was run using R version 4.5.2
 
 ## Required Libraries
 
 + Data Ingestion, Cleaning, Harmonization, and Organization
   - `tidyverse` (version 2.0.0)
-  - `here` (version 1.0.1)
-
+  - `sf` (version 1.0.23)
+  - `terra` (version 1.6.86)
+  - `here` (version 1.0.2)
 + Modelling and Statistics
-  - `mclust` (version 5.4.10)
-
+  - `lme4` (version 1.1.38)
+  - `lmtest` (version 0.9.40)
+  - `lmerTest` (version 3.1.3)
+  - `performance` (version 0.18.2)
+  - `effectsize` (version 1.0.3)
+  - `mgcv` (version 1.9.3)
+  - `sjstats` (version 0.19.1)
+  - `Hmisc` (version 5.2.5)
 + Data Visualization
-  - `patchwork` (version 1.1.2)
-  - `broom` (version 1.0.5)
-  - `ggrepel` (version 0.9.5)
+  - `patchwork` (version 1.3.2)
+  - `ggridges` (version 0.5.7)
+  - `ggtext` (version 0.1.2)
+  - `rsvg` (version 2.7.0)
+  - `png` (version 0.1.8)
+  - `grid` (version 4.5.2)
